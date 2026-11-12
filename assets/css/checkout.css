@@ -1,0 +1,15 @@
+.pk-cod-section{background:#f0f8ff;border:2px solid #0073aa;border-radius:8px;padding:24px;margin:24px 0}
+.pk-cod-section h3{color:#0073aa;margin-bottom:8px}
+.pk-cod__section[aria-hidden="true"]{display:none}
+.pk-cod__phone-input,.pk-cod__otp-input{width:100%;max-width:300px;padding:10px 14px;border:2px solid #ddd;border-radius:6px;font-size:16px;margin:8px 0}
+.pk-cod__otp-input{letter-spacing:8px;font-size:24px;font-weight:700;text-align:center;max-width:220px}
+.pk-cod__otp-input:focus,.pk-cod__phone-input:focus{border-color:#0073aa;outline:none}
+.pk-cod__send-btn,.pk-cod__verify-btn{background:#0073aa;color:#fff;padding:10px 24px;border-radius:6px;border:none;cursor:pointer;font-size:15px;font-weight:600;margin-top:8px}
+.pk-cod__send-btn:disabled,.pk-cod__verify-btn:disabled{opacity:.5;cursor:not-allowed}
+.pk-cod__resend-btn{background:none;border:1px solid #0073aa;color:#0073aa;padding:8px 16px;border-radius:6px;cursor:pointer;margin-left:8px}
+.pk-cod__resend-btn:disabled{opacity:.4;cursor:not-allowed}
+.pk-cod__actions{display:flex;align-items:center;gap:8px;margin-top:8px}
+.pk-cod__success{padding:16px;background:#edfaef;border-radius:6px}
+.pk-inline-message{padding:10px 14px;border-radius:6px;margin:8px 0;font-size:14px}
+.pk-inline-message--error{background:#fce8e8;color:#d63638;border-left:4px solid #d63638}
+.pk-inline-message--success{background:#edfaef;color:#00a32a;border-left:4px solid #00a32a}

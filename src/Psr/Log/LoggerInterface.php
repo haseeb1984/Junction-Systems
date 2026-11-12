@@ -1,0 +1,4 @@
+<?php
+namespace Psr\Log;
+interface LoggerInterface{public function emergency(string|\Stringable $m,array $c=[]):void;public function alert(string|\Stringable $m,array $c=[]):void;public function critical(string|\Stringable $m,array $c=[]):void;public function error(string|\Stringable $m,array $c=[]):void;public function warning(string|\Stringable $m,array $c=[]):void;public function notice(string|\Stringable $m,array $c=[]):void;public function info(string|\Stringable $m,array $c=[]):void;public function debug(string|\Stringable $m,array $c=[]):void;public function log(mixed $l,string|\Stringable $m,array $c=[]):void;}
+class LogLevel{const EMERGENCY='emergency';const ALERT='alert';const CRITICAL='critical';const ERROR='error';const WARNING='warning';const NOTICE='notice';const INFO='info';const DEBUG='debug';}
