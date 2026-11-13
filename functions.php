@@ -21,16 +21,3 @@ add_action('after_switch_theme',function():void{
     \PkStore\Infrastructure\Database\Installer::createCustomOrderStatuses();
     flush_rewrite_rules();
 });
-
-// Dukaan AI: AI chat is now handled by WooCommerce AI Sales Assistant plugin.
-// The GeminiBridge class is kept for legacy compatibility but the plugin
-// should be installed for all new deployments.
-add_action('admin_notices', function () {
-    if (is_plugin_active('woo-ai-sales-assistant/woo-ai-sales-assistant.php')) return;
-    if (!current_user_can('manage_options')) return;
-    echo '<div class="notice notice-warning is-dismissible"><p>'
-        . '<strong>PK Store:</strong> Install the <strong>WooCommerce AI Sales Assistant</strong> plugin for Dukaan AI chat. '
-        . '<a href="' . esc_url(admin_url('plugin-install.php')) . '">Install &rarr;</a>'
-        . '</p></div>';
-});
-
