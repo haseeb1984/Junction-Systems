@@ -26,3 +26,13 @@
 
 ## Evidence discipline
 Treat these as findings to validate. Do not downgrade working features or claim a defect is confirmed without reproducing it and checking the intended business rule.
+
+## Payment and provider-registration findings (source-reviewed 2026-11-13)
+
+- **Gateway registration mismatch:** `GatewayRegistry::register()` registers `JazzCashGateway::class` and `EasyPaisaGateway::class`, but the tracked `src/` tree contains no `EasyPaisaGateway.php` or other EasyPaisa class definition. Confirm whether the class is supplied by another loaded package; if not, the EasyPaisa registration points to a missing class and must be reconciled before describing it as an implemented payment adapter.
+- **ForeePay is not wired into the current gateway registry:** `src/Infrastructure/Payment/Foree/ForeePayGateway.php` exists and contains a payment-initiation/callback flow, but the inspected `GatewayRegistry` does not register it. Treat it as an adapter implementation present in source, not as a currently exposed WooCommerce gateway, until registration is verified.
+- **Foree callback trust boundary:** the inspected callback reads `session_id`, `status` and `order_id` from query parameters and calls `payment_complete()` when status equals `SUCCESS`; no callback signature verification or server-to-server payment-status confirmation is visible in that handler. Verify Foree's authoritative callback protocol and require authenticated confirmation before marking an order paid.
+- **AI model routing:** `OpenAiBridge` sends `$req->model` to the OpenAI Chat Completions endpoint, while `GeminiBridge` uses a fixed Gemini model. Verify the provider-selection/container wiring never routes a Gemini model name through the OpenAI bridge.
+- **Courier webhook behavior:** `ShippingWebhookHandler` exposes public REST routes and delegates trust to each courier adapter's `verifyWebhookSignature()`. TCS uses HMAC validation; Leopards uses source-IP allowlisting in the reviewed adapter. Confirm the provider's documented signing/IP ranges, proxy behavior and replay protection; invalid requests currently receive a generic 200 response.
+- **POS stock behavior confirmed:** `ProcessPOSSaleUseCase` saves the order and items before attempting stock deductions; it catches `DomainException` per item, logs a warning and continues to record the sale/session totals. This is an explicit oversell-tolerant behavior in source, not merely an unconfirmed suspicion. Confirm it is the intended business policy and add reconciliation/alerting so stock divergence is visible.
+
