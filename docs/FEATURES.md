@@ -51,7 +51,7 @@
 - OTP domain records, expiry/invalid/duplicate/rate-limit exception handling.
 - Local SMS provider and Twilio SMS provider adapters.
 - OTP audit admin table and COD OTP controller.
-- Existing project context also records EasyPaisa payment path; verify the current adapter/registration location before claiming live provider activation.
+- Current `GatewayRegistry` registers JazzCash and references `EasyPaisaGateway::class`, but no EasyPaisa class file was found in the tracked source tree; resolve this discrepancy. A ForeePay gateway class exists under `Payment/Foree`, but is not registered by the inspected registry. Neither should be described as an active checkout gateway until wiring and provider verification are complete.
 - Gateway adapter presence does not prove merchant account onboarding, production credentials or successful live settlement.
 
 ## Shipping, courier and tracking
