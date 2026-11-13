@@ -29,7 +29,7 @@ final class HandleAiChatUseCase {
         $user=ChatMessage::user($m);
         $msgs=$this->budget(array_merge([$sys],$hist,[$user]));
         $full='';
-        foreach($this->ai->streamChat(new ChatRequest($msgs,512,0.3,true,'gemini-1.5-flash')) as $d){$full.=$d;yield $d;}
+        foreach($this->ai->streamChat(new ChatRequest($msgs,512,0.3,true,'openai/gpt-oss-20b')) as $d){$full.=$d;yield $d;}
         $this->chat->appendMessage($uuid,$user);
         $this->chat->appendMessage($uuid,ChatMessage::assistant($full));
     }
