@@ -37,7 +37,7 @@ final class SettingsManager{
         'leopards'=>['LEOPARDS_API_KEY'=>true,'LEOPARDS_API_PASSWORD'=>true,'LEOPARDS_SANDBOX_MODE'=>false],
         'trax'=>['TRAX_API_TOKEN'=>true,'TRAX_SENDER_ID'=>false,'TRAX_WEBHOOK_SECRET'=>true,'TRAX_SANDBOX_MODE'=>false],
         'sms'=>['TWILIO_ACCOUNT_SID'=>false,'TWILIO_AUTH_TOKEN'=>true,'TWILIO_FROM_NUMBER'=>false,'LOCAL_SMS_API_URL'=>false,'LOCAL_SMS_API_KEY'=>true,'LOCAL_SMS_SENDER_ID'=>false],
-        'ai'=>['GEMINI_API_KEY'=>true],
+        'ai'=>['GROQ_API_KEY'=>true],
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
