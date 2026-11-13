@@ -111,3 +111,49 @@
 - Do not interpret an adapter or interface as proof of live production provider activation.
 - The project context's payment and courier references should be maintained alongside exact adapter registrations as they are verified.
 - Security, stock consistency, AI routing and test coverage findings remain verification/hardening items; they do not imply that the owner-tested product is non-functional.
+
+
+## Source-level workflow detail (reconciled with repository update 2026-11-14)
+
+### POS REST and cashier workflow
+- Authenticated WordPress REST routes under `pkstore/v1` expose session open/close/current, sale processing, queue sync, session order listing and WhatsApp receipt-link generation.
+- Opening a session resumes an existing open session for the location or creates one for the current WordPress user; closing records closing cash and reports sales/cash variance.
+- Sale requests carry product/quantity items, payment method, customer details, PKR discount and optional split-payment data; the use case enriches items from the inventory catalogue, creates the order and records item rows.
+- POS queue synchronization is implemented as a separate use case; see the verification register for its current behavior (it changes pending records to synced rather than replaying a sale).
+- POS REST authorization currently accepts either `manage_woocommerce` or `edit_posts`; this is the source rule, not a claim that a dedicated cashier role exists.
+- WhatsApp receipt endpoint builds a `wa.me` URL from the supplied phone/order/items/total; it returns a link and message rather than sending WhatsApp directly.
+
+### Inventory REST and stock workflow
+- Inventory REST endpoints support paginated/searchable product listing, product detail, product search, barcode/SKU lookup, product creation, stock adjustment, per-location stock, location listing, barcode generation and low-stock listing.
+- Product responses expose SKU/barcode/type, name/category, PKR cost/sale price, total stock, reorder point, unit and WooCommerce product association.
+- Stock adjustments update location stock, record a stock-movement ledger entry and attempt synchronization to the linked WooCommerce product when applicable.
+- Inventory and POS endpoints use the `manage_woocommerce` capability in the reviewed controller.
+- Inventory installer creates separate product, location, stock-level and stock-movement tables; POS installer creates session/order storage.
+
+### COD OTP verification workflow
+- REST endpoints send and verify a six-digit COD OTP and require the `pkstore_cod_otp` WordPress nonce.
+- Sending is limited to three requests per phone in a 15-minute window, invalidates the prior active code for the phone/order, stores an OTP attempt and sends via the configured SMS provider.
+- OTP attempts have a five-minute validity window; verification tracks attempts, rejects expired/already-verified codes and reports remaining attempts.
+- Digital-only orders bypass phone OTP verification. Checkout JavaScript blocks COD order submission until the phone is verified, except for digital-only orders.
+- Twilio and local SMS provider adapters are available; actual provider delivery depends on configuration and account availability.
+
+### Storefront JavaScript behavior
+- ES-module boot code loads checkout COD, tracking, cart, affiliate and lazy-loaded AI chat modules only when their corresponding page/widget selectors exist.
+- Cart module submits WooCommerce AJAX add-to-cart requests and updates the visible cart count/event bus.
+- Tracking widget normalizes the entered tracking number, calls the tracking REST endpoint, renders bilingual English/Urdu status and event information, and caches results in session storage for five minutes.
+- COD checkout module handles OTP send/verify/resend, six-digit input, resend countdown, error states and COD submission gating.
+
+### AI assistant paths
+- Theme source contains an AI chat REST controller with nonce validation, a per-session-UUID hourly request counter (20 requests/hour), JSON and SSE streaming routes, prompt-injection response handling and product-context use cases.
+- The bundled Woo AI Sales Assistant plugin is also present. Its engine calls Groq, builds a context from up to 40 popular in-stock WooCommerce products, applies session/RPM/RPD/TPM limits and temporary backoff, and provides WhatsApp handoff when limits/provider errors occur.
+- The theme's `functions.php` explicitly directs new deployments to the bundled/installed WooCommerce AI Sales Assistant plugin; keep the theme controller and plugin engine documented as distinct code paths rather than assuming they are one runtime implementation.
+
+### Affiliate workflow
+- Logged-in users can register as affiliates with JazzCash or Easypaisa payout-account details, view their own dashboard, submit affiliate products and track referral/product clicks.
+- Affiliate dashboard returns commission history, payout history, product status/clicks and earned/paid/pending totals.
+- Affiliate installer creates affiliate, affiliate-product, commission and payout tables; the theme bootstrap feature-gates affiliate REST/hooks and admin screens.
+
+### Bootstrap and feature gates
+- Theme bootstrap always registers tracking, shipping webhook handling, payment/shipping registries and asset enqueuing; COD OTP, AI chat, affiliate, inventory, POS, analytics, marketing, accounting and Daraz integration are enabled according to feature flags.
+- Admin bootstrap registers dashboard/menu, affiliate and inventory screens, feature settings, setup wizard, barcode-label and export configuration surfaces.
+- The installer creates OTP, logistics log, chat-history and city-mapping tables, seeds city mappings, and invokes affiliate and inventory installers.
