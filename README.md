@@ -28,3 +28,12 @@ Install within a compatible WordPress/WooCommerce environment. Configure provide
 
 ## Review notes
 The project context separates confirmed source capabilities from hardening findings, including POS capability boundaries, stock consistency, AI provider/model routing, automated test coverage and version metadata. These observations require validation and do not imply that the owner-tested product is non-functional.
+
+
+## Project documentation
+- [Implemented feature register](docs/FEATURES.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Gaps and verification register](docs/GAPS.md)
+- [Architecture and project context](docs/PROJECT_CONTEXT.md)
+- [Dependencies](docs/DEPENDENCIES.md)
+
