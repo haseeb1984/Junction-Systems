@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Application\Inventory\{AdjustStockUseCase, GenerateBarcodeUseCase};
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Inventory\Entity\MovementType;
-use JunctionStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface, LocationRepositoryInterface};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Application\Inventory\{AdjustStockUseCase, GenerateBarcodeUseCase};
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Inventory\Entity\MovementType;
+use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface, LocationRepositoryInterface};
 final class InventoryController {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
@@ -59,7 +59,7 @@ final class InventoryController {
         if (empty($sku)||empty($name)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU and name required.'],422);
         $repo  = $this->c->make(InventoryProductRepositoryInterface::class);
         if ($repo->findBySku($sku)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
-        $p   = \JunctionStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($req->get_param('cost_price')??0),(int)($req->get_param('sale_price')??0),sanitize_text_field($req->get_param('category')??''),(int)($req->get_param('wc_product_id')??0)?:(int)($req->get_param('wc_product_id')??0)||null,sanitize_text_field($req->get_param('barcode')??''),(sanitize_text_field($req->get_param('unit')??'piece')),(int)($req->get_param('reorder_point')??5));
+        $p   = \PkStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($req->get_param('cost_price')??0),(int)($req->get_param('sale_price')??0),sanitize_text_field($req->get_param('category')??''),(int)($req->get_param('wc_product_id')??0)?:(int)($req->get_param('wc_product_id')??0)||null,sanitize_text_field($req->get_param('barcode')??''),(sanitize_text_field($req->get_param('unit')??'piece')),(int)($req->get_param('reorder_point')??5));
         $id  = $repo->save($p);
         if (!$p->hasBarcode()) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
         return new \WP_REST_Response(['success'=>true,'product_id'=>$id,'message'=>'Product created.'],201);

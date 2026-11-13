@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin;
+namespace PkStore\Infrastructure\Admin;
 final class DashboardService {
     private const TTL=HOUR_IN_SECONDS;
     public function __construct(private readonly \wpdb $db){}

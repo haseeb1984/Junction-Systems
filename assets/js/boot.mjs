@@ -7,6 +7,6 @@ async function boot(){
     if(document.querySelector('#pk-affiliate-app'))r.push(import('./modules/affiliate.mjs').then(m=>m.init()));
     const tog=document.querySelector('[data-chat-toggle]');
     if(tog){const obs=new IntersectionObserver(e=>{if(e[0].isIntersecting){obs.disconnect();import('./modules/ai-chat.mjs').then(m=>m.init());}},{rootMargin:'200px'});obs.observe(tog);}
-    (await Promise.allSettled(r)).forEach(r=>{if(r.status==='rejected')console.error('[JunctionStore Boot]',r.reason);});
+    (await Promise.allSettled(r)).forEach(r=>{if(r.status==='rejected')console.error('[PKStore Boot]',r.reason);});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();

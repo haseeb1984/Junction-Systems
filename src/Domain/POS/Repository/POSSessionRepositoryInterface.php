@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\POS\Repository;
-use JunctionStore\Domain\POS\Entity\POSSession;
+namespace PkStore\Domain\POS\Repository;
+use PkStore\Domain\POS\Entity\POSSession;
 interface POSSessionRepositoryInterface {
     public function save(POSSession $s): int;
     public function update(POSSession $s): void;

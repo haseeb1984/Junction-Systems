@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\AI\ValueObject;
+namespace PkStore\Domain\AI\ValueObject;
 final readonly class ProductContext {
     public function __construct(public readonly string $sku, public readonly string $name, public readonly int $pricePkr, public readonly ?int $salePricePkr, public readonly string $stockStatus, public readonly int $stockQuantity, public readonly string $shortDescription, public readonly string $categoryNames, public readonly array $attributes, public readonly bool $isFeatured, public readonly ?string $brand) {}
     public function toMinifiedArray():array {

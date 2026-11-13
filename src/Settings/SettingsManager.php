@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Settings;
+namespace PkStore\Settings;
 final class SettingsManager{
-    private const ENC='junction_store_enc_';private const PLAIN='junction_store_';private const CIPHER='AES-256-CBC';
+    private const ENC='pk_store_enc_';private const PLAIN='pk_store_';private const CIPHER='AES-256-CBC';
     private array $cache=[];private static ?self $i=null;
     private function __construct(){}
     public static function getInstance():self{if(self::$i===null)self::$i=new self();return self::$i;}

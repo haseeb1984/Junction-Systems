@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\POS\Entity;
+namespace PkStore\Domain\POS\Entity;
 use DateTimeImmutable;
 enum SyncStatus: string { case Pending='pending'; case Synced='synced'; case Failed='failed'; }
 final class POSOrder {

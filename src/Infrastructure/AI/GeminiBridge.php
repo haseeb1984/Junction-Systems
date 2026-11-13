@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\AI;
-use JunctionStore\Domain\AI\AiProviderInterface;
-use JunctionStore\Domain\AI\Exception\AiProviderException;
-use JunctionStore\Domain\AI\ValueObject\{ChatRequest, ChatResponse};
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\AI;
+use PkStore\Domain\AI\AiProviderInterface;
+use PkStore\Domain\AI\Exception\AiProviderException;
+use PkStore\Domain\AI\ValueObject\{ChatRequest, ChatResponse};
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -29,7 +29,7 @@ final class GeminiBridge implements AiProviderInterface {
         $key = $this->cfg->get('GEMINI_API_KEY');
         if (!$key) {
             throw new AiProviderException(
-                'Gemini API key not configured. Go to Junction Store › Setup Wizard › AI Chat and add your free key from aistudio.google.com.'
+                'Gemini API key not configured. Go to PK Store › Setup Wizard › AI Chat and add your free key from aistudio.google.com.'
             );
         }
 

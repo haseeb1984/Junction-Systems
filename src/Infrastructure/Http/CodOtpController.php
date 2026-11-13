@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Verification\Exception\{InvalidOtpException,OtpAlreadyVerifiedException,OtpExpiredException,RateLimitExceededException,SmsProviderException};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Verification\Exception\{InvalidOtpException,OtpAlreadyVerifiedException,OtpExpiredException,RateLimitExceededException,SmsProviderException};
 
 final class CodOtpController {
     public function __construct(private readonly ServiceContainer $container) {}

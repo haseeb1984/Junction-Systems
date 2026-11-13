@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\License;
+namespace PkStore\License;
 
 final class LicenseFeatures {
 

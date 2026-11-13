@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\POS\Entity;
+namespace PkStore\Domain\POS\Entity;
 use DateTimeImmutable;
 enum SessionStatus: string { case Open='open'; case Closed='closed'; }
 final class POSSession {

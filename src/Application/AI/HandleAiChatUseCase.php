@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\AI;
-use JunctionStore\Domain\AI\{AiProviderInterface,ChatRepositoryInterface};
-use JunctionStore\Domain\AI\Exception\PromptInjectionException;
-use JunctionStore\Domain\AI\Security\PromptInjectionDetector;
-use JunctionStore\Domain\AI\ValueObject\{ChatMessage,ChatRequest,ChatResponse};
+namespace PkStore\Application\AI;
+use PkStore\Domain\AI\{AiProviderInterface,ChatRepositoryInterface};
+use PkStore\Domain\AI\Exception\PromptInjectionException;
+use PkStore\Domain\AI\Security\PromptInjectionDetector;
+use PkStore\Domain\AI\ValueObject\{ChatMessage,ChatRequest,ChatResponse};
 use Psr\Log\LoggerInterface;
 final class HandleAiChatUseCase {
     private const HIST=10; private const MAXCHARS=600;

@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Verification;
-use JunctionStore\Domain\Verification\Entity\OtpAttempt;
-use JunctionStore\Domain\Verification\Repository\OtpRepositoryInterface;
-use JunctionStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
+namespace PkStore\Infrastructure\Verification;
+use PkStore\Domain\Verification\Entity\OtpAttempt;
+use PkStore\Domain\Verification\Repository\OtpRepositoryInterface;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 final class WpOtpRepository implements OtpRepositoryInterface {
     public function __construct(private readonly \wpdb $db){}
     private function t():string{return $this->db->prefix.'pkstore_otp_attempts';}

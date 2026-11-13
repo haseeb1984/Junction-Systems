@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\WooCommerce;
+namespace PkStore\Infrastructure\WooCommerce;
 final class AssetEnqueuer {
     public function register():void{add_action('wp_enqueue_scripts',[$this,'enqueue']);add_action('wp_head',[$this,'injectConfig'],1);add_action('wp_head',[$this,'inlineCriticalCss'],2);add_action('wp_enqueue_scripts',[$this,'deregisterJQuery'],999);}
     public function deregisterJQuery():void{if(!is_admin()){wp_deregister_script('jquery');wp_deregister_script('jquery-core');wp_deregister_script('jquery-migrate');}}

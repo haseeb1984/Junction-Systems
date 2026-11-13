@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Inventory;
-use JunctionStore\Domain\Inventory\Entity\{MovementType, StockMovement};
-use JunctionStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface};
+namespace PkStore\Application\Inventory;
+use PkStore\Domain\Inventory\Entity\{MovementType, StockMovement};
+use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface};
 use Psr\Log\LoggerInterface;
 final class AdjustStockUseCase {
     public function __construct(

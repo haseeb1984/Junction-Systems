@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Database;
+namespace PkStore\Infrastructure\Database;
 final class InventoryInstaller {
     public static function run(): void {
         global $wpdb;

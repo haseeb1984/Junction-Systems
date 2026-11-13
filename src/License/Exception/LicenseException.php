@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\License\Exception;
+namespace PkStore\License\Exception;
 
 class LicenseException extends \RuntimeException {}
 class LicenseExpiredException    extends LicenseException {}

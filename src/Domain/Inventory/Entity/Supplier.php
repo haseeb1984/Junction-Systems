@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Inventory\Entity;
+namespace PkStore\Domain\Inventory\Entity;
 final readonly class Supplier {
     public function __construct(
         public readonly int $id, public readonly string $name, public readonly string $contact,

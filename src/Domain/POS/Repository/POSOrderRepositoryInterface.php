@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\POS\Repository;
-use JunctionStore\Domain\POS\Entity\POSOrder;
+namespace PkStore\Domain\POS\Repository;
+use PkStore\Domain\POS\Entity\POSOrder;
 interface POSOrderRepositoryInterface {
     public function save(POSOrder $o): int;
     public function update(POSOrder $o): void;

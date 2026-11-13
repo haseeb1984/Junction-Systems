@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\Payout;
-use JunctionStore\Domain\Affiliate\Exception\InsufficientBalanceException;
-use JunctionStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, PayoutRepositoryInterface};
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Entity\Payout;
+use PkStore\Domain\Affiliate\Exception\InsufficientBalanceException;
+use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, PayoutRepositoryInterface};
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 final class ProcessPayoutUseCase {
     public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly PayoutRepositoryInterface $payoutRepo, private readonly SettingsManager $settings, private readonly LoggerInterface $log) {}
@@ -21,10 +21,10 @@ final class ProcessPayoutUseCase {
             $this->affiliateRepo->update($a);
             $this->payoutRepo->updateStatus($payoutId, 'completed');
             $this->log->info('Affiliate payout completed.', ['affiliate_id'=>$affiliateId,'amount'=>$amount]);
-            wp_mail($a->email, '[Junction Store] Payout Sent!', sprintf("Dear %s,\n\nPKR %s has been sent to your %s account (%s).\n\nThank you!", $a->name, number_format($amount), strtoupper($a->paymentMethod), $a->paymentAccount));
+            wp_mail($a->email, '[PK Store] Payout Sent!', sprintf("Dear %s,\n\nPKR %s has been sent to your %s account (%s).\n\nThank you!", $a->name, number_format($amount), strtoupper($a->paymentMethod), $a->paymentAccount));
         } else {
             $this->payoutRepo->updateStatus($payoutId, 'failed');
-            wp_mail(get_option('admin_email'), '[Junction Store] Affiliate Payout FAILED', "Payout of PKR {$amount} to affiliate #{$affiliateId} ({$a->name}) failed. Process manually to {$a->paymentMethod}: {$a->paymentAccount}");
+            wp_mail(get_option('admin_email'), '[PK Store] Affiliate Payout FAILED', "Payout of PKR {$amount} to affiliate #{$affiliateId} ({$a->name}) failed. Process manually to {$a->paymentMethod}: {$a->paymentAccount}");
         }
     }
     private function payJazzCash(string $mobile, int $amountPkr, int $payoutId): bool {

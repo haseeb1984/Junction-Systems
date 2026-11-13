@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Infrastructure\Admin\ListTable\{OtpAuditTable,LogisticsListTable};
-use JunctionStore\Settings\SetupWizard;
+namespace PkStore\Infrastructure\Admin;
+use PkStore\Container\ServiceContainer;
+use PkStore\Infrastructure\Admin\ListTable\{OtpAuditTable,LogisticsListTable};
+use PkStore\Settings\SetupWizard;
 final class AdminMenuController {
     private const SLUG='pkstore-operations'; private const CAP='manage_woocommerce';
     public function __construct(private readonly ServiceContainer $c){}

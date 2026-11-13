@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\WooCommerce;
-use JunctionStore\Application\Affiliate\{RecordCommissionUseCase,TrackAffiliateClickUseCase};
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
+namespace PkStore\Infrastructure\WooCommerce;
+use PkStore\Application\Affiliate\{RecordCommissionUseCase,TrackAffiliateClickUseCase};
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
 final class AffiliateHooks {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
@@ -21,7 +21,7 @@ final class AffiliateHooks {
         $code=TrackAffiliateClickUseCase::getTrackedAffiliateCode(); if($code===null)return;
         $order=wc_get_order($orderId); if(!($order instanceof \WC_Order))return;
         $total=(int)$order->get_total(); if($total<=0)return;
-        try{$this->c->make(RecordCommissionUseCase::class)->execute($orderId,$total,$code);}catch(\Throwable $e){error_log('[JunctionStore] Commission error: '.$e->getMessage());}
+        try{$this->c->make(RecordCommissionUseCase::class)->execute($orderId,$total,$code);}catch(\Throwable $e){error_log('[PKStore] Commission error: '.$e->getMessage());}
     }
     public function productsShortcode(array $atts): string {
         $atts=shortcode_atts(['limit'=>12],  $atts);

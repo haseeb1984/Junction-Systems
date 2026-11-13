@@ -20,7 +20,7 @@
 <table class="form-table">
 <tr><th>Client Name</th><td><input type="text" name="client_name" value="<?=esc_attr($config['client_name'])?>" class="regular-text" placeholder="e.g. Ahmed Fashion Store"></td></tr>
 <tr><th>License Key</th><td><input type="text" name="client_license_key" value="<?=esc_attr($config['client_license_key'])?>" class="regular-text"></td></tr>
-<tr><th>Hide "Junction Store" Brand</th><td><label><input type="checkbox" name="hide_pkstore_brand" value="1" <?=checked($config['hide_pkstore_brand'],'1',false)?>> Remove all Junction Store branding from admin and frontend</label></td></tr>
+<tr><th>Hide "PK Store" Brand</th><td><label><input type="checkbox" name="hide_pkstore_brand" value="1" <?=checked($config['hide_pkstore_brand'],'1',false)?>> Remove all PK Store branding from admin and frontend</label></td></tr>
 </table>
 </div>
 
@@ -132,7 +132,7 @@
 <li>Thermal receipt header and footer text</li>
 <li>Email header color and logo</li>
 <li>Custom CSS injected into storefront head</li>
-<li>"Junction Store" branding hidden when white-label is enabled</li>
+<li>"PK Store" branding hidden when white-label is enabled</li>
 </ul>
 </div>
 

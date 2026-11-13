@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Inventory;
-use JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
+namespace PkStore\Application\Inventory;
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
 final class GenerateBarcodeUseCase {
     public function __construct(private readonly InventoryProductRepositoryInterface $productRepo) {}
     public function execute(int $productId): string {

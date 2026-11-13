@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Payment\Foree;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Payment\Foree;
+use PkStore\Settings\SettingsManager;
 
 class ForeePayGateway extends \WC_Payment_Gateway {
     private SettingsManager $s;

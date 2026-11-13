@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Verification;
-use JunctionStore\Domain\Verification\{SmsProviderInterface};
-use JunctionStore\Domain\Verification\Entity\OtpAttempt;
-use JunctionStore\Domain\Verification\Exception\{RateLimitExceededException,SmsProviderException};
-use JunctionStore\Domain\Verification\Repository\OtpRepositoryInterface;
-use JunctionStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
+namespace PkStore\Application\Verification;
+use PkStore\Domain\Verification\{SmsProviderInterface};
+use PkStore\Domain\Verification\Entity\OtpAttempt;
+use PkStore\Domain\Verification\Exception\{RateLimitExceededException,SmsProviderException};
+use PkStore\Domain\Verification\Repository\OtpRepositoryInterface;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 use Psr\Log\LoggerInterface;
 final class SendCodOtpUseCase {
     private const MAX=3;private const MINS=15;private const LEN=6;
-    private const TPL="Your Junction Store code: %s\nValid 5 minutes. Order #%s\nDO NOT share.";
+    private const TPL="Your PK Store code: %s\nValid 5 minutes. Order #%s\nDO NOT share.";
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly SmsProviderInterface $sms, private readonly LoggerInterface $log) {}
     public function execute(string $rawPhone, string $orderId):void {
         $phone=new PakistanPhoneNumber($rawPhone);

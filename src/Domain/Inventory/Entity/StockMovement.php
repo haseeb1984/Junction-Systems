@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Inventory\Entity;
+namespace PkStore\Domain\Inventory\Entity;
 use DateTimeImmutable;
 enum MovementType: string {
     case Sale = 'sale'; case OnlineSale = 'online_sale'; case POSReturn = 'pos_return';

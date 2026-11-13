@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Bootstrap;
+namespace PkStore\Bootstrap;
 final class Autoloader{
     private static array $roots=[];
     public static function register(string $baseDir,string $prefix):void{self::$roots[rtrim($prefix,'\\').'\\']=[rtrim($baseDir,'/').'/',strlen(rtrim($prefix,'\\').'\\')];spl_autoload_register([self::class,'load'],true,false);}

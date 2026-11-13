@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Inventory;
-use JunctionStore\Domain\Inventory\Entity\MovementType;
-use JunctionStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface, LocationRepositoryInterface};
+namespace PkStore\Application\Inventory;
+use PkStore\Domain\Inventory\Entity\MovementType;
+use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface, LocationRepositoryInterface};
 use Psr\Log\LoggerInterface;
 final class SyncWooCommerceStockUseCase {
     public function __construct(

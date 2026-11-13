@@ -1,6 +1,6 @@
 <?php
 /**
- * Junction Store POS — Point of Sale Interface
+ * PK Store POS — Point of Sale Interface
  * Offline-first PWA. Works on any device browser.
  * Access: yourstore.pk/wp-admin/admin.php?page=pkstore-pos
  */

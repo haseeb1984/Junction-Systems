@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Bootstrap;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Core\Feature\FeatureManager;
-use JunctionStore\Core\Branding\BrandingManager;
-use JunctionStore\Infrastructure\Http\{CodOtpController,AiChatController,ShippingWebhookHandler,TrackingController,AffiliateController,InventoryController,POSController};
-use JunctionStore\Infrastructure\WooCommerce\{GatewayRegistry,ShippingRegistry,AssetEnqueuer,AffiliateHooks,InventoryHooks};
-use JunctionStore\Infrastructure\Admin\AdminMenuController;
-use JunctionStore\Infrastructure\Admin\Affiliate\AffiliateAdminController;
-use JunctionStore\Infrastructure\Admin\Inventory\InventoryAdminController;
-use JunctionStore\Infrastructure\Admin\Settings\FeatureSettingsController;
-use JunctionStore\Settings\SetupWizard;
+namespace PkStore\Bootstrap;
+use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
+use PkStore\Core\Branding\BrandingManager;
+use PkStore\Infrastructure\Http\{CodOtpController,AiChatController,ShippingWebhookHandler,TrackingController,AffiliateController,InventoryController,POSController};
+use PkStore\Infrastructure\WooCommerce\{GatewayRegistry,ShippingRegistry,AssetEnqueuer,AffiliateHooks,InventoryHooks};
+use PkStore\Infrastructure\Admin\AdminMenuController;
+use PkStore\Infrastructure\Admin\Affiliate\AffiliateAdminController;
+use PkStore\Infrastructure\Admin\Inventory\InventoryAdminController;
+use PkStore\Infrastructure\Admin\Settings\FeatureSettingsController;
+use PkStore\Settings\SetupWizard;
 
 final class ThemeBootstrapper {
     private FeatureManager $fm;
@@ -22,7 +22,7 @@ final class ThemeBootstrapper {
     public function boot(): void {
         // Feature guard hook — called by any feature use case
         add_action('pkstore_require_feature', function(string $feature): void {
-            $license = $this->container->make(\JunctionStore\License\LicenseManager::class);
+            $license = $this->container->make(\PkStore\License\LicenseManager::class);
             $license->requireFeature($feature);
         });
         $this->setupTheme();
@@ -64,25 +64,25 @@ final class ThemeBootstrapper {
 
         // ── Analytics ─────────────────────────────────────────────
         if ($this->fm->isEnabled('google_analytics'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Analytics\GA4Service::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Analytics\GA4Service::class)->register();
         if ($this->fm->isEnabled('facebook_pixel'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Analytics\FacebookPixelService::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Analytics\FacebookPixelService::class)->register();
 
         // ── Marketing integrations ─────────────────────────────────
         if ($this->fm->isEnabled('whatsapp_api'))
-            (new \JunctionStore\Infrastructure\Integration\WhatsApp\WhatsAppHooks($this->c))->register();
+            (new \PkStore\Infrastructure\Integration\WhatsApp\WhatsAppHooks($this->c))->register();
         if ($this->fm->isEnabled('mailchimp'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Email\MailchimpService::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Email\MailchimpService::class)->register();
         if ($this->fm->isEnabled('klaviyo'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Email\KlaviyoService::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Email\KlaviyoService::class)->register();
 
         // ── Accounting ────────────────────────────────────────────
         if ($this->fm->isEnabled('quickbooks'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Accounting\QuickBooksService::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Accounting\QuickBooksService::class)->register();
 
         // ── Marketplace ───────────────────────────────────────────
         if ($this->fm->isEnabled('daraz_sync'))
-            $this->c->make(\JunctionStore\Infrastructure\Integration\Marketplace\DarazSyncService::class)->register();
+            $this->c->make(\PkStore\Infrastructure\Integration\Marketplace\DarazSyncService::class)->register();
 
         // ── Admin ─────────────────────────────────────────────────
         if (is_admin()) {
@@ -95,9 +95,9 @@ final class ThemeBootstrapper {
             $this->registerExportConfig();
         }
 
-        \JunctionStore\Infrastructure\Database\Installer::createCustomOrderStatuses();
+        \PkStore\Infrastructure\Database\Installer::createCustomOrderStatuses();
         add_action('pkstore_retry_courier_booking', function(int $oid): void {
-            $this->c->make(\JunctionStore\Application\Logistics\BookShipmentUseCase::class)->retryForOrder($oid);
+            $this->c->make(\PkStore\Application\Logistics\BookShipmentUseCase::class)->retryForOrder($oid);
         });
     }
 
@@ -129,7 +129,7 @@ final class ThemeBootstrapper {
     private function registerBarcodeLabelsPage(): void {
         add_action('admin_menu', function() {
             add_submenu_page('pkstore-operations','Barcode Labels','🏷 Label Printer','manage_woocommerce','pkstore-barcode-labels', function() {
-                $this->c->make(\JunctionStore\Infrastructure\Barcode\BarcodeLabel::class)->adminPage();
+                $this->c->make(\PkStore\Infrastructure\Barcode\BarcodeLabel::class)->adminPage();
             });
         });
     }
@@ -152,6 +152,6 @@ final class ThemeBootstrapper {
         add_theme_support('html5',['search-form','comment-form','comment-list','gallery','caption']);
         register_nav_menus(['primary'=>'Primary Menu','footer'=>'Footer Menu']);
         if (!isset($GLOBALS['content_width'])) $GLOBALS['content_width'] = 1200;
-        load_theme_textdomain('junction-store', PKSTORE_DIR.'/languages');
+        load_theme_textdomain('pk-store', PKSTORE_DIR.'/languages');
     }
 }

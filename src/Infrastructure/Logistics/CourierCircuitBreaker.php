@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics;
-use JunctionStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO};
+namespace PkStore\Infrastructure\Logistics;
+use PkStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO};
 final class CourierCircuitBreaker {
     private const THRESH=5;private const COOL=300;private const PFX='pkstore_cb_';
     public function __construct(private readonly array $couriers){}
@@ -15,7 +15,7 @@ final class CourierCircuitBreaker {
     }
     private function optimistic(ShipmentRequestDTO $s):ShipmentResultDTO{
         if(function_exists('as_schedule_single_action'))as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>(int)$s->internalOrderId],'pkstore-logistics');
-        wp_mail(get_option('admin_email'),'[Junction Store] Couriers Down — Order #'.$s->internalOrderId,"All couriers failed. Order accepted, booking queued for retry in 5 minutes.");
+        wp_mail(get_option('admin_email'),'[PK Store] Couriers Down — Order #'.$s->internalOrderId,"All couriers failed. Order accepted, booking queued for retry in 5 minutes.");
         return new ShipmentResultDTO(true,'PENDING-'.$s->internalOrderId,'pending',$s->internalOrderId,null,null,0,'Booking queued.',new \DateTimeImmutable(),[]);
     }
     private function open(string $c):bool{return get_transient(self::PFX.$c.'_state')==='open';}

@@ -1,24 +1,24 @@
 <?php
 declare(strict_types=1);
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Settings\SettingsManager;
-use JunctionStore\Infrastructure\Logger\WpLogger;
-use JunctionStore\Infrastructure\Payment\{JazzCashGateway,EasyPaisaGateway};
-use JunctionStore\Infrastructure\Verification\{WpOtpRepository,TwilioSmsProvider,LocalSmsProvider};
-use JunctionStore\Infrastructure\AI\{OpenAiBridge,WcProductRepository,WpChatRepository};
-use JunctionStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier,CityMappingService,RateCalculator,CourierCircuitBreaker,LogisticsLogger};
-use JunctionStore\Infrastructure\WooCommerce\OrderMetaRepository;
-use JunctionStore\Infrastructure\Admin\DashboardService;
-use JunctionStore\Infrastructure\Affiliate\{WpAffiliateRepository,WpAffiliateProductRepository,WpCommissionRepository,WpPayoutRepository};
-use JunctionStore\Domain\AI\{AiProviderInterface,ProductRepositoryInterface,ChatRepositoryInterface,PromptComposer,ContextSelector};
-use JunctionStore\Domain\AI\Security\PromptInjectionDetector;
-use JunctionStore\Domain\Verification\{SmsProviderInterface,Repository\OtpRepositoryInterface};
-use JunctionStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface,AffiliateProductRepositoryInterface,CommissionRepositoryInterface,PayoutRepositoryInterface};
-use JunctionStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
-use JunctionStore\Application\AI\{HandleAiChatUseCase,ProductContextService};
-use JunctionStore\Application\Logistics\BookShipmentUseCase;
-use JunctionStore\Application\Affiliate\{RegisterAffiliateUseCase,TrackAffiliateClickUseCase,RecordCommissionUseCase,ProcessPayoutUseCase,SubmitAffiliateProductUseCase,TrackAffiliateProductClickUseCase};
-use JunctionStore\Settings\SetupWizard;
+use PkStore\Container\ServiceContainer;
+use PkStore\Settings\SettingsManager;
+use PkStore\Infrastructure\Logger\WpLogger;
+use PkStore\Infrastructure\Payment\{JazzCashGateway,EasyPaisaGateway};
+use PkStore\Infrastructure\Verification\{WpOtpRepository,TwilioSmsProvider,LocalSmsProvider};
+use PkStore\Infrastructure\AI\{OpenAiBridge,WcProductRepository,WpChatRepository};
+use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier,CityMappingService,RateCalculator,CourierCircuitBreaker,LogisticsLogger};
+use PkStore\Infrastructure\WooCommerce\OrderMetaRepository;
+use PkStore\Infrastructure\Admin\DashboardService;
+use PkStore\Infrastructure\Affiliate\{WpAffiliateRepository,WpAffiliateProductRepository,WpCommissionRepository,WpPayoutRepository};
+use PkStore\Domain\AI\{AiProviderInterface,ProductRepositoryInterface,ChatRepositoryInterface,PromptComposer,ContextSelector};
+use PkStore\Domain\AI\Security\PromptInjectionDetector;
+use PkStore\Domain\Verification\{SmsProviderInterface,Repository\OtpRepositoryInterface};
+use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface,AffiliateProductRepositoryInterface,CommissionRepositoryInterface,PayoutRepositoryInterface};
+use PkStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
+use PkStore\Application\AI\{HandleAiChatUseCase,ProductContextService};
+use PkStore\Application\Logistics\BookShipmentUseCase;
+use PkStore\Application\Affiliate\{RegisterAffiliateUseCase,TrackAffiliateClickUseCase,RecordCommissionUseCase,ProcessPayoutUseCase,SubmitAffiliateProductUseCase,TrackAffiliateProductClickUseCase};
+use PkStore\Settings\SetupWizard;
 return static function(ServiceContainer $c):void{
     $s=SettingsManager::getInstance();
     $c->singleton(SettingsManager::class,fn()=>$s);
@@ -58,36 +58,36 @@ return static function(ServiceContainer $c):void{
     $c->singleton(TrackAffiliateProductClickUseCase::class,fn()=>new TrackAffiliateProductClickUseCase($c->make(AffiliateProductRepositoryInterface::class)));
 
     // Inventory + POS repositories
-    $c->singleton(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class, function(){global $wpdb;return new \JunctionStore\Infrastructure\Inventory\WpInventoryProductRepository($wpdb);});
-    $c->singleton(\JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface::class, function(){global $wpdb;return new \JunctionStore\Infrastructure\Inventory\WpStockRepository($wpdb);});
-    $c->singleton(\JunctionStore\Domain\Inventory\Repository\LocationRepositoryInterface::class, function(){global $wpdb;return new \JunctionStore\Infrastructure\Inventory\WpLocationRepository($wpdb);});
-    $c->singleton(\JunctionStore\Domain\POS\Repository\POSSessionRepositoryInterface::class, function(){global $wpdb;return new \JunctionStore\Infrastructure\POS\WpPOSSessionRepository($wpdb);});
-    $c->singleton(\JunctionStore\Domain\POS\Repository\POSOrderRepositoryInterface::class, function(){global $wpdb;return new \JunctionStore\Infrastructure\POS\WpPOSOrderRepository($wpdb);});
+    $c->singleton(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class, function(){global $wpdb;return new \PkStore\Infrastructure\Inventory\WpInventoryProductRepository($wpdb);});
+    $c->singleton(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class, function(){global $wpdb;return new \PkStore\Infrastructure\Inventory\WpStockRepository($wpdb);});
+    $c->singleton(\PkStore\Domain\Inventory\Repository\LocationRepositoryInterface::class, function(){global $wpdb;return new \PkStore\Infrastructure\Inventory\WpLocationRepository($wpdb);});
+    $c->singleton(\PkStore\Domain\POS\Repository\POSSessionRepositoryInterface::class, function(){global $wpdb;return new \PkStore\Infrastructure\POS\WpPOSSessionRepository($wpdb);});
+    $c->singleton(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class, function(){global $wpdb;return new \PkStore\Infrastructure\POS\WpPOSOrderRepository($wpdb);});
 
     // Inventory use cases
-    $c->singleton(\JunctionStore\Application\Inventory\AdjustStockUseCase::class, fn()=>new \JunctionStore\Application\Inventory\AdjustStockUseCase($c->make(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface::class),new WpLogger()));
-    $c->singleton(\JunctionStore\Application\Inventory\GenerateBarcodeUseCase::class, fn()=>new \JunctionStore\Application\Inventory\GenerateBarcodeUseCase($c->make(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class)));
-    $c->singleton(\JunctionStore\Application\Inventory\SyncWooCommerceStockUseCase::class, fn()=>new \JunctionStore\Application\Inventory\SyncWooCommerceStockUseCase($c->make(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface::class),$c->make(\JunctionStore\Domain\Inventory\Repository\LocationRepositoryInterface::class),$c->make(\JunctionStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\Inventory\AdjustStockUseCase::class, fn()=>new \PkStore\Application\Inventory\AdjustStockUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\Inventory\GenerateBarcodeUseCase::class, fn()=>new \PkStore\Application\Inventory\GenerateBarcodeUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class)));
+    $c->singleton(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class, fn()=>new \PkStore\Application\Inventory\SyncWooCommerceStockUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\LocationRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
 
     // POS use cases
-    $c->singleton(\JunctionStore\Application\POS\ProcessPOSSaleUseCase::class, fn()=>new \JunctionStore\Application\POS\ProcessPOSSaleUseCase($c->make(\JunctionStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\JunctionStore\Domain\POS\Repository\POSSessionRepositoryInterface::class),$c->make(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\JunctionStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
-    $c->singleton(\JunctionStore\Application\POS\SyncPOSQueueUseCase::class, fn()=>new \JunctionStore\Application\POS\SyncPOSQueueUseCase($c->make(\JunctionStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\JunctionStore\Application\POS\ProcessPOSSaleUseCase::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\POS\ProcessPOSSaleUseCase::class, fn()=>new \PkStore\Application\POS\ProcessPOSSaleUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\POS\Repository\POSSessionRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\POS\SyncPOSQueueUseCase::class, fn()=>new \PkStore\Application\POS\SyncPOSQueueUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Application\POS\ProcessPOSSaleUseCase::class),new WpLogger()));
 
     // Analytics
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Analytics\GA4Service::class, fn()=>new \JunctionStore\Infrastructure\Integration\Analytics\GA4Service($s));
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Analytics\FacebookPixelService::class, fn()=>new \JunctionStore\Infrastructure\Integration\Analytics\FacebookPixelService($s));
+    $c->singleton(\PkStore\Infrastructure\Integration\Analytics\GA4Service::class, fn()=>new \PkStore\Infrastructure\Integration\Analytics\GA4Service($s));
+    $c->singleton(\PkStore\Infrastructure\Integration\Analytics\FacebookPixelService::class, fn()=>new \PkStore\Infrastructure\Integration\Analytics\FacebookPixelService($s));
 
     // Marketing
-    $c->singleton(\JunctionStore\Infrastructure\Integration\WhatsApp\WhatsAppService::class, fn()=>new \JunctionStore\Infrastructure\Integration\WhatsApp\WhatsAppService($s,new WpLogger()));
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Email\MailchimpService::class, fn()=>new \JunctionStore\Infrastructure\Integration\Email\MailchimpService($s,new WpLogger()));
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Email\KlaviyoService::class, fn()=>new \JunctionStore\Infrastructure\Integration\Email\KlaviyoService($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Integration\WhatsApp\WhatsAppService::class, fn()=>new \PkStore\Infrastructure\Integration\WhatsApp\WhatsAppService($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Integration\Email\MailchimpService::class, fn()=>new \PkStore\Infrastructure\Integration\Email\MailchimpService($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Integration\Email\KlaviyoService::class, fn()=>new \PkStore\Infrastructure\Integration\Email\KlaviyoService($s,new WpLogger()));
 
     // Payments
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Accounting\QuickBooksService::class, fn()=>new \JunctionStore\Infrastructure\Integration\Accounting\QuickBooksService($s,new WpLogger()));
-    $c->singleton(\JunctionStore\Infrastructure\Integration\Marketplace\DarazSyncService::class, fn()=>new \JunctionStore\Infrastructure\Integration\Marketplace\DarazSyncService($s,new WpLogger()));
-    $c->singleton(\JunctionStore\Infrastructure\Logistics\PostEx\PostExCourier::class, fn()=>new \JunctionStore\Infrastructure\Logistics\PostEx\PostExCourier($s,new WpLogger()));
-    $c->singleton(\JunctionStore\Infrastructure\Logistics\Rider\RiderCourier::class, fn()=>new \JunctionStore\Infrastructure\Logistics\Rider\RiderCourier($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Integration\Accounting\QuickBooksService::class, fn()=>new \PkStore\Infrastructure\Integration\Accounting\QuickBooksService($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Integration\Marketplace\DarazSyncService::class, fn()=>new \PkStore\Infrastructure\Integration\Marketplace\DarazSyncService($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Logistics\PostEx\PostExCourier::class, fn()=>new \PkStore\Infrastructure\Logistics\PostEx\PostExCourier($s,new WpLogger()));
+    $c->singleton(\PkStore\Infrastructure\Logistics\Rider\RiderCourier::class, fn()=>new \PkStore\Infrastructure\Logistics\Rider\RiderCourier($s,new WpLogger()));
 
     // Barcode labels
-    $c->singleton(\JunctionStore\Infrastructure\Barcode\BarcodeLabel::class, fn()=>new \JunctionStore\Infrastructure\Barcode\BarcodeLabel($c->make(\JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface::class)));
+    $c->singleton(\PkStore\Infrastructure\Barcode\BarcodeLabel::class, fn()=>new \PkStore\Infrastructure\Barcode\BarcodeLabel($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class)));
 };

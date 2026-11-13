@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Container\ServiceContainer;
+use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
 final class TrackingController {
     public function __construct(private readonly ServiceContainer $c){}
     public function register():void{add_action('rest_api_init',function(){register_rest_route('pkstore/v1','/tracking/status',['methods'=>'POST','callback'=>[$this,'handle'],'permission_callback'=>[$this,'nonce']]);});}

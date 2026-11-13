@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Integration\Marketplace;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Integration\Marketplace;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 final class DarazSyncService {

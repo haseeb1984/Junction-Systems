@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\AI\ValueObject;
+namespace PkStore\Domain\AI\ValueObject;
 enum MessageRole: string { case System='system'; case User='user'; case Assistant='assistant'; }
 final readonly class ChatMessage {
     public function __construct(public readonly MessageRole $role, public readonly string $content, public readonly \DateTimeImmutable $createdAt=new \DateTimeImmutable()) {}

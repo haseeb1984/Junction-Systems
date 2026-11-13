@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Affiliate\Entity;
-use JunctionStore\Domain\Affiliate\ValueObject\{AffiliateCode, CommissionRate};
+namespace PkStore\Domain\Affiliate\Entity;
+use PkStore\Domain\Affiliate\ValueObject\{AffiliateCode, CommissionRate};
 use DateTimeImmutable;
 final class Affiliate {
     private function __construct(

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics\Rider;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Logistics\Rider;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 final class RiderCourier {

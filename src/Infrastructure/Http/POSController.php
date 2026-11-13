@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Application\POS\{ProcessPOSSaleUseCase, SyncPOSQueueUseCase};
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\POS\Repository\{POSSessionRepositoryInterface, POSOrderRepositoryInterface};
-use JunctionStore\Domain\POS\Entity\POSSession;
+namespace PkStore\Infrastructure\Http;
+use PkStore\Application\POS\{ProcessPOSSaleUseCase, SyncPOSQueueUseCase};
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\POS\Repository\{POSSessionRepositoryInterface, POSOrderRepositoryInterface};
+use PkStore\Domain\POS\Entity\POSSession;
 final class POSController {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {

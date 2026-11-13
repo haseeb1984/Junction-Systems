@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\AI;
-use JunctionStore\Domain\AI\AiProviderInterface;
-use JunctionStore\Domain\AI\Exception\AiProviderException;
-use JunctionStore\Domain\AI\ValueObject\{ChatRequest,ChatResponse};
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\AI;
+use PkStore\Domain\AI\AiProviderInterface;
+use PkStore\Domain\AI\Exception\AiProviderException;
+use PkStore\Domain\AI\ValueObject\{ChatRequest,ChatResponse};
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 final class OpenAiBridge implements AiProviderInterface {
     private const API='https://api.openai.com/v1';
@@ -14,7 +14,7 @@ final class OpenAiBridge implements AiProviderInterface {
     public function estimateTokens(string $t):int{return(int)ceil(mb_strlen($t)/4);}
     public function chat(ChatRequest $req):ChatResponse {
         $key=$this->cfg->get('OPENAI_API_KEY');
-        if(!$key)throw new AiProviderException('OpenAI key not configured. Go to Junction Store > Setup Wizard > AI Chat.');
+        if(!$key)throw new AiProviderException('OpenAI key not configured. Go to PK Store > Setup Wizard > AI Chat.');
         $r=wp_remote_post(self::API.'/chat/completions',['timeout'=>25,'headers'=>['Content-Type'=>'application/json','Authorization'=>'Bearer '.$key],'body'=>wp_json_encode(['model'=>$req->model,'messages'=>array_map(fn($m)=>$m->toArray(),$req->messages),'max_tokens'=>$req->maxTokens,'temperature'=>$req->temperature,'stream'=>false])]);
         if(is_wp_error($r))throw new AiProviderException('OpenAI failed: '.$r->get_error_message());
         $s=wp_remote_retrieve_response_code($r);$b=json_decode(wp_remote_retrieve_body($r),true);

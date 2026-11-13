@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Payment;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Payment;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 class JazzCashGateway extends \WC_Payment_Gateway {
     private const L='https://payments.jazzcash.com.pk/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction';
     private const S='https://sandbox.jazzcash.com.pk/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction';
     public function __construct(LoggerInterface $log=null, SettingsManager $cfg=null){
         $this->id='jazzcash_mwallet';$this->method_title='JazzCash';$this->method_description='Pay via JazzCash Mobile Wallet or Debit/Credit Card';$this->has_fields=true;$this->supports=['products'];
-        $this->log=$log??new \JunctionStore\Infrastructure\Logger\WpLogger();$this->cfg=$cfg??\JunctionStore\Settings\SettingsManager::getInstance();
+        $this->log=$log??new \PkStore\Infrastructure\Logger\WpLogger();$this->cfg=$cfg??\PkStore\Settings\SettingsManager::getInstance();
         $this->init_form_fields();$this->init_settings();$this->title=$this->get_option('title','JazzCash');$this->description=$this->get_option('description','Pay securely via JazzCash');
         add_action('woocommerce_update_options_payment_gateways_'.$this->id,[$this,'process_admin_options']);
         add_action('woocommerce_api_jazzcash_callback',[$this,'handleCallback']);

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\License;
+namespace PkStore\License;
 
 final class LicenseAdminUI {
 
@@ -17,7 +17,7 @@ final class LicenseAdminUI {
         if ($this->license->isLockedOut()) {
             $reason = get_option('pkstore_lockout_reason', '');
             echo '<div class="notice notice-error"><p>'
-                . '<strong>Junction Store — License Locked:</strong> '
+                . '<strong>PK Store — License Locked:</strong> '
                 . esc_html($this->getLockoutMessage($reason))
                 . ' <a href="' . esc_url(admin_url('admin.php?page=pkstore-setup&tab=license')) . '">Manage License</a>'
                 . '</p></div>';
@@ -26,7 +26,7 @@ final class LicenseAdminUI {
 
         if (!$this->license->isValid()) {
             echo '<div class="notice notice-error is-dismissible"><p>'
-                . '&#128274; <strong>Junction Store requires a valid license.</strong> '
+                . '&#128274; <strong>PK Store requires a valid license.</strong> '
                 . 'Enter your license key to activate all features. '
                 . '<a href="' . esc_url(admin_url('admin.php?page=pkstore-setup&tab=license')) . '">Enter License Key &rarr;</a>'
                 . '</p></div>';
@@ -39,7 +39,7 @@ final class LicenseAdminUI {
             $daysLeft = ceil((strtotime($expiry) - time()) / 86400);
             if ($daysLeft <= 14 && $daysLeft > 0) {
                 echo '<div class="notice notice-warning is-dismissible"><p>'
-                    . "&#9888; <strong>Junction Store license expires in {$daysLeft} days</strong> ("
+                    . "&#9888; <strong>PK Store license expires in {$daysLeft} days</strong> ("
                     . esc_html(date('d M Y', strtotime($expiry)))
                     . '). <a href="https://junctionsystems.pk/renew" target="_blank">Renew now</a>'
                     . '</p></div>';
@@ -147,7 +147,7 @@ final class LicenseAdminUI {
         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;margin:16px 0">
           <strong>&#9888; No active license found</strong>
           <p style="font-size:14px;margin-top:6px;color:#92400e">
-            Junction Store requires a valid license key to activate features.
+            PK Store requires a valid license key to activate features.
             Purchase at <a href="https://junctionsystems.pk" target="_blank">junctionsystems.pk</a>
             then enter your key below.
           </p>

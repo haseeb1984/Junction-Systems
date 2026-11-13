@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Verification\Repository;
-use JunctionStore\Domain\Verification\Entity\OtpAttempt;
-use JunctionStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
+namespace PkStore\Domain\Verification\Repository;
+use PkStore\Domain\Verification\Entity\OtpAttempt;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 interface OtpRepositoryInterface {
     public function save(OtpAttempt $a):void;
     public function update(OtpAttempt $a):void;

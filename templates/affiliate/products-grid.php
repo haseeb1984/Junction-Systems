@@ -1,5 +1,5 @@
 <?php defined('ABSPATH')||exit;
-/** @var \JunctionStore\Domain\Affiliate\Entity\AffiliateProduct[] $items */ ?>
+/** @var \PkStore\Domain\Affiliate\Entity\AffiliateProduct[] $items */ ?>
 <div class="pk-affiliate-products-grid">
 <?php foreach($items as $product):?>
 <div class="pk-affiliate-product-card">

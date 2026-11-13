@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics\PostEx;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Logistics\PostEx;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 final class PostExCourier {

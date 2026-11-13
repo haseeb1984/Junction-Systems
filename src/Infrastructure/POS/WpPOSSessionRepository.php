@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\POS;
-use JunctionStore\Domain\POS\Entity\{POSSession, SessionStatus};
-use JunctionStore\Domain\POS\Repository\POSSessionRepositoryInterface;
+namespace PkStore\Infrastructure\POS;
+use PkStore\Domain\POS\Entity\{POSSession, SessionStatus};
+use PkStore\Domain\POS\Repository\POSSessionRepositoryInterface;
 final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_pos_sessions'; }

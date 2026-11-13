@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Barcode;
-use JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
-use JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface;
-use JunctionStore\Core\Branding\BrandingManager;
+namespace PkStore\Infrastructure\Barcode;
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
+use PkStore\Domain\Inventory\Repository\StockRepositoryInterface;
+use PkStore\Core\Branding\BrandingManager;
 
 final class BarcodeLabel {
     public function __construct(

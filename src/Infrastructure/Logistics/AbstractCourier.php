@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics;
-use JunctionStore\Domain\Logistics\CourierProviderInterface;
-use JunctionStore\Domain\Logistics\Exception\CourierApiException;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Logistics;
+use PkStore\Domain\Logistics\CourierProviderInterface;
+use PkStore\Domain\Logistics\Exception\CourierApiException;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 abstract class AbstractCourier implements CourierProviderInterface {
     public function __construct(protected readonly LoggerInterface $log, protected readonly CityMappingService $cm, protected readonly RateCalculator $rc, protected readonly LogisticsLogger $al, protected readonly SettingsManager $cfg){}
-    final protected function cfg(string $k):string{$v=$this->cfg->get($k);if($v==='')throw new \RuntimeException("Setting [{$k}] not configured. Go to Junction Store > Setup Wizard.");return $v;}
+    final protected function cfg(string $k):string{$v=$this->cfg->get($k);if($v==='')throw new \RuntimeException("Setting [{$k}] not configured. Go to PK Store > Setup Wizard.");return $v;}
     final protected function dispatch(string $url,array $payload,array $headers=[],string $method='POST',int $timeout=15):array{
         $start=microtime(true);$aid=$this->al->logRequest($this->getCourierCode(),$url,$payload);
         $r=wp_remote_request($url,['method'=>$method,'headers'=>array_merge(['Content-Type'=>'application/json','Accept'=>'application/json'],$headers),'body'=>wp_json_encode($payload),'timeout'=>$timeout]);

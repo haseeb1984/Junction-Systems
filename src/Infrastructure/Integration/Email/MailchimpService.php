@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Integration\Email;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Integration\Email;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 final class MailchimpService {

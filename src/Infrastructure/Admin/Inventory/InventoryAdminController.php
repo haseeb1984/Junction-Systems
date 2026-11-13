@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin\Inventory;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface,StockRepositoryInterface,LocationRepositoryInterface};
-use JunctionStore\Application\Inventory\{AdjustStockUseCase,GenerateBarcodeUseCase,SyncWooCommerceStockUseCase};
+namespace PkStore\Infrastructure\Admin\Inventory;
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface,StockRepositoryInterface,LocationRepositoryInterface};
+use PkStore\Application\Inventory\{AdjustStockUseCase,GenerateBarcodeUseCase,SyncWooCommerceStockUseCase};
 
 final class InventoryAdminController {
     private const CAP = 'manage_woocommerce';
@@ -48,7 +48,7 @@ final class InventoryAdminController {
         $name = sanitize_text_field($_POST['name']??''  );
         if (empty($sku)||empty($name)){ $this->redirect('pkstore-inventory','error','SKU and name are required.'); return; }
         if ($repo->findBySku($sku)){ $this->redirect('pkstore-inventory','error','SKU already exists.'); return; }
-        $p  = \JunctionStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($_POST['cost_price']??0),(int)($_POST['sale_price']??0),sanitize_text_field($_POST['category']??''),(int)($_POST['wc_product_id']??0)?:(null),sanitize_text_field($_POST['barcode']??''),(sanitize_text_field($_POST['unit']??'piece')),(int)($_POST['reorder_point']??5));
+        $p  = \PkStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($_POST['cost_price']??0),(int)($_POST['sale_price']??0),sanitize_text_field($_POST['category']??''),(int)($_POST['wc_product_id']??0)?:(null),sanitize_text_field($_POST['barcode']??''),(sanitize_text_field($_POST['unit']??'piece')),(int)($_POST['reorder_point']??5));
         $id = $repo->save($p);
         $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
         $this->redirect('pkstore-inventory','added','Product added and barcode generated.');
@@ -58,7 +58,7 @@ final class InventoryAdminController {
         try {
             $this->c->make(AdjustStockUseCase::class)->execute(
                 (int)($_POST['product_id']??0),(int)($_POST['location_id']??1),
-                (int)($_POST['quantity']??0),\JunctionStore\Domain\Inventory\Entity\MovementType::from(sanitize_key($_POST['movement_type']??'adjustment')),
+                (int)($_POST['quantity']??0),\PkStore\Domain\Inventory\Entity\MovementType::from(sanitize_key($_POST['movement_type']??'adjustment')),
                 sanitize_text_field($_POST['note']??'Manual adjustment')
             );
             $this->redirect('pkstore-inventory','adjusted','Stock updated.');

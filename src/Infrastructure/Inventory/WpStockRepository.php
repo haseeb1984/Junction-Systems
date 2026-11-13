@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Inventory;
-use JunctionStore\Domain\Inventory\Entity\{StockLevel, StockMovement, MovementType};
-use JunctionStore\Domain\Inventory\Repository\StockRepositoryInterface;
+namespace PkStore\Infrastructure\Inventory;
+use PkStore\Domain\Inventory\Entity\{StockLevel, StockMovement, MovementType};
+use PkStore\Domain\Inventory\Repository\StockRepositoryInterface;
 final class WpStockRepository implements StockRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function ts(): string { return $this->db->prefix . 'pkstore_inventory_stock'; }

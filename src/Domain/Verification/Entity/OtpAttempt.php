@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Verification\Entity;
+namespace PkStore\Domain\Verification\Entity;
 use DateTimeImmutable;
-use JunctionStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 final class OtpAttempt {
     private const MAX=3; private const MINS=5;
     private bool $isVerified=false; private int $attemptCount=0;

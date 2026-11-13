@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\AI;
+namespace PkStore\Domain\AI;
 final class ContextSelector {
     private const STOP=['what','is','the','a','an','of','in','on','for','do','you','have','does','can','i','me','my','want','need','looking','tell','show','price','cost','much','how','this','that','and','or','with','any','available','stock','get','buy','kya','hai','ka','ki','ke','mein','ko','aur','ya','nahi','ap','aap','mujhe','chahiye','kitna'];
     private const CAT=['phone'=>'mobile-phones','mobile'=>'mobile-phones','smartphone'=>'mobile-phones','laptop'=>'laptops','shoe'=>'footwear','shoes'=>'footwear','sneaker'=>'footwear','shirt'=>'clothing','dress'=>'clothing','kurta'=>'clothing','kameez'=>'clothing','headphone'=>'audio','earphone'=>'audio','watch'=>'watches','ebook'=>'ebooks','pdf'=>'ebooks','course'=>'courses','software'=>'software','game'=>'games'];

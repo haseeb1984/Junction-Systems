@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Logistics\DTO;
+namespace PkStore\Domain\Logistics\DTO;
 enum TrackingStatus: string {
     case Booked='booked'; case PickedUp='picked_up'; case InTransit='in_transit';
     case OutForDelivery='out_for_delivery'; case Delivered='delivered';

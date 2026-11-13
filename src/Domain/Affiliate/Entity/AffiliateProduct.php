@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Affiliate\Entity;
+namespace PkStore\Domain\Affiliate\Entity;
 use DateTimeImmutable;
 final class AffiliateProduct {
     public function __construct(

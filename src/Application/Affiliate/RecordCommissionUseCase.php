@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\Commission;
-use JunctionStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, CommissionRepositoryInterface};
-use JunctionStore\Domain\Affiliate\ValueObject\AffiliateCode;
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Entity\Commission;
+use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, CommissionRepositoryInterface};
+use PkStore\Domain\Affiliate\ValueObject\AffiliateCode;
 use Psr\Log\LoggerInterface;
 final class RecordCommissionUseCase {
     public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly CommissionRepositoryInterface $commissionRepo, private readonly ProcessPayoutUseCase $payoutUseCase, private readonly LoggerInterface $log) {}

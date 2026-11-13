@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\POS;
-use JunctionStore\Application\Inventory\AdjustStockUseCase;
-use JunctionStore\Domain\Inventory\Entity\MovementType;
-use JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
-use JunctionStore\Domain\POS\Entity\POSOrder;
-use JunctionStore\Domain\POS\Repository\{POSOrderRepositoryInterface, POSSessionRepositoryInterface};
+namespace PkStore\Application\POS;
+use PkStore\Application\Inventory\AdjustStockUseCase;
+use PkStore\Domain\Inventory\Entity\MovementType;
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
+use PkStore\Domain\POS\Entity\POSOrder;
+use PkStore\Domain\POS\Repository\{POSOrderRepositoryInterface, POSSessionRepositoryInterface};
 use Psr\Log\LoggerInterface;
 final class ProcessPOSSaleUseCase {
     public function __construct(

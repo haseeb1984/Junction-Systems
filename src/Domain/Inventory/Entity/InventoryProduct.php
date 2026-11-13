@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Inventory\Entity;
+namespace PkStore\Domain\Inventory\Entity;
 use DateTimeImmutable;
 final class InventoryProduct {
     public function __construct(

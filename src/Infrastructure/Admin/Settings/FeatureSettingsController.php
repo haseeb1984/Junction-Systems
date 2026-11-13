@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin\Settings;
-use JunctionStore\Core\Feature\FeatureManager;
-use JunctionStore\Core\Branding\BrandingManager;
+namespace PkStore\Infrastructure\Admin\Settings;
+use PkStore\Core\Feature\FeatureManager;
+use PkStore\Core\Branding\BrandingManager;
 
 final class FeatureSettingsController {
     private const CAP = 'manage_options';

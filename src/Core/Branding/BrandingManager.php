@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Core\Branding;
+namespace PkStore\Core\Branding;
 
 final class BrandingManager {
     private static ?self $instance = null;
@@ -49,7 +49,7 @@ final class BrandingManager {
     public function getLogoUrl(): string      { return $this->get('logo_url'); }
     public function getPosLogoUrl(): string   { return $this->get('pos_logo_url') ?: $this->get('logo_url'); }
     public function getReceiptFooter(): string{ return $this->get('receipt_footer'); }
-    public function hideJunctionStoreBrand(): bool  { return $this->get('hide_pkstore_brand') === '1'; }
+    public function hidePkStoreBrand(): bool  { return $this->get('hide_pkstore_brand') === '1'; }
     public function getPosTheme(): string     { return $this->get('pos_theme', 'light'); }
 
     public function saveAll(array $data): void {
@@ -69,7 +69,7 @@ final class BrandingManager {
     public function exportConfig(): string {
         return wp_json_encode([
             'branding' => $this->config,
-            'features' => \JunctionStore\Core\Feature\FeatureManager::getInstance()->getAll(),
+            'features' => \PkStore\Core\Feature\FeatureManager::getInstance()->getAll(),
             'exported_at' => current_time('mysql'),
             'version' => PKSTORE_VERSION,
         ], JSON_PRETTY_PRINT);
@@ -81,7 +81,7 @@ final class BrandingManager {
         if (isset($data['branding'])) update_option('pkstore_branding', $data['branding']);
         if (isset($data['features'])) update_option('pkstore_features', $data['features']);
         self::$instance = null;
-        \JunctionStore\Core\Feature\FeatureManager::reset();
+        \PkStore\Core\Feature\FeatureManager::reset();
         return true;
     }
 

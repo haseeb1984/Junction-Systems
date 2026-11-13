@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\Affiliate;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
-use JunctionStore\Domain\Affiliate\ValueObject\{AffiliateCode, CommissionRate};
+namespace PkStore\Infrastructure\Affiliate;
+use PkStore\Domain\Affiliate\Entity\Affiliate;
+use PkStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
+use PkStore\Domain\Affiliate\ValueObject\{AffiliateCode, CommissionRate};
 final class WpAffiliateRepository implements AffiliateRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_affiliates'; }

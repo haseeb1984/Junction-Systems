@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics;
+namespace PkStore\Infrastructure\Logistics;
 final class LogisticsLogger {
     public function __construct(private readonly \wpdb $db){}
     private function t():string{return $this->db->prefix.'pkstore_logistics_log';}

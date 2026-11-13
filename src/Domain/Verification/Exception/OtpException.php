@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Verification\Exception;
+namespace PkStore\Domain\Verification\Exception;
 class OtpException extends \DomainException {}

@@ -1,4 +1,4 @@
-Junction Store Theme v1.0.1
+PK Store Theme v1.0.1
 =====================
 Requires: WordPress 6.4+, WooCommerce 8.0+, PHP 8.2+
 

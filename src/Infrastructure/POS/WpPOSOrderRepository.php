@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\POS;
-use JunctionStore\Domain\POS\Entity\{POSOrder, SyncStatus};
-use JunctionStore\Domain\POS\Repository\POSOrderRepositoryInterface;
+namespace PkStore\Infrastructure\POS;
+use PkStore\Domain\POS\Entity\{POSOrder, SyncStatus};
+use PkStore\Domain\POS\Repository\POSOrderRepositoryInterface;
 final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_pos_orders'; }

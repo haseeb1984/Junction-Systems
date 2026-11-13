@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\AffiliateProduct;
-use JunctionStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, AffiliateProductRepositoryInterface};
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Entity\AffiliateProduct;
+use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, AffiliateProductRepositoryInterface};
 use Psr\Log\LoggerInterface;
 final class SubmitAffiliateProductUseCase {
     public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly AffiliateProductRepositoryInterface $productRepo, private readonly LoggerInterface $log) {}

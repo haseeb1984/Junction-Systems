@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\Affiliate;
-use JunctionStore\Domain\Affiliate\Exception\AffiliateAlreadyExistsException;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Entity\Affiliate;
+use PkStore\Domain\Affiliate\Exception\AffiliateAlreadyExistsException;
+use PkStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
 use Psr\Log\LoggerInterface;
 final class RegisterAffiliateUseCase {
     public function __construct(private readonly AffiliateRepositoryInterface $repo, private readonly LoggerInterface $log) {}

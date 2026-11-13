@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
-use JunctionStore\Domain\Affiliate\ValueObject\AffiliateCode;
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
+use PkStore\Domain\Affiliate\ValueObject\AffiliateCode;
 final class TrackAffiliateClickUseCase {
     private const COOKIE = 'pkstore_affiliate';
     private const DAYS = 30;

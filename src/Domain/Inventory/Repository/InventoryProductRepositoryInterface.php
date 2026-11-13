@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Inventory\Repository;
-use JunctionStore\Domain\Inventory\Entity\InventoryProduct;
+namespace PkStore\Domain\Inventory\Repository;
+use PkStore\Domain\Inventory\Entity\InventoryProduct;
 interface InventoryProductRepositoryInterface {
     public function save(InventoryProduct $p): int;
     public function update(InventoryProduct $p): void;

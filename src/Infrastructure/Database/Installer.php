@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Database;
+namespace PkStore\Infrastructure\Database;
 final class Installer {
     public static function run(): void {
         global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $cs=$wpdb->get_charset_collate();

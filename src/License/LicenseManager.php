@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\License;
+namespace PkStore\License;
 
-use JunctionStore\License\Exception\{
+use PkStore\License\Exception\{
     LicenseException, LicenseExpiredException,
     LicenseDomainMismatch, LicenseInvalidException,
     LicenseFeatureNotAvailable
@@ -136,7 +136,7 @@ final class LicenseManager {
         // Cache stale or missing — re-validate remotely
         $key = $this->getStoredKey();
         if (!$key) {
-            throw new LicenseInvalidException('No license key found. Please enter your license key in Junction Store → Setup Wizard → License.');
+            throw new LicenseInvalidException('No license key found. Please enter your license key in PK Store → Setup Wizard → License.');
         }
 
         try {
@@ -210,7 +210,7 @@ final class LicenseManager {
         }
 
         // Still within grace — log warning and continue
-        error_log('[JunctionStore License] Using grace period cache. Days remaining: ' .
+        error_log('[PkStore License] Using grace period cache. Days remaining: ' .
             ceil((self::GRACE_PERIOD - (time() - $graceStart)) / 86400));
 
         return $data;
@@ -221,13 +221,13 @@ final class LicenseManager {
     private function remoteCall(string $action, string $key): array {
         $domain = $this->getCurrentDomain();
         $body   = ['action' => $action, 'license_key' => $key, 'domain' => $domain,
-                   'product' => 'junction-store', 'version' => PKSTORE_VERSION,
+                   'product' => 'pk-store', 'version' => PKSTORE_VERSION,
                    'sig' => hash_hmac('sha256', $action.$key.$domain, $this->getEncryptKey())];
 
         $response = wp_remote_post(self::SERVER_URL, [
             'timeout' => 15,
             'headers' => ['Content-Type' => 'application/json',
-                          'X-PK-Product' => 'junction-store'],
+                          'X-PK-Product' => 'pk-store'],
             'body'    => wp_json_encode($body),
         ]);
 

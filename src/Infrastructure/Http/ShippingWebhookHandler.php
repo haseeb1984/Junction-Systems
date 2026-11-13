@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Logistics\DTO\TrackingStatus;
-use JunctionStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Logistics\DTO\TrackingStatus;
+use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
 final class ShippingWebhookHandler {
     public function __construct(private readonly ServiceContainer $c){}
     public function register():void{add_action('rest_api_init',function(){foreach(['tcs','leopards','trax']as $cc){register_rest_route('pkstore/v1',"/webhooks/{$cc}",['methods'=>'POST','callback'=>fn(\WP_REST_Request $r)=>$this->handle($r,$cc),'permission_callback'=>'__return_true']);}});}

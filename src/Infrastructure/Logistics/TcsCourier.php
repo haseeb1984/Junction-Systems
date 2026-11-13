@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics;
-use JunctionStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO,TrackingUpdateDTO,TrackingStatus};
-use JunctionStore\Domain\Logistics\Exception\CourierApiException;
+namespace PkStore\Infrastructure\Logistics;
+use PkStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO,TrackingUpdateDTO,TrackingStatus};
+use PkStore\Domain\Logistics\Exception\CourierApiException;
 final class TcsCourier extends AbstractCourier {
     private const L='https://api.tcsexpress.com/api/v3';private const S='https://sandbox.tcsexpress.com/api/v3';
     public function getCourierCode():string{return 'tcs';}public function getDisplayName():string{return 'TCS Express';}

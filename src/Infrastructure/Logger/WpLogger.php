@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logger;
+namespace PkStore\Infrastructure\Logger;
 use Psr\Log\LoggerInterface;use Psr\Log\LogLevel;
 final class WpLogger implements LoggerInterface{
     public function emergency(string|\Stringable $m,array $c=[]):void{$this->log(LogLevel::EMERGENCY,$m,$c);}
@@ -13,6 +13,6 @@ final class WpLogger implements LoggerInterface{
     public function debug(string|\Stringable $m,array $c=[]):void{$this->log(LogLevel::DEBUG,$m,$c);}
     public function log(mixed $l,string|\Stringable $m,array $c=[]):void{
         if((!defined('WP_DEBUG')||!WP_DEBUG)&&in_array($l,[LogLevel::DEBUG,LogLevel::INFO],true))return;
-        error_log('[JunctionStore]['.strtoupper($l).'] '.$m.(empty($c)?'':' '.json_encode($c,JSON_UNESCAPED_UNICODE)));
+        error_log('[PKStore]['.strtoupper($l).'] '.$m.(empty($c)?'':' '.json_encode($c,JSON_UNESCAPED_UNICODE)));
     }
 }

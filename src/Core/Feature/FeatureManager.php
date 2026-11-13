@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Core\Feature;
+namespace PkStore\Core\Feature;
 
 final class FeatureManager {
     private static ?self $instance = null;

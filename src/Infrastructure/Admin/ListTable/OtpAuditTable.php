@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin\ListTable;
+namespace PkStore\Infrastructure\Admin\ListTable;
 if(!class_exists('WP_List_Table'))require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';
 final class OtpAuditTable extends \WP_List_Table {
     public function __construct(private readonly \wpdb $db){parent::__construct(['singular'=>'OTP Attempt','plural'=>'OTP Attempts','ajax'=>false]);}

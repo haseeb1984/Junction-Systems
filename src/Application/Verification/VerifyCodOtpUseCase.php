@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Verification;
-use JunctionStore\Domain\Verification\Exception\{InvalidOtpException,OtpAlreadyVerifiedException,OtpExpiredException};
-use JunctionStore\Domain\Verification\Repository\OtpRepositoryInterface;
-use JunctionStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
+namespace PkStore\Application\Verification;
+use PkStore\Domain\Verification\Exception\{InvalidOtpException,OtpAlreadyVerifiedException,OtpExpiredException};
+use PkStore\Domain\Verification\Repository\OtpRepositoryInterface;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 use Psr\Log\LoggerInterface;
 final class VerifyCodOtpUseCase {
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly LoggerInterface $log) {}

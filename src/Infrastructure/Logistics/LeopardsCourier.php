@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Logistics;
-use JunctionStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO,TrackingUpdateDTO,TrackingStatus};
-use JunctionStore\Domain\Logistics\Exception\CourierApiException;
+namespace PkStore\Infrastructure\Logistics;
+use PkStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO,TrackingUpdateDTO,TrackingStatus};
+use PkStore\Domain\Logistics\Exception\CourierApiException;
 final class LeopardsCourier extends AbstractCourier {
     private const L='https://merchantapi.leopardscourier.com/api';private const S='https://merchantapistaging.leopardscourier.com/api';
     private const IPS=['103.206.24.0/24','203.135.16.0/24'];

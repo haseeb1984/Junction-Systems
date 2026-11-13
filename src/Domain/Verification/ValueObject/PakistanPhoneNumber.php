@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Verification\ValueObject;
+namespace PkStore\Domain\Verification\ValueObject;
 final readonly class PakistanPhoneNumber {
     public readonly string $e164;
     public function __construct(string $raw) {

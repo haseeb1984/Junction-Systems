@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\{Payout, PayoutStatus};
-use JunctionStore\Domain\Affiliate\Repository\PayoutRepositoryInterface;
+namespace PkStore\Infrastructure\Affiliate;
+use PkStore\Domain\Affiliate\Entity\{Payout, PayoutStatus};
+use PkStore\Domain\Affiliate\Repository\PayoutRepositoryInterface;
 final class WpPayoutRepository implements PayoutRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_affiliate_payouts'; }

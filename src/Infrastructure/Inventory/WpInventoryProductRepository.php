@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Inventory;
-use JunctionStore\Domain\Inventory\Entity\InventoryProduct;
-use JunctionStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
+namespace PkStore\Infrastructure\Inventory;
+use PkStore\Domain\Inventory\Entity\InventoryProduct;
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
 final class WpInventoryProductRepository implements InventoryProductRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_inventory_products'; }

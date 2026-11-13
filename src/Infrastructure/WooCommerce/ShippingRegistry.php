@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\WooCommerce;
-use JunctionStore\Container\ServiceContainer;
+namespace PkStore\Infrastructure\WooCommerce;
+use PkStore\Container\ServiceContainer;
 
 final class ShippingRegistry {
     public function __construct(private readonly ServiceContainer $container) {}
 
     public function register(): void {
         add_filter('woocommerce_shipping_methods', function(array $methods): array {
-            $methods['pkstore_tcs']      = \JunctionStore\Infrastructure\WooCommerce\Shipping\TcsShippingMethod::class;
-            $methods['pkstore_leopards'] = \JunctionStore\Infrastructure\WooCommerce\Shipping\LeopardsShippingMethod::class;
-            $methods['pkstore_trax']     = \JunctionStore\Infrastructure\WooCommerce\Shipping\TraxShippingMethod::class;
+            $methods['pkstore_tcs']      = \PkStore\Infrastructure\WooCommerce\Shipping\TcsShippingMethod::class;
+            $methods['pkstore_leopards'] = \PkStore\Infrastructure\WooCommerce\Shipping\LeopardsShippingMethod::class;
+            $methods['pkstore_trax']     = \PkStore\Infrastructure\WooCommerce\Shipping\TraxShippingMethod::class;
             return $methods;
         });
         add_action('woocommerce_payment_complete',             [$this, 'autoBookShipment']);
@@ -22,7 +22,7 @@ final class ShippingRegistry {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) return;
         if ($this->isDigitalOnlyOrder($order)) {
-            $order->add_order_note('[Junction Store] Digital order — courier booking skipped. Download links sent via email.');
+            $order->add_order_note('[PK Store] Digital order — courier booking skipped. Download links sent via email.');
             return;
         }
         if (function_exists('as_schedule_single_action')) {

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\POS;
-use JunctionStore\Domain\POS\Repository\POSOrderRepositoryInterface;
+namespace PkStore\Application\POS;
+use PkStore\Domain\POS\Repository\POSOrderRepositoryInterface;
 use Psr\Log\LoggerInterface;
 final class SyncPOSQueueUseCase {
     public function __construct(

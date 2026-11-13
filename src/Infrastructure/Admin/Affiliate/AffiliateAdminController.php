@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Admin\Affiliate;
-use JunctionStore\Container\ServiceContainer;
+namespace PkStore\Infrastructure\Admin\Affiliate;
+use PkStore\Container\ServiceContainer;
 final class AffiliateAdminController {
     private const CAP='manage_woocommerce';
     public function __construct(private readonly ServiceContainer $c){}

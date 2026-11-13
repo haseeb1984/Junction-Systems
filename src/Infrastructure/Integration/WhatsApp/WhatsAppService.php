@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Integration\WhatsApp;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Integration\WhatsApp;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 final class WhatsAppService {
@@ -20,7 +20,7 @@ final class WhatsAppService {
     public function sendOrderConfirmation(\WC_Order $order): bool {
         $name=$order->get_billing_first_name(); $ref=$order->get_order_number(); $total=number_format((float)$order->get_total());
         $items=implode(', ',array_map(fn($i)=>$i->get_name().' x'.$i->get_quantity(),$order->get_items()));
-        $storeName=\JunctionStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
+        $storeName=\PkStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
         $text="*{$storeName}*
 
 Aapka shukriya, {$name}!
@@ -35,7 +35,7 @@ Hum aapko delivery update dete rahenge.";
     }
     public function sendShippingUpdate(\WC_Order $order, string $trackingNumber, string $courier): bool {
         $name=$order->get_billing_first_name(); $ref=$order->get_order_number();
-        $storeName=\JunctionStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
+        $storeName=\PkStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
         $text="*{$storeName}*
 
 📦 Order #{$ref} ship ho gaya!
@@ -48,7 +48,7 @@ Estimated delivery: 2-3 business days.";
     }
     public function sendDeliveryConfirmation(\WC_Order $order): bool {
         $name=$order->get_billing_first_name(); $ref=$order->get_order_number();
-        $storeName=\JunctionStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
+        $storeName=\PkStore\Core\Branding\BrandingManager::getInstance()->getStoreName();
         $text="*{$storeName}*
 
 🎉 Order #{$ref} deliver ho gaya!

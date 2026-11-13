@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\Affiliate;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
+namespace PkStore\Application\Affiliate;
+use PkStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
 final class TrackAffiliateProductClickUseCase {
     public function __construct(private readonly AffiliateProductRepositoryInterface $repo) {}
     public function execute(int $productId): ?string {

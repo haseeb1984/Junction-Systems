@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\WooCommerce;
-use JunctionStore\Application\Inventory\SyncWooCommerceStockUseCase;
-use JunctionStore\Container\ServiceContainer;
+namespace PkStore\Infrastructure\WooCommerce;
+use PkStore\Application\Inventory\SyncWooCommerceStockUseCase;
+use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
@@ -18,11 +18,11 @@ final class InventoryHooks {
         try {
             $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId);
         } catch (\Throwable $e) {
-            error_log('[JunctionStore Inventory] Stock sync failed for order '.$orderId.': '.$e->getMessage());
+            error_log('[PKStore Inventory] Stock sync failed for order '.$orderId.': '.$e->getMessage());
         }
     }
     public function hourlySyncAll(): void {
         try { $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce(); }
-        catch (\Throwable $e) { error_log('[JunctionStore Inventory] Hourly sync failed: '.$e->getMessage()); }
+        catch (\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed: '.$e->getMessage()); }
     }
 }

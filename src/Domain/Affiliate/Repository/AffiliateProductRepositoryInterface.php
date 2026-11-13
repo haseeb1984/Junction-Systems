@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Affiliate\Repository;
-use JunctionStore\Domain\Affiliate\Entity\AffiliateProduct;
+namespace PkStore\Domain\Affiliate\Repository;
+use PkStore\Domain\Affiliate\Entity\AffiliateProduct;
 interface AffiliateProductRepositoryInterface {
     public function save(AffiliateProduct $p): int; public function update(AffiliateProduct $p): void;
     public function findById(int $id): ?AffiliateProduct; public function findActive(int $limit=20, int $offset=0): array;

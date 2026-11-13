@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Affiliate\Entity;
+namespace PkStore\Domain\Affiliate\Entity;
 use DateTimeImmutable;
 enum CommissionStatus: string { case Pending='pending'; case Approved='approved'; case Paid='paid'; case Cancelled='cancelled'; }
 final readonly class Commission {

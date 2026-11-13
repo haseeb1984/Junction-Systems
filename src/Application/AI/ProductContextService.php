@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Application\AI;
-use JunctionStore\Domain\AI\{ContextSelector,ProductRepositoryInterface,PromptComposer};
+namespace PkStore\Application\AI;
+use PkStore\Domain\AI\{ContextSelector,ProductRepositoryInterface,PromptComposer};
 final class ProductContextService {
     private const MAX=5;
     public function __construct(private readonly ProductRepositoryInterface $repo, private readonly ContextSelector $selector, private readonly PromptComposer $composer) {}

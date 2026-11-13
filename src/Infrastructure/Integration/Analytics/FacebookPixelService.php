@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Integration\Analytics;
-use JunctionStore\Settings\SettingsManager;
+namespace PkStore\Infrastructure\Integration\Analytics;
+use PkStore\Settings\SettingsManager;
 
 final class FacebookPixelService {
     public function __construct(private readonly SettingsManager $s) {}

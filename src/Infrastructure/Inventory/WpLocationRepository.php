@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Inventory;
-use JunctionStore\Domain\Inventory\Entity\Location;
-use JunctionStore\Domain\Inventory\Repository\LocationRepositoryInterface;
+namespace PkStore\Infrastructure\Inventory;
+use PkStore\Domain\Inventory\Entity\Location;
+use PkStore\Domain\Inventory\Repository\LocationRepositoryInterface;
 final class WpLocationRepository implements LocationRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_inventory_locations'; }

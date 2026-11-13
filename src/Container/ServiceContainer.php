@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Container;
+namespace PkStore\Container;
 final class ServiceContainer{
     private array $b=[],$s=[],$sm=[];
     private static ?self $i=null;

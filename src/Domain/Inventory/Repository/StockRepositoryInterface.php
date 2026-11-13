@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Inventory\Repository;
-use JunctionStore\Domain\Inventory\Entity\{StockLevel, StockMovement};
+namespace PkStore\Domain\Inventory\Repository;
+use PkStore\Domain\Inventory\Entity\{StockLevel, StockMovement};
 interface StockRepositoryInterface {
     public function getStock(int $productId, int $locationId): StockLevel;
     public function updateStock(StockLevel $stock): void;

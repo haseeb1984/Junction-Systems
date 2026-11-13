@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Settings;
+namespace PkStore\Settings;
 
 final class SetupWizard {
 
@@ -49,7 +49,7 @@ final class SetupWizard {
         $status = $this->cfg->getSetupStatus();
         ?>
         <div class="wrap pkstore-admin">
-            <h1>Junction Store — Setup Wizard</h1>
+            <h1>PK Store — Setup Wizard</h1>
             <?php if ($saved): ?>
                 <div class="notice notice-success is-dismissible"><p>Settings saved successfully.</p></div>
             <?php endif; ?>

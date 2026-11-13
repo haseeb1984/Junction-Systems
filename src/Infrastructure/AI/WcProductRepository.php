@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\AI;
-use JunctionStore\Domain\AI\ProductRepositoryInterface;
-use JunctionStore\Domain\AI\ValueObject\ProductContext;
+namespace PkStore\Infrastructure\AI;
+use PkStore\Domain\AI\ProductRepositoryInterface;
+use PkStore\Domain\AI\ValueObject\ProductContext;
 
 final class WcProductRepository implements ProductRepositoryInterface {
     private bool $isLoading = false;
@@ -54,8 +54,8 @@ final class WcProductRepository implements ProductRepositoryInterface {
             'delivery_time' => '2-5 business days (physical products)',
             'digital_delivery' => 'Instant download link via email',
             'return_policy' => '7-day return on defective physical items. No refunds on digital downloads unless file is corrupt.',
-            'helpline'      => get_option('junction_store_store_helpline',''),
-            'whatsapp'      => get_option('junction_store_store_whatsapp',''),
+            'helpline'      => get_option('pk_store_store_helpline',''),
+            'whatsapp'      => get_option('pk_store_store_whatsapp',''),
         ];
     }
 

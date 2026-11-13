@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Affiliate;
-use JunctionStore\Domain\Affiliate\Entity\AffiliateProduct;
-use JunctionStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
+namespace PkStore\Infrastructure\Affiliate;
+use PkStore\Domain\Affiliate\Entity\AffiliateProduct;
+use PkStore\Domain\Affiliate\Repository\AffiliateProductRepositoryInterface;
 final class WpAffiliateProductRepository implements AffiliateProductRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_affiliate_products'; }

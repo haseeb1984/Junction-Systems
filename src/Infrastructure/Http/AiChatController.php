@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Application\AI\HandleAiChatUseCase;
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\AI\Exception\{AiProviderException,PromptInjectionException};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Application\AI\HandleAiChatUseCase;
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\AI\Exception\{AiProviderException,PromptInjectionException};
 final class AiChatController {
     public function __construct(private readonly ServiceContainer $c){}
     public function register():void{add_action('rest_api_init',function(){$args=['session_uuid'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_text_field'],'message'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_textarea_field'],'_nonce'=>['required'=>true,'type'=>'string']];register_rest_route('pkstore/v1','/chat',['methods'=>'POST','callback'=>[$this,'handleChat'],'permission_callback'=>[$this,'nonce'],'args'=>$args]);register_rest_route('pkstore/v1','/chat/stream',['methods'=>'POST','callback'=>[$this,'handleStream'],'permission_callback'=>[$this,'nonce'],'args'=>$args]);});}

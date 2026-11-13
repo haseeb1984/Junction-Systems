@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\Http;
-use JunctionStore\Application\Affiliate\{RegisterAffiliateUseCase,SubmitAffiliateProductUseCase,TrackAffiliateProductClickUseCase,TrackAffiliateClickUseCase};
-use JunctionStore\Container\ServiceContainer;
-use JunctionStore\Domain\Affiliate\Exception\AffiliateAlreadyExistsException;
-use JunctionStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface,AffiliateProductRepositoryInterface,CommissionRepositoryInterface,PayoutRepositoryInterface};
+namespace PkStore\Infrastructure\Http;
+use PkStore\Application\Affiliate\{RegisterAffiliateUseCase,SubmitAffiliateProductUseCase,TrackAffiliateProductClickUseCase,TrackAffiliateClickUseCase};
+use PkStore\Container\ServiceContainer;
+use PkStore\Domain\Affiliate\Exception\AffiliateAlreadyExistsException;
+use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface,AffiliateProductRepositoryInterface,CommissionRepositoryInterface,PayoutRepositoryInterface};
 
 final class AffiliateController {
     public function __construct(private readonly ServiceContainer $c) {}

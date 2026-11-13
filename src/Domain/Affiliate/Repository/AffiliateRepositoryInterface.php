@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Domain\Affiliate\Repository;
-use JunctionStore\Domain\Affiliate\Entity\Affiliate;
-use JunctionStore\Domain\Affiliate\ValueObject\AffiliateCode;
+namespace PkStore\Domain\Affiliate\Repository;
+use PkStore\Domain\Affiliate\Entity\Affiliate;
+use PkStore\Domain\Affiliate\ValueObject\AffiliateCode;
 interface AffiliateRepositoryInterface {
     public function save(Affiliate $a): int; public function update(Affiliate $a): void;
     public function findById(int $id): ?Affiliate; public function findByCode(AffiliateCode $code): ?Affiliate;

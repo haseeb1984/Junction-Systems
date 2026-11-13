@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace JunctionStore\Infrastructure\AI;
-use JunctionStore\Domain\AI\ChatRepositoryInterface;
-use JunctionStore\Domain\AI\ValueObject\{ChatMessage,MessageRole};
+namespace PkStore\Infrastructure\AI;
+use PkStore\Domain\AI\ChatRepositoryInterface;
+use PkStore\Domain\AI\ValueObject\{ChatMessage,MessageRole};
 final class WpChatRepository implements ChatRepositoryInterface {
     public function __construct(private readonly \wpdb $db){}
     private function t():string{return $this->db->prefix.'pkstore_chat_history';}
