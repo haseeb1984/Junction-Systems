@@ -109,93 +109,36 @@ final class SetupWizard {
     }
 
     private function renderAiTab(): void {
-        // Check if the plugin is active
-        if (is_plugin_active('woo-ai-sales-assistant/woo-ai-sales-assistant.php')) {
-            echo '<h2>&#129302; Dukaan AI</h2>';
-            echo '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0">';
-            echo '<strong style="color:#166534">&#10003; WooCommerce AI Sales Assistant plugin is active</strong>';
-            echo '<p style="color:#166534;margin-top:8px;font-size:14px">Configure Dukaan AI in <a href="' . admin_url("admin.php?page=woo-ai-assistant") . '">WooCommerce &#8594; AI Assistant</a>. The plugin handles the floating chat widget, Groq API, and WooCommerce product context automatically.</p>';
-            echo '</div>';
-            return;
-        }
-        
-        $key         = $this->cfg->get('GEMINI_API_KEY');
-        $isSet       = !empty($key);
-        $displayKey  = $isSet ? str_repeat('●', 8) : '';
+        $key = $this->cfg->get('GROQ_API_KEY');
+        $isSet = !empty($key);
+        $displayKey = $isSet ? str_repeat('●', 8) : '';
         ?>
-        <h2>&#129302; Dukaan AI — Google Gemini Flash</h2>
-
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin-bottom:24px">
-            <strong style="color:#166534">&#10003; FREE API — No credit card required</strong>
-            <p style="color:#166534;margin:6px 0 0;font-size:14px">
-                Google Gemini Flash gives you <strong>1,500 free requests per day</strong>.
-                That is enough for a busy store with hundreds of customer chats daily.
-            </p>
-        </div>
-
-        <div style="background:#f8f9fa;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:24px">
-            <strong>How to get your free API key (30 seconds):</strong>
-            <ol style="margin:10px 0 0 20px;line-height:2">
-                <li>Go to <a href="https://aistudio.google.com" target="_blank"><strong>aistudio.google.com</strong></a></li>
-                <li>Sign in with your Google account</li>
-                <li>Click <strong>"Get API Key"</strong></li>
-                <li>Click <strong>"Create API Key"</strong></li>
-                <li>Copy the key and paste it below</li>
-            </ol>
-        </div>
-
+        <h2>&#129302; Dukaan AI — Groq</h2>
+        <p>Each store owner supplies and manages their own Groq API key. The key is stored encrypted in WordPress options and is used only by the server; it is never sent to the storefront browser.</p>
         <?php if ($isSet): ?>
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:20px">
-            &#10003; <strong>Dukaan AI is active</strong> — Gemini Flash is configured and ready.
-        </div>
+        <div class="notice notice-success inline"><p><strong>Groq API key is configured.</strong></p></div>
         <?php else: ?>
-        <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px;margin-bottom:20px">
-            &#9888; Dukaan AI is not configured. Add your free API key below to activate it.
-        </div>
+        <div class="notice notice-warning inline"><p><strong>Groq API key is missing.</strong> Add a key to enable AI chat.</p></div>
         <?php endif; ?>
-
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
             <?php wp_nonce_field('pkstore_save_settings'); ?>
-            <input type="hidden" name="action"  value="pkstore_save_settings">
+            <input type="hidden" name="action" value="pkstore_save_settings">
             <input type="hidden" name="section" value="ai">
             <table class="form-table"><tbody>
             <tr>
-                <th scope="row"><label for="gemini_api_key">Google Gemini API Key</label></th>
+                <th scope="row"><label for="groq_api_key">Groq API Key</label></th>
                 <td>
-                    <input type="password" id="gemini_api_key" name="gemini_api_key"
+                    <input type="password" id="groq_api_key" name="groq_api_key"
                            value="<?php echo esc_attr($displayKey); ?>" class="regular-text"
-                           placeholder="AIzaSy...">
-                    <p class="description">
-                        Free key from <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>.
-                        Stored encrypted in WordPress options. Never exposed to customers.
-                    </p>
+                           autocomplete="new-password" placeholder="gsk_...">
+                    <p class="description">Create/manage a key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Groq Console</a>. The key is kept server-side and encrypted at rest.</p>
                 </td>
             </tr>
             </tbody></table>
-            <p class="submit"><input type="submit" class="button-primary" value="Save Gemini API Key"></p>
+            <p class="submit"><input type="submit" class="button-primary" value="Save Groq API Key"></p>
         </form>
-
-        <hr style="margin:28px 0">
-        <h3>What Dukaan AI can do</h3>
-        <ul style="margin-left:20px;line-height:2;font-size:14px">
-            <li>Answer product questions in <strong>Urdu and English</strong> — auto-detects language</li>
-            <li>Tell customers exact prices, stock status, and sale prices from your WooCommerce catalogue</li>
-            <li>Explain delivery options, payment methods (JazzCash, EasyPaisa, CoD), and return policy</li>
-            <li>Detect and block prompt injection attacks (22 patterns, English + Urdu)</li>
-            <li>Rate limited to 20 messages per session per hour</li>
-            <li>Full chat history stored in <code>pkstore_chat_history</code> table for review</li>
-        </ul>
-
-        <h3 style="margin-top:20px">Free tier limits</h3>
-        <table class="widefat" style="max-width:500px">
-            <thead><tr><th>Limit</th><th>Value</th></tr></thead>
-            <tbody>
-                <tr><td>Requests per day</td><td><strong>1,500</strong></td></tr>
-                <tr><td>Requests per minute</td><td><strong>15</strong></td></tr>
-                <tr><td>Tokens per minute</td><td><strong>1,000,000</strong></td></tr>
-                <tr><td>Cost</td><td><strong>PKR 0 — completely free</strong></td></tr>
-            </tbody>
-        </table>
+        <h3>WhatsApp handoff</h3>
+        <p>Set the store WhatsApp number under Setup Wizard → General. Customers can use it when the AI key is missing, invalid, rate-limited, or the provider is temporarily unavailable.</p>
         <?php
     }
 
