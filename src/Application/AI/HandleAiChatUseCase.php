@@ -16,7 +16,7 @@ final class HandleAiChatUseCase {
         $hist=$this->chat->getHistory($uuid,self::HIST);
         $user=ChatMessage::user($m);
         $msgs=$this->budget(array_merge([$sys],$hist,[$user]));
-        $resp=$this->ai->chat(new ChatRequest($msgs,512,0.3,false,'gemini-1.5-flash'));
+        $resp=$this->ai->chat(new ChatRequest($msgs,512,0.3,false,'openai/gpt-oss-20b'));
         $this->chat->appendMessage($uuid,$user);
         $this->chat->appendMessage($uuid,ChatMessage::assistant($resp->content));
         return $resp;
