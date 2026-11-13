@@ -57,14 +57,21 @@ flowchart TB
 4. Urdu/English response is returned, including streaming response support where configured.
 
 ## Feature inventory (source-reviewed)
-- POS cashier sessions, sales, split payments, receipts, order history and offline queue sync.
-- Multi-location inventory, stock movements, purchase orders, low-stock tracking, barcode generation and WooCommerce stock sync.
-- WooCommerce catalogue, cart, checkout and physical/digital product support.
-- Dukaan AI Urdu/English chat, product-aware context, streaming and provider integration.
-- JazzCash, EasyPaisa and COD OTP verification code paths.
-- TCS, Leopards and Trax courier integration architecture.
-- Affiliate/referral registration, tracking, commissions and payout workflows.
-- Mailchimp and Klaviyo marketing integrations.
+
+The full capability list is maintained in [FEATURES.md](FEATURES.md). The repository source includes:
+
+- WordPress/WooCommerce platform bootstrap, service container, settings, licensing, feature entitlements, branding and admin surfaces.
+- POS sessions, sale processing, split payments, receipts/order history and offline queue synchronization.
+- Multi-location inventory, stock levels/movements, adjustments, suppliers, purchase orders, barcode labels and WooCommerce stock synchronization.
+- WooCommerce catalogue, cart, checkout, order metadata and payment/shipping registries.
+- Payment abstractions and JazzCash/ForeePay adapters; COD OTP send/verify, local/Twilio SMS providers and OTP audit. Existing project context also records an EasyPaisa path; production registration/activation must be separately confirmed.
+- Courier shipment/tracking/webhook abstractions and TCS, Leopards, Trax, PostEx and Rider adapters, plus city mapping, rates and circuit-breaker support.
+- Dukaan AI / Woo AI Sales Assistant plugin, product-context service, chat use case, OpenAI/Gemini bridges, Urdu/English response path and prompt-injection safeguards.
+- Affiliate registration, product submission, click tracking, commissions, payouts, admin pages and affiliate dashboard.
+- Facebook Pixel, GA4, QuickBooks, Mailchimp, Klaviyo, Daraz and WhatsApp integration services/hooks.
+- Database installers, operational logging and admin configuration.
+
+Provider adapters are source capabilities, not proof of live credentials, external account approval or production acceptance.
 
 ## Roadmap
 1. Tighten POS authorization to dedicated financial-operation capabilities and role checks.
