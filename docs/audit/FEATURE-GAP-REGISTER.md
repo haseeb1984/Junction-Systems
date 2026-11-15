@@ -90,6 +90,8 @@ For every feature, record: expected business behaviour confirmed by owner; UI/ad
 
 ## Owner verification queue — AI product catalogue
 
+**Owner decision recorded (15 Nov 2026):** The AI must search the full WooCommerce catalogue for relevant products, rather than being restricted to the plugin's 40 popular products or the theme's five keyword-matched results. Example confirmed by owner: for “wireless headphones under PKR 5,000”, search the catalogue and recommend relevant matching products. Implementation details (search/index strategy, pagination, stock and variation handling) remain subject to technical audit and further owner verification.
+
 Observed alternatives:
 - Theme AI searches a small set (up to five) using query keywords/category mapping and richer product fields.
 - Bundled plugin AI supplies up to 40 popular in-stock products as a catalogue list; simpler product fields but broader discovery coverage.
@@ -103,6 +105,7 @@ Questions to verify before architecture decision:
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
+- Owner confirmed full-catalogue product discovery as the required AI behaviour; recorded above.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
