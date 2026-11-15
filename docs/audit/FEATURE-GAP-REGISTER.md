@@ -96,6 +96,7 @@ For every feature, record: expected business behaviour confirmed by owner; UI/ad
 - The AI must support variable products and check the exact requested variant (for example, black shoes in size 42), including that variant's availability and price, before answering.
 - Product answers should include the product SKU, current sale price (where applicable), current stock availability and a direct product link, so customers can open the recommended item in the store.
 - For broad recommendation requests (for example, “suggest a good watch”), the AI may recommend popular products, but every recommendation must be grounded in actual WooCommerce catalogue records and current product data. It must not invent products, SKUs, prices, variants, stock claims or product URLs; if it cannot verify a detail, it must say so or ask a clarifying question.
+- Customer-facing stock display should default to a simple “In Stock” / “Out of Stock” status. Exact stock quantities may be shown only when the individual store owner explicitly enables customer-facing quantity disclosure.
 - Customer-facing stock display must use only the simple statuses “In Stock” or “Out of Stock”; do not disclose exact stock quantities.
 
 Implementation details (search/index strategy, pagination, variation resolution and stock accuracy) remain subject to technical audit.
