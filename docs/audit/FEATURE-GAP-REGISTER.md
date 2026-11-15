@@ -96,6 +96,7 @@ For every feature, record: expected business behaviour confirmed by owner; UI/ad
 - The AI must support variable products and check the exact requested variant (for example, black shoes in size 42), including that variant's availability and price, before answering.
 - Product answers should include the product SKU, current sale price (where applicable), current stock availability and a direct product link, so customers can open the recommended item in the store.
 - For broad recommendation requests (for example, “suggest a good watch”), the AI may recommend popular products, but every recommendation must be grounded in actual WooCommerce catalogue records and current product data. It must not invent products, SKUs, prices, variants, stock claims or product URLs; if it cannot verify a detail, it must say so or ask a clarifying question.
+- Customer-facing stock display must use only the simple statuses “In Stock” or “Out of Stock”; do not disclose exact stock quantities.
 
 Implementation details (search/index strategy, pagination, variation resolution and stock accuracy) remain subject to technical audit.
 
@@ -112,7 +113,7 @@ Questions to verify before architecture decision:
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner confirmed full-catalogue product discovery, exact variation availability/price checking, product answers containing SKU, current sale price, stock availability and a direct product link, and catalogue-grounded popular recommendations with no invented product details; recorded above.
+- Owner confirmed full-catalogue product discovery, exact variation availability/price checking, product answers containing SKU, current sale price, simple In Stock/Out of Stock status and a direct product link, catalogue-grounded popular recommendations with no invented product details, and no customer-facing exact stock quantities; recorded above.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
