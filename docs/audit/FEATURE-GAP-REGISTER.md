@@ -117,6 +117,20 @@ Questions to verify before architecture decision:
 3. Is the bundled plugin expected to be installed/activated on client stores, or is it only a source package intended for a future installer?
 4. Should the existing plugin widget remain the customer-facing chat, should the theme widget remain, or should we decide after feature-parity testing? No assumption is made yet.
 
+## Owner verification queue — order support
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI should provide a direct courier tracking link alongside order and shipment status when a valid tracking URL is available from the store/courier integration.
+
+**Proposed behaviour awaiting owner verification:**
+- Look up an order using an order number, then verify customer ownership before disclosing order-specific information.
+- Provide order status and payment status from WooCommerce.
+- Provide courier name, tracking number and current shipment status when available from the connected courier integration.
+- Provide delivery estimates only when supported by verified courier data; do not invent dates or shipment events.
+- Do not expose personal details such as address or phone number without appropriate verification.
+- Include a direct courier tracking link when the integration supplies a valid URL; otherwise explain that a direct link is unavailable.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
