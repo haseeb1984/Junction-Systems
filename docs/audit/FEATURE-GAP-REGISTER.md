@@ -99,6 +99,7 @@ For every feature, record: expected business behaviour confirmed by owner; UI/ad
 - Customer-facing stock display should default to a simple “In Stock” / “Out of Stock” status. Exact stock quantities may be shown only when the individual store owner explicitly enables customer-facing quantity disclosure.
 - If the requested product or exact variant is out of stock, the AI should offer similar available alternatives from the actual WooCommerce catalogue, verifying their current availability and relevant variant details before recommending them.
 - The AI must treat a customer's stated budget as a hard maximum by default: do not recommend products above it unless the customer explicitly asks to see higher-priced options. Apply the store currency and actual current product price when filtering.
+- The AI should respond in the customer's language and script where reasonably supported: for example, Roman Urdu questions receive Roman Urdu replies, Urdu questions receive Urdu-script replies, and English questions receive English replies. Product facts must remain grounded and must not be altered by translation.
 - Customer-facing stock display must use only the simple statuses “In Stock” or “Out of Stock”; do not disclose exact stock quantities.
 
 Implementation details (search/index strategy, pagination, variation resolution and stock accuracy) remain subject to technical audit.
