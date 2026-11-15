@@ -100,6 +100,7 @@ For every feature, record: expected business behaviour confirmed by owner; UI/ad
 - If the requested product or exact variant is out of stock, the AI should offer similar available alternatives from the actual WooCommerce catalogue, verifying their current availability and relevant variant details before recommending them.
 - The AI must treat a customer's stated budget as a hard maximum by default: do not recommend products above it unless the customer explicitly asks to see higher-priced options. Apply the store currency and actual current product price when filtering.
 - The AI should respond in the customer's language and script where reasonably supported: for example, Roman Urdu questions receive Roman Urdu replies, Urdu questions receive Urdu-script replies, and English questions receive English replies. Product facts must remain grounded and must not be altered by translation.
+- Within the same chat session, the AI should retain and apply prior customer preferences/context when a follow-up is clearly related (for example, preserve a stated budget when the customer next asks to see a different colour). It should not carry unrelated context into a new topic or make assumptions when the relationship is unclear; ask a brief clarifying question when needed.
 - Customer-facing stock display must use only the simple statuses “In Stock” or “Out of Stock”; do not disclose exact stock quantities.
 
 Implementation details (search/index strategy, pagination, variation resolution and stock accuracy) remain subject to technical audit.
