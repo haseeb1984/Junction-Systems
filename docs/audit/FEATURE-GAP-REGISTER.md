@@ -228,6 +228,25 @@ Questions to verify before architecture decision:
 - **Owner decision confirmed (16 Nov 2026):** The central panel must support package upgrades and downgrades for an individual client deployment. After the platform owner changes the package, the new package's feature entitlements/configuration should automatically propagate to that specific installation and take effect there.
 - Package changes must be deployment-scoped, authenticated, auditable and observable. The central panel should show propagation/application success or failure; on failure, it must not silently report the new package as active while the client still enforces old entitlements. Preserve data and settings for features that are temporarily disabled or removed by a downgrade unless a separately approved migration/data-retention policy says otherwise.
 
+## Owner-provided current package catalogue and pricing
+
+**Owner-provided package details recorded (16 Nov 2026):**
+
+The currently advertised plans are monthly subscriptions, with hosting, SSL, monthly backups, installation/integration setup, bug-fixing support and inventory-management support described as included. No setup fee; cancel anytime.
+
+| Plan | Advertised monthly price | Included features as supplied |
+|---|---:|---|
+| Basic | PKR 25,000/month | Hosting; free SSL; monthly backups; installation and integration setup; bug-fixing support; inventory-management support; JazzCash + EasyPaisa; TCS + Leopards + Trax; COD + SMS OTP; affiliate system; white-label branding; email support (48-hour response); Junction POS; inventory management; Dukaan AI Chat; WhatsApp Business API; QuickBooks / Daraz sync. |
+| Standard (Most Popular) | PKR 55,000/month | Everything in Basic; hosting; free SSL; monthly backups; installation and integration setup; bug-fixing support; inventory-management support; Junction POS (offline-first); inventory-management system; barcode generator + label printer; Dukaan AI chat (Urdu + English); Google Analytics 4; Facebook Pixel + CAPI; Mailchimp; WhatsApp support (24-hour response); PostEx + Rider.pk couriers; WhatsApp Business API; QuickBooks / Daraz sync. |
+| Enterprise | PKR 95,000/month | Everything in Standard; hosting; free SSL; monthly backups; installation and integration setup; bug-fixing support; inventory-management support; PostEx COD remittance; Rider.pk same-day delivery; WhatsApp Business API automation; QuickBooks Online sync; Daraz marketplace sync; Klaviyo email flows; multi-location inventory; Foree Pay card terminal; dedicated account manager; priority support (12-hour SLA). |
+
+- The supplied call-to-action for all three plans is `https://juncsys.com/#contact`; advertised terms are “No setup fee · Cancel anytime”.
+- Monthly pricing is the only currently supplied price schedule. Annual subscription availability, annual discount/pricing and whether yearly billing is offered now or planned remain unconfirmed; do not invent annual prices.
+- The plan list contains repeated foundational services and overlapping integration/features. Before implementing the entitlement matrix, normalize each feature into one canonical entitlement and confirm its tier availability, dependencies, support/SLA meaning and whether “Everything in [lower plan]” is intended to inherit all lower-tier entitlements.
+- In particular, Basic explicitly lists several integrations/features that are also repeated in Standard or Enterprise. Do not silently infer that repeated mentions are exclusive upgrades or remove them from lower tiers.
+- The advertised support response times (48-hour email, 24-hour WhatsApp and 12-hour Enterprise priority SLA) need precise definitions, business-hours/timezone rules, start/stop conditions and exclusions before they become enforceable SLAs.
+- “Hosting”, SSL, backup cadence/retention, storage/resource limits, restore support, inventory-management support and bug-fixing scope need operational definitions and capacity limits per plan before contracting or automation.
+
 ## Owner verification queue — client invoicing and payment history
 
 **Owner decision confirmed (16 Nov 2026):**
