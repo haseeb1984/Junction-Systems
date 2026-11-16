@@ -437,3 +437,45 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - The source pass surfaced malformed/fragile generated JavaScript in GA4 cart tracking; run JS syntax checks on all shipped modules and emitted inline scripts.
 - API integrations need contract tests against current provider sandbox/API versions; class construction and local method calls alone are insufficient.
 - Feature flag checks, license entitlement checks, role permissions, consent checks and per-cashier ownership must be treated as separate controls, not assumed to be interchangeable.
+
+
+### Focused source pass — courier operations, settings and dependency wiring
+
+**Review pass recorded (16 Nov 2026):** Inspected service-container bindings, setup wizard/settings storage, courier classes, WooCommerce shipping methods, QuickBooks and Daraz services. Static review only; provider sandboxes were not contacted.
+
+#### Courier and shipping
+
+1. TCS, Leopards and Trax WooCommerce shipping methods currently return fixed shipping costs (PKR 250, PKR 220 and PKR 210 respectively). They do not call the courier APIs or calculate a live destination/weight-based rate in their `calculate_shipping()` methods. Treat these as placeholder flat rates, not live courier quotations.
+2. `ShippingRegistry` registers all three methods unconditionally; the reviewed shipping-method classes do not check their matching feature flag or license entitlement.
+3. The automated booking circuit breaker is wired only to TCS, Leopards and Trax. Although PostEx and Rider classes are bound in the service container, they are not members of that circuit breaker and are not selected by the reviewed normal auto-booking path.
+4. PostEx class has a shipment-create call and a COD-remittance retrieval call, but no remittance reconciliation/settlement matching, scheduled retrieval, admin reconciliation screen or retry workflow was demonstrated.
+5. Rider class has a shipment-create call and a hard-coded four-city same-day list. It uses a default 1kg parcel weight and a fixed “Same day” fallback estimate. No Rider webhook/tracking implementation or configuration tab was found in the reviewed setup wizard.
+6. The setup wizard exposes JazzCash, EasyPaisa, TCS, Leopards, Trax, SMS and AI tabs, but does not expose PostEx, Rider, Foree, QuickBooks, Daraz, Mailchimp, Klaviyo, GA4, Meta CAPI, WhatsApp Business API or multi-location configuration in the reviewed tabs. Some values may be configurable elsewhere, but an end-to-end client setup path is not demonstrated.
+7. Courier tracking controller accepts a tracking number and queries only TCS, Leopards and Trax. No PostEx/Rider tracking resolver is wired into this endpoint.
+8. Webhook handling and booking need a full provider-by-provider contract pass: signature canonicalization, IP allowlist source, replay protection, duplicate events, status transition ordering, tracking-number uniqueness and reconciliation with WooCommerce orders.
+9. The circuit breaker returns a successful-looking pending shipment result after all courier attempts fail, and schedules a retry. This is an intentional resilience pattern in source, but the retry callback argument shape and customer/admin status visibility must be verified so “pending booking” is never presented as a confirmed shipment.
+
+#### Settings, secrets and dependency configuration
+
+1. `SettingsManager` supports environment variables, encrypted options and plain options. Sensitive values are encrypted with AES-256-CBC using a key derived from WordPress `AUTH_KEY` and site URL; unlike authenticated encryption, CBC alone does not provide ciphertext integrity. Review migration, key rotation, tamper detection and backup/restore behaviour.
+2. Setup Wizard's AI section stores a Gemini API key, while the actual bound AI provider is `OpenAiBridge`; the bundled plugin uses a separate Groq key option. This confirms three competing provider configuration paths (Gemini theme setting, OpenAI bridge and Groq plugin setting) that need a single owner-approved provisioning model.
+3. Settings wizard's setup-completion calculation checks only JazzCash merchant credentials and TCS credentials, despite the wizard presenting many other sections. A “complete” indicator therefore does not establish that a client deployment is operational.
+4. The setup wizard allows a `tab` query parameter and renders a generic no-settings message for unknown tabs; no major issue by itself, but the settings inventory is incomplete compared with advertised packages.
+5. Service container binds PostEx and Rider classes, but does not wire them into the active courier failover path. It binds QuickBooks/Daraz/marketing/analytics services; their registration is gated by local feature flags, not central licensing.
+6. Service container binds EasyPaisa gateway class, but the repository tree does not contain the referenced class file. A separate autoload/class existence check is required before treating EasyPaisa as functional.
+7. The setup and configuration paths must be assessed against the owner's deployment model: platform owner controls licensed features, AI provider/model credentials and deployment settings, while store owner controls business-specific settings. The current local `manage_options` settings/feature pages do not enforce this division.
+
+#### Accounting and marketplace sync
+
+1. QuickBooks service uses a cached OAuth access token and refresh token, but no visible OAuth authorization-code connection/onboarding flow was found in the inspected settings wizard. It posts sales receipts using hard-coded QuickBooks ItemRef, CustomerRef and account-independent assumptions; product/customer mapping and tax/currency handling are not implemented in the reviewed method.
+2. QuickBooks sync is triggered on WooCommerce payment complete and uses an order meta marker for basic duplicate prevention. Failure retry, token-refresh concurrency, void/refund sync, inventory sync, multi-currency and error dashboard are not demonstrated.
+3. Daraz product push reads at most 100 WooCommerce products, sends a generic brand and hard-coded package dimensions/weight, and constructs an XML request from product data. It does not demonstrate full-catalogue pagination, variable-product/SKU mapping or robust XML escaping.
+4. Daraz order import checks duplicate marketplace order ID, then creates a WooCommerce order with basic billing details. The inspected method does not create WooCommerce line items, map marketplace SKUs to store products, reconcile totals/payment/shipping, or implement fulfillment/status updates.
+5. “QuickBooks Online sync” and “Daraz marketplace sync” are therefore partial connector code paths, not proven bidirectional/production-grade synchronization.
+
+#### Release/runtime quality gate
+
+- Run `php -l` over all PHP source files and `node --check`/equivalent over ES modules and generated inline scripts before any deployment. This is especially important because the source review already identified likely parse/syntax and emitted-JavaScript defects.
+- Verify every class imported or referenced by bootstrap/service bindings exists and is autoloadable, including EasyPaisa and license exception classes.
+- Create a clean WordPress 6.4+/WooCommerce 8+ test site using PHP 8.2+ and run activation, upgrade, theme switch, checkout, order status, gateway callbacks, shipping, inventory, POS, affiliate, admin permissions and uninstall/backup restore tests.
+- Test actual client hosting constraints (shared hosting, cron reliability, Action Scheduler, PHP extensions, outbound HTTP, memory/time limits, SSL and backup restoration); source code cannot prove the advertised hosting/backup/support service.
