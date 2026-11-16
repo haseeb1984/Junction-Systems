@@ -640,3 +640,41 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 3. The tree has no visible dependency lockfile or reproducible asset build manifest. Confirm whether all shipped JavaScript/CSS is source-ready and whether any generated/vendor assets are expected to be produced outside this repository.
 4. The next verification gate must run against a clean checkout of the exact release commit: PHP lint over every PHP file, JS syntax checks, static class/file reference scan, clean WordPress/WooCommerce install, theme switch/upgrade, plugin activation/deactivation/uninstall, backup restore and the owner-approved feature/role matrix. These tests have not yet been run.
 
+
+
+### Focused source pass — payment/courier/feature entitlement enforcement
+
+**Review pass recorded (16 Nov 2026):** Compared the 22 declared feature flags with theme bootstrap registration, WooCommerce gateway/shipping registries, REST controllers, admin screens and the license manager. Static source review only.
+
+#### Payment feature flags and gateway wiring
+
+1. `GatewayRegistry` unconditionally appends JazzCash and EasyPaisa classes to WooCommerce. It does not check `payment_jazzcash` or `payment_easypaisa`, and does not invoke the license manager. Disabling either package flag therefore does not reliably remove/block that gateway.
+2. The registry references `PkStore\\Infrastructure\\Payment\\EasyPaisaGateway`, but the recursive `main` tree contains no corresponding PHP file/class. The service configuration imports the same missing class. This is a concrete autoload/runtime blocker when the class is resolved.
+3. Foree Pay has a feature flag and a gateway implementation under `Payment/Foree/ForeePayGateway.php`, but `GatewayRegistry` never registers it. The package flag cannot enable the advertised payment method through the inspected normal registration path.
+4. JazzCash gateway callback returns HTTP 200/“OK” when required fields are missing or the secure hash is invalid. That can suppress provider retries and hide rejected/invalid callback events from monitoring; log and alert securely while returning provider-appropriate failure semantics.
+5. Foree callback trusts query-string `status=SUCCESS` and caller-supplied `order_id` to call `payment_complete()`. The inspected callback does not verify a provider signature, fetch authoritative transaction status server-to-server, validate amount/currency/session binding, or enforce idempotency. A forged callback could mark an order paid.
+6. JazzCash callback verifies an HMAC but does not visibly compare callback amount/currency/order transaction reference against the WooCommerce order and initiated transaction record, nor does it show an idempotency guard for repeated successful callbacks. Verify provider canonical signing rules and reconcile exact transaction fields in sandbox.
+7. JazzCash hardcodes transaction currency PKR and has no explicit store-currency guard. Confirm supported store currencies and fail closed for unsupported currency rather than sending a mismatched amount/currency.
+
+#### Courier feature flags and operational paths
+
+1. `ShippingRegistry` unconditionally registers TCS, Leopards and Trax shipping methods; it does not consult `courier_tcs`, `courier_leopards` or `courier_trax` or central license entitlements.
+2. The normal courier circuit breaker is constructed with TCS, Leopards and Trax only. PostEx and Rider are bound in the service container but are not included in this booking path. Their declared feature flags do not make them operationally available through the inspected default checkout/auto-booking workflow.
+3. The tracking controller and tracking sync cron are registered as core/unconditional paths. Provider-specific entitlement checks and licensed access checks are not established at the tracking lookup, cron, retry and webhook boundaries.
+4. Courier webhook handler is registered unconditionally, while the WhatsApp webhook is registered only when its integration flag is enabled. The courier path must verify both the exact courier entitlement and provider authentication for each incoming event.
+5. Digital-only checkout removes COD, but payment gateway availability and courier method availability are separate concerns; verify that disabled gateways/couriers are removed server-side and cannot be invoked through direct callbacks/API paths.
+
+#### Feature enforcement architecture
+
+1. A source-wide search of the reviewed core wiring shows the `pkstore_require_feature` hook being registered in the bootstrapper, but the feature modules/controllers inspected do not consistently call this hook or `LicenseManager::requireFeature()` at their sensitive entry points. The existence of the hook does not establish enforcement.
+2. The current license manager returns feature names from a remote cached payload, while the local `FeatureManager` separately loads editable `pkstore_features` options. No verified single authoritative entitlement resolver was found that intersects central license entitlements with local operational flags and fails closed on stale/invalid sync.
+3. Some flags are currently misleading or non-operative in the inspected wiring: `payment_foree` does not register Foree; `courier_postex` and `courier_rider` are not in the active circuit breaker; individual courier/payment flags are not applied in their registries; `multi_location` enforcement was not established in POS/inventory resource access; `barcode_labels` page registration was previously found without its flag check.
+4. Admin capability checks (`manage_options`, `manage_woocommerce`, `edit_posts`) are local WordPress permissions, not proof of a Junction platform-owner identity. Central entitlement changes must be delivered through authenticated, signed, replay-resistant server-side configuration, not by trusting local admin form values.
+5. The platform must distinguish three states for each feature: package entitlement (central owner decision), installation activation/configuration (credentials and setup complete), and runtime health (provider reachable/working). A feature being licensed does not mean configured or healthy; a local toggle must not grant a feature absent a valid central entitlement.
+
+#### Required verification before any implementation
+
+- Build a canonical matrix mapping every advertised package feature to its feature flag, class, registration path, REST/AJAX/admin/cron/webhook entry points, external credentials, dependencies, license check and runtime health indicator.
+- Test both directions for every feature: disabled must fail closed on UI and direct server requests; enabled but unconfigured must show actionable setup state without claiming operational success.
+- Payment gateway sandbox tests must cover valid/invalid/duplicate callbacks, wrong order/amount/currency/session, replay, timeout and provider-side pending/failed states.
+- Courier tests must cover disabled provider direct booking/webhook/tracking, unsuccessful DTO failover, timeout, duplicate and out-of-order webhooks, pending vs booked state and operator retry.
