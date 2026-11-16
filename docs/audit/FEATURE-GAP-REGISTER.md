@@ -11,7 +11,18 @@
 - No merge or deployment without explicit approval.
 - Existing functionality is presumed intentional until verified otherwise.
 - The bundled WooCommerce AI Sales Assistant must be assessed as a possible source of WooCommerce product catalogue context; do not label it redundant merely because the theme has a separate chat implementation.
+- Deployment model: separate licensed installation per customer, vendor-deployed on vendor hosting; one store owner per installation at a time. This is not a shared multi-tenant SaaS model.
 - Store owners supply their own Groq API keys. Junction Systems is not responsible for central Groq billing or central provider quota. Per-store credential protection and provider error handling remain in scope.
+
+## Owner-confirmed deployment and licensing model
+
+**Owner clarification recorded (16 Nov 2026):**
+
+- Junction Systems is not intended to operate as a shared multi-tenant SaaS installation.
+- Each licensed customer receives a separate copy/installation of Junction Systems, deployed by the vendor on the vendor's hosting infrastructure (including shared hosting).
+- Each installation is used by one store owner at a time. Its WooCommerce store, settings, Groq BYO API key, AI configuration, customer records and chat history belong to that installation.
+- Customer data and credentials must remain isolated between separate installations. No cross-installation customer-data access or shared store configuration is intended.
+- Audit architecture, licensing, backups, updates, secrets management, support access and resource limits against this per-customer deployment model. Do not introduce multi-tenant assumptions or infrastructure without owner approval.
 
 ## Repository inventory
 
@@ -214,7 +225,7 @@ Questions to verify before architecture decision:
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, abuse-prevention, customer-data privacy, and chat-history sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, proportionate abuse detection, minimum-necessary customer data, server-side ownership/access checks, and permissioned/auditable chat-history access with retention controls.
+- Owner-confirmed deployment model: one separately licensed, vendor-deployed installation per customer on vendor hosting; one store owner per installation at a time. This is not a shared multi-tenant SaaS deployment. AI feature decisions are recorded in the owner-verification sections above.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
