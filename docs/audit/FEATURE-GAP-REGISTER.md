@@ -12,7 +12,7 @@
 - Existing functionality is presumed intentional until verified otherwise.
 - The bundled WooCommerce AI Sales Assistant must be assessed as a possible source of WooCommerce product catalogue context; do not label it redundant merely because the theme has a separate chat implementation.
 - Deployment model: separate licensed installation per customer, vendor-deployed on vendor hosting; one store owner per installation at a time. This is not a shared multi-tenant SaaS model.
-- Store owners supply their own Groq API keys. Junction Systems is not responsible for central Groq billing or central provider quota. Per-store credential protection and provider error handling remain in scope.
+- Groq credentials are configured per customer deployment as a package-controlled key pool: the customer supplies multiple Groq API keys and Junction Systems configures/stores the allowed number for that package. Keys are rotated automatically when an active key reaches a provider quota/rate limit or becomes unavailable. Junction Systems is not responsible for central Groq billing or central provider quota. Per-key credential protection, usage tracking and safe rotation remain in scope.
 
 ## Owner-confirmed deployment and licensing model
 
@@ -1110,3 +1110,37 @@ The owner clarified that some licensing code may already exist but the complete 
 - For the separate-install deployment model, customer records must remain within that client's isolated database/storage/backup namespace. Support access must be explicitly authorized, time-bounded and audited.
 - No formal breach-response, subject-access request, correction/export, consent record, data-processing agreement or subprocessor inventory was established in the reviewed source. These require product/operations policy and legal review; do not claim compliance based on code inspection.
 
+
+
+## Owner-requested requirement — package-based Groq API key pool and automatic rotation (2026-11-16)
+
+**Owner direction recorded:**
+
+- A customer may have multiple Groq API keys configured simultaneously in their own Junction Systems installation.
+- The maximum number of keys allowed/configured is determined by the purchased package. Exact per-package key counts are not yet specified and must be added to the canonical entitlement matrix.
+- The customer supplies the keys and has Junction Systems configure/store them for that deployment. This is a per-customer key pool, not a shared vendor-wide Groq key pool.
+- When the currently selected key reaches its applicable provider limit, receives a rate-limit response, or is otherwise temporarily unavailable, the system should automatically select the next eligible key. The customer should not need to switch keys manually.
+- Keys and usage state must remain isolated per deployment. Never share keys, quota state, conversation data or provider credentials across customers.
+
+**Required technical behaviour / safeguards:**
+
+- Store each key as an individually encrypted secret; never return full key values to browser/admin responses after save, never include them in logs, exports, diagnostics or support messages. Show only a masked fingerprint/label.
+- Track per-key state: active/available, cooldown, invalid/revoked, exhausted/limited, last-used time, last error and provider usage/reset metadata where available.
+- Prefer provider response headers and documented model/account quota signals over guessed fixed request counts. Groq limits can vary by model and account; do not assume one universal quota.
+- Handle HTTP 429 and provider quota-exhaustion errors by recording the relevant reset/cooldown time and trying another eligible key. Distinguish quota exhaustion from invalid credentials, billing/account restrictions, model-not-found, network outage and generic provider errors.
+- Do not permanently discard a key for a transient network failure. Invalid/revoked credentials should be marked for owner attention rather than endlessly retried.
+- Use concurrency-safe key selection/usage accounting so parallel chat requests do not all select the same exhausted key. Avoid a tight retry loop; bound attempts to at most one pass through eligible keys per request (or another explicitly tested bounded policy).
+- If every configured key is unavailable, return a clear temporary-unavailable response and follow the existing human-support fallback policy; do not silently claim an AI answer was generated.
+- Preserve model compatibility per key/account and per package. A key rotation must not mask a model access/retirement error by repeatedly retrying the same unsupported model.
+- Platform owner controls package entitlement and maximum pool size; local store users must not self-enable a larger licensed pool. Authorized customer-side credential entry/configuration workflow and whether Junction staff perform initial setup remain to be finalized.
+- Audit key add/replace/remove actions, package-limit enforcement, rotation decisions and provider failures without recording secret values.
+- Test simultaneous requests, all-keys-exhausted, reset/cooldown recovery, invalid key, key revocation, provider outage, model-specific limits, package downgrade, key replacement, deployment restore and isolation between two customer installations.
+
+**Open owner decisions:**
+
+1. Exact maximum simultaneous keys for Basic, Standard and Enterprise.
+2. Whether the store owner can add/replace keys in a restricted settings screen, or must request Junction Systems staff to configure them.
+3. Whether keys are customer-owned BYO credentials in all cases and whether Junction staff ever supply/own a key. No central shared key or vendor-paid quota is assumed.
+4. Whether key-pool usage/health is visible to the store owner, platform owner, or both (secret values remain masked).
+
+**Current source status:** The existing AI implementations have separate provider settings and do not establish a package-entitled multi-key pool, concurrency-safe quota tracking or automatic key rotation. Treat this as a new requirement pending implementation and verification; do not claim it already exists.
