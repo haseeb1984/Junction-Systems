@@ -174,10 +174,18 @@ Questions to verify before architecture decision:
 - Where the status is unresolved or the customer needs help, the AI should direct the customer to the configured human support channel and provide a concise, relevant handoff context with the customer's awareness/consent.
 - The AI must not initiate a duplicate charge or tell the customer that another charge has been made. Any retry must follow the payment provider's supported flow and require the customer's own action/confirmation.
 
+## Owner verification queue — COD OTP verification
+
+**Owner decision recorded (16 Nov 2026):**
+
+- Cash on Delivery orders must follow the configured OTP verification requirement before they are treated as verified/confirmed.
+- The AI must not bypass the OTP requirement, generate or disclose OTPs, or independently mark an OTP as verified.
+- OTP validation must be performed by the trusted OTP verification flow and its authoritative result. If OTP delivery or verification fails, the AI should explain the verified state and route the customer to the configured support process rather than bypassing the control.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification, and payment failure sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, explicit customer confirmation before order submission, and no unsupported payment-success/failure or duplicate-charge claims.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, and COD OTP sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, explicit customer confirmation before order submission, no unsupported payment claims or duplicate charges, and no AI bypass of COD OTP verification.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
