@@ -1138,9 +1138,18 @@ The owner clarified that some licensing code may already exist but the complete 
 
 **Open owner decisions:**
 
-1. Exact maximum simultaneous keys for Basic, Standard and Enterprise.
+1. **Resolved (16 Nov 2026):** Maximum simultaneous keys are configurable by the Junction platform owner for each package in the central admin panel; no fixed counts are hard-coded. The platform owner can also set a per-customer override above or below the package default. The effective limit is enforced by the deployment from verified central entitlements; store owners cannot increase it themselves.
 2. Whether the store owner can add/replace keys in a restricted settings screen, or must request Junction Systems staff to configure them.
 3. Whether keys are customer-owned BYO credentials in all cases and whether Junction staff ever supply/own a key. No central shared key or vendor-paid quota is assumed.
 4. Whether key-pool usage/health is visible to the store owner, platform owner, or both (secret values remain masked).
 
 **Current source status:** The existing AI implementations have separate provider settings and do not establish a package-entitled multi-key pool, concurrency-safe quota tracking or automatic key rotation. Treat this as a new requirement pending implementation and verification; do not claim it already exists.
+
+
+### Owner clarification — configurable package key limits and per-customer overrides (2026-11-16)
+
+- Groq key-pool maximums must be editable by the Junction platform owner for every package (Basic, Standard, Enterprise and future packages) from the central admin panel. Do not hard-code key counts in application code.
+- Platform owner may set an individual deployment/customer override above or below its package default. The effective key limit is the centrally authorized value for that deployment.
+- Central package defaults and individual overrides are commercial entitlements. The deployment must enforce the latest verified, signed entitlement server-side for key-add, key-replace and key-use operations; a local WordPress administrator/store owner must not be able to raise the limit by changing local options or API requests.
+- Define precedence explicitly: individual deployment override when present; otherwise current package default. If a downgrade lowers the limit below the number of already stored keys, do not silently delete credentials or disrupt data. Platform owner must choose which keys remain enabled or mark excess keys inactive until the count is within entitlement. Do not use excess keys for rotation.
+- Entitlement changes must be revisioned, audited and synchronized safely; expose effective limit and sync status without exposing secrets.
