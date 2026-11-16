@@ -191,10 +191,20 @@ Questions to verify before architecture decision:
 - Rate limits and abuse controls must be enforced server-side; client-generated identifiers alone are not sufficient.
 - Record relevant security events without unnecessarily retaining or exposing sensitive customer data. False positives and recovery/support handling must be included in testing.
 
+## Owner verification queue — customer data privacy and access control
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI should access only the minimum customer/order data necessary to answer the current request or complete an explicitly authorized support workflow.
+- It must never disclose another customer's orders, phone number, address, payment details or other personal information.
+- Order-specific information and personal data must be disclosed only after an appropriate, server-side customer ownership/identity verification step. A supplied order number alone is not sufficient proof of ownership.
+- Conversation context sent to a human-support handoff must be limited to relevant information, with customer awareness/consent; unrelated history and sensitive data must not be included.
+- Access controls must be enforced server-side, not merely hidden in the frontend or delegated to AI prompt instructions. Audit and test for cross-customer data leakage and unauthorized direct API access.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, and abuse-prevention sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, and proportionate abuse detection without automatically blocking genuine customers.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, abuse-prevention, and customer-data privacy sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, proportionate abuse detection, and minimum-necessary customer data with server-side ownership/access checks.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
