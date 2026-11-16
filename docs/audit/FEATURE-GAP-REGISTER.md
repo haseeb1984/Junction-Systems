@@ -303,6 +303,87 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - Chat records should be protected in storage and transit, and access to customer conversations should be auditable. Avoid exposing unrelated customer conversations or sensitive data in admin views, exports or support handoffs.
 - The customer-facing privacy notice should explain that chats may be stored and reviewed by authorized store support staff.
 
+## Deep source audit — architecture and confirmed code-level findings
+
+**Review pass recorded (16 Nov 2026):** Re-read the current `main` tree and inspected bootstrap, dependency wiring, feature registry, licensing, settings, database installers, REST controllers, payment/courier integrations, AI flows, POS/inventory, WhatsApp hooks and admin setup. This is static source inspection only; findings below require runtime verification before any repair.
+
+### Repository identity and architecture
+
+- Private repository: `haseeb1984/Junction-Systems`; default branch: `main`.
+- Reviewed `main` baseline/tree: commit `38b6eee00d92b5a7240c62fb3e8d06a3f80c3c4b`; recursive tree contains 197 tracked files.
+- The code is a WordPress/WooCommerce theme (theme header/readme identify PK Store Theme v1.0.1), written in PHP with ES modules and custom CSS. Minimum stated requirements: WordPress 6.4+, WooCommerce 8.0+, PHP 8.2+.
+- Main bootstrap: `functions.php` → PSR-style custom autoloader → `config/services.php` singleton service container → `ThemeBootstrapper`. Theme activation runs the custom database installer and registers custom WooCommerce order statuses.
+- Major bounded areas present in source: payment gateways, COD OTP/SMS, courier booking/tracking/webhooks, AI chat, affiliate, inventory, POS, barcode, analytics, WhatsApp, email marketing, QuickBooks, Daraz, branding, feature flags and license classes.
+- This is a single-store WordPress/WooCommerce installation per customer, not a multi-tenant application. The central multi-deployment control plane requested by the owner is not present as a complete module in the inspected source tree.
+
+### High-priority findings — bootstrap, feature flags and licensing
+
+1. **Bootstrap property mismatch:** `ThemeBootstrapper` stores the service container as `$this->c`, but the `pkstore_require_feature` callback accesses `$this->container`. If that action is invoked, it will fail. The callback also appears to be the only visible bridge to `LicenseManager::requireFeature()`.
+2. **Feature flags are local options, not central entitlements:** `FeatureManager` reads/writes `pkstore_features` in the individual WordPress database. Its settings screen allows a local `manage_options` user to enable/disable features. There is no observed signed central entitlement sync or platform-owner-only enforcement.
+3. **License manager is not wired into normal bootstrap:** `LicenseManager` and `LicenseAdminUI` exist, but the inspected `functions.php`, service bindings and `ThemeBootstrapper` do not instantiate/register the license UI or bind the manager. The feature callback is not connected to the normal route/controller registration paths.
+4. **Feature/entitlement enforcement is incomplete:** `ThemeBootstrapper` conditionally registers some modules using local feature flags, but several registries are unconditional; e.g. payment gateway and shipping method registration does not filter individual methods by feature. The visible admin settings can be changed locally.
+5. **License implementation appears incomplete/inconsistent:** `LicenseManager` imports `LicenseExpiredException`, `LicenseDomainMismatch`, `LicenseInvalidException` and `LicenseFeatureNotAvailable`, but the recursive `main` tree contains only `src/License/Exception/LicenseException.php`; the imported sibling exception classes were not found. Its remote URL is `license.junctionsystems.pk/api/validate`, product identifier is `pk-store`, and the key/cache are stored locally. No matching central billing/invoice/payment control-plane implementation was found in the inspected tree.
+6. **License cache/grace semantics need review:** local cache is accepted for 24 hours; offline grace starts when remote validation fails and lasts 7 days. This is an offline validation grace, not the owner's separately confirmed 7-day payment-overdue grace. These must not be conflated.
+7. **Tier matrix mismatch:** `LicenseFeatures::BY_TIER` assigns Basic/Standard/Enterprise feature lists, but it does not match all owner-supplied public plan details or the 22-key `FeatureManager` registry. Several feature slugs differ between the two systems (for example `jazzcash_payment` vs `payment_jazzcash`, `dukaan_ai` vs `ai_chat`, and `inventory_management` vs `inventory`). No complete mapping/enforcement bridge was observed.
+8. **Activation lifecycle:** `functions.php` uses `after_switch_theme` for database setup; no `register_activation_hook` exists in the theme (expected for a theme), and no upgrade-version migration runner was observed in the inspected bootstrap. Installer writes DB version `2.0.0`, but migration execution/version comparison needs a dedicated audit.
+9. **License UI exposes the decrypted full license key** in the client WordPress admin page. Confirm intended client visibility and mask/reveal policy.
+10. **License remote protocol/security:** HMAC uses a per-install option key, but the inspected code has no visible request nonce/anti-replay timestamp, key rotation protocol or central webhook/push channel. Review server-side counterpart before designing the platform control plane.
+
+### High-priority findings — payments and logistics
+
+1. `GatewayRegistry` unconditionally registers both `JazzCashGateway` and `EasyPaisaGateway`, but the recursive tree does not contain `src/Infrastructure/Payment/EasyPaisaGateway.php`. This is a likely class-loading/runtime failure when WooCommerce initializes the registered gateway. Verify in a WooCommerce runtime.
+2. `ForeePayGateway` exists, but it is not registered by the inspected `GatewayRegistry`; no Foree setup fields were present in the inspected `SettingsManager` sections. The public Enterprise promise of Foree Pay is therefore not demonstrated end-to-end.
+3. JazzCash callback verifies HMAC before calling `payment_complete`, but returns HTTP 200 even for missing/invalid signatures; transaction/order amount, currency and replay/idempotency checks need deeper review.
+4. Foree callback trusts query-string `status=SUCCESS` and `order_id` to call `payment_complete`; no signed callback verification or server-to-server transaction verification was observed. Treat as critical payment-integrity risk until verified.
+5. `ShippingRegistry` unconditionally registers TCS, Leopards and Trax shipping methods. Feature-specific flags are not applied in this registry.
+6. The circuit-breaker booking path is constructed with TCS, Leopards and Trax only. PostEx and Rider classes exist but are not wired into this circuit breaker in the inspected service configuration. No Rider courier implementation was found in the tree.
+7. PostEx class supports booking and COD remittance retrieval, but no complete booking hooks, configuration UI, remittance reconciliation workflow or automated schedule was demonstrated in the inspected paths.
+8. Courier webhook routes are public by design, but must authenticate every request. TCS/Trax attempt HMAC validation; Leopards uses a hard-coded source-IP allowlist. The common handler returns HTTP 200 even when signature validation fails, obscuring rejected delivery attempts and retry diagnosis.
+9. `ShippingRegistry::autoBookShipment` schedules `pkstore_retry_courier_booking` with argument key `order_id`, while the bootstrap callback shown accepts an integer positional argument. Verify Action Scheduler argument compatibility; retry flow may receive an array rather than the expected integer.
+10. Courier retry/idempotency, COD remittance matching, cancellation, rate quotes, label retrieval and tracking URL generation need integration-level tests with sandbox credentials. Do not treat class existence as proof of production integration.
+
+### High-priority findings — AI and customer experience
+
+1. The theme AI service binding points to `OpenAiBridge`, while the use case hard-codes model `gemini-1.5-flash`; the setup wizard exposes a Gemini API key. This provider/model/key mismatch prevents a coherent configured provider flow.
+2. `functions.php` says Dukaan AI is now handled by the bundled WooCommerce AI Sales Assistant plugin, while the theme still contains its own AI controller, routes, product context, chat table and storefront widget. The two implementations are independent and can conflict or duplicate the widget.
+3. The bundled plugin is not installed/activated by virtue of being in the theme ZIP. The admin notice links to the generic WordPress plugin installer; no bundled plugin installer/updater was observed.
+4. Theme product retrieval is capped at five keyword/category matches and does not resolve variable-product variants explicitly. Plugin context is capped at 40 popular in-stock products, omits exact variation detail, and caches for 10 minutes. Neither path meets the owner's full-catalogue/exact-variant requirement yet.
+5. Theme store metadata hardcodes PKR, COD, nationwide coverage, 2–5 business days and a return policy. Plugin prompt hardcodes free delivery threshold, same-day cities and 7-day returns. These are not safely grounded in each store's actual settings.
+6. Plugin Groq model IDs are hard-coded in the plugin constants and need current provider/model compatibility verification. Plugin API key is stored in the regular `woo_ai_settings` option; it is not encrypted by the plugin.
+7. Theme chat rate limit keys off a client-provided session UUID, which can be regenerated; plugin IP detection trusts forwarded headers unless proxy trust is constrained, and counters use non-atomic transient read/modify/write. Both need server-side abuse controls and trusted proxy handling.
+8. Theme chat history is persisted by session UUID. Ownership/authentication binding, retention/deletion and admin review controls need verification before production use. Customer consent/notice and minimal handoff data are not yet fully implemented.
+9. Plugin human WhatsApp button and AI handoff are separate from the theme's AI flow. The plugin uses a fallback hard-coded WhatsApp number if no configured number exists. This conflicts with the requirement to use a verified store-specific destination only.
+10. WhatsApp Business API inbound handler currently logs request JSON only; it does not process messages. GET verification code exists inside a route registered as POST-only, so Meta's GET verification challenge cannot reach that branch. Signature validation for inbound POST webhook was not observed.
+11. The theme stream endpoint catches all errors and emits only `[DONE]`, so customers receive no structured failure/handoff message for provider/network errors.
+
+### High-priority findings — inventory, POS, OTP, affiliate and security
+
+1. Database installer creates OTP, logistics, chat, city mapping, affiliate and inventory tables on theme switch. It does not demonstrate a versioned migration/rollback strategy; DB schema changes on existing deployments need explicit upgrade handling.
+2. Inventory/POS use separate custom tables and repositories. WooCommerce stock synchronization is implemented as a use case, but verify hook registration, product mapping, variable-product stock behaviour, concurrency/atomicity and reconciliation before claiming reliable two-way sync.
+3. POS REST routes accept users with `manage_woocommerce OR edit_posts`; several session/order handlers do not visibly verify that the requested session belongs to the current cashier or that location access is authorized. This is a potential privilege boundary issue.
+4. POS sale accepts client-supplied unit price/discount values (the use case falls back to product price but accepts posted override); server-side price authority, discount permissions, quantity validation, idempotency and offline queue conflict handling need audit.
+5. Inventory REST routes are restricted to `manage_woocommerce`, but feature licensing/entitlement is not checked in those handlers. Product create, stock adjustment and location actions require deeper validation of quantities, movement types and ownership.
+6. COD OTP endpoints use a public storefront nonce as their permission check and accept phone/order ID from the request. Review order existence, order/payment method, phone-to-order matching, order ownership, resend limits, IP/device controls and whether OTP verification is mandatory before order confirmation. A nonce is not customer identity verification.
+7. Affiliate product listing is public and returns submitted product data/redirect links. Affiliate registration requires login; commission/payout state transitions and admin approvals need end-to-end review. Verify that commission creation is idempotent and tied to eligible paid orders.
+8. Security hardener restricts anonymous REST access to broad path prefixes `/wc/` and `/wp/v2/`, potentially affecting WooCommerce Store API, blocks, webhooks and plugins. Compatibility matrix/runtime tests required.
+9. Login brute-force counters use remote address directly; reverse-proxy trust, shared-IP false positives, atomic increments and recovery controls need review.
+10. Several user-facing outputs and integration logs contain customer phone/order/product details. Review log redaction, retention, access controls and export handling.
+
+### Marketing package claims versus source implementation — first-pass mismatch register
+
+- Basic advertises JazzCash + EasyPaisa, but EasyPaisa gateway class was not found in the current source tree; Basic also advertises Dukaan AI and WhatsApp Business API while current feature defaults/configuration and separate AI implementations need reconciliation.
+- Standard advertises offline-first Junction POS, barcode labels, GA4, Facebook Pixel + CAPI, Mailchimp, PostEx and Rider.pk. POS and barcode source exists; GA4/Facebook/Mailchimp/PostEx classes exist; Rider implementation was not found. End-to-end offline-first behaviour, CAPI server events and integration hooks remain unproven.
+- Enterprise advertises PostEx COD remittance, Rider same-day delivery, WhatsApp automation, QuickBooks Online, Daraz, Klaviyo, multi-location inventory and Foree Pay. Some corresponding classes exist, but the Rider implementation is absent, Foree is not registered, PostEx remittance is only a fetch method in the inspected class, and multi-location enforcement/sync is not proven.
+- “Hosting, SSL, monthly backups, installation, bug fixing and inventory support” are operational services and cannot be verified from the theme source alone. They need deployment/hosting/backup/support runbooks and central operations evidence.
+- These are preliminary evidence-based mismatches, not permission to remove or disable any feature.
+
+### Audit limits and next review passes
+
+- This pass reviewed source text and the full tracked-file inventory; it did not execute PHP, WordPress, WooCommerce, browser flows, external payment/courier sandboxes or production webhooks.
+- Continue with focused review of every domain: payment gateways and callbacks; courier API payloads and webhook signatures; OTP repository/use cases; inventory schema/repositories; POS offline queue and cashier permissions; affiliate commission/payout lifecycle; integration services (GA4, Meta CAPI, Mailchimp, Klaviyo, QuickBooks, Daraz); admin templates and JavaScript; CSS/accessibility; dependency compatibility and release/deployment process.
+- Verify missing/renamed classes and PHP syntax/autoloading with static tooling and a clean WordPress/WooCommerce test installation.
+- Do not infer a module is production-ready from class/file existence, admin menu presence, feature flag presence or marketing claims.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
