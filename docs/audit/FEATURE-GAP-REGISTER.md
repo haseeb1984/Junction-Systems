@@ -237,7 +237,8 @@ Questions to verify before architecture decision:
 - The central panel should retain a per-client invoice and payment history, including paid, unpaid, overdue and applicable adjustment/credit records.
 - Invoice generation and payment records must be tied to the correct client account and deployment, with role-restricted access so clients cannot view another client's billing information.
 - Invoice totals and status must be traceable to the applicable package/pricing and verified payment records. Do not mark an invoice paid from an unverified customer claim or screenshot.
-- The exact billing cadence, currency/tax treatment, proration for mid-cycle package changes, invoice numbering, payment methods and credit-note/refund workflow remain to be verified before implementation.
+- Both monthly and yearly subscription billing options should be supported. The applicable cadence should be selectable according to the package/client agreement and recorded against that client's subscription.
+- Currency/tax treatment, proration for mid-cycle package changes, invoice numbering, payment methods and credit-note/refund workflow remain to be verified before implementation.
 
 ## Owner verification queue — overdue payments and automatic license enforcement
 
