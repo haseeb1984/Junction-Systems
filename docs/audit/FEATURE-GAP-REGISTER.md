@@ -893,3 +893,51 @@ Several integrations have declared registration classes but incomplete/incorrect
 - Courier tests: unsuccessful DTO failover, timeout, duplicate retry, already-booked order, pending vs booked status, action scheduler unavailable, retry exhaustion and operator reconciliation.
 - Implement durable POS/courier outbox state with idempotency, bounded exponential retry, dead-letter/manual resolution and traceable provider acknowledgements.
 - For FBR, test offline provisional receipts, server acknowledgement, official invoice reference/QR or other mandated response, duplicate replay, API rejection, timeout reconciliation, return/refund/credit note and branch/terminal mapping against official FBR sandbox.
+
+
+### Latest pass — database lifecycle, migration safety, deployment recovery and license boundary (2026-11-16)
+
+#### Database installation / migrations
+
+- `Installer::run()` is invoked from `after_switch_theme` and creates OTP, logistics, chat and city tables, then calls affiliate/inventory installers and unconditionally writes `pkstore_db_version=2.0.0`. No version-aware migration runner on normal application boot or plugin/theme update was found in the reviewed source.
+- The top-level install sequence does not check `dbDelta()`/wpdb errors or verify required tables/indexes before setting the database version. A partial schema failure can be recorded as a successful 2.0.0 install.
+- Theme DB setup runs on theme switch; this is not a reliable upgrade mechanism for a deployed customer who updates files without switching themes. Need explicit migration runner with ordered migrations, schema checksums/current version, retry-safe steps and admin-visible failure state.
+- Inventory installer creates stock, movement, POS header/item, supplier and purchase-order tables. The reviewed schema uses indexes but no declared foreign-key constraints. Application-level integrity/cleanup and orphan detection need explicit handling.
+- POS order header and line items are written separately; purchase order header/items and stock/movement workflows also need transaction boundaries. A DB transaction is required where all operations share the same transactional InnoDB connection; otherwise use durable workflow/outbox with compensating actions.
+- POS schema has `wc_order_id` but inspected sync code never populates it. It has `sync_status` but no remote acknowledgement, last error, attempt count, retry time, claim/lease, or idempotency key. Existing pending queue cannot support reliable recovery/reconciliation.
+- Affiliate commissions have unique index on order_id, which is a useful idempotency constraint; however refunds/partial refunds/chargebacks and commission reversal records are not represented in the inspected schema. Payout rows store payment account at payout time, but account change/audit/verification and payout reversal controls need review.
+- OTP attempts and chat history tables include created/expiry timestamps but no demonstrated scheduled cleanup/retention enforcement in the reviewed installer/bootstrap paths. Logistics log stores full payload LONGTEXT and needs redaction, encryption/access control and retention expiry, especially for customer phone/address/API credentials.
+
+#### Backup, restore and disaster recovery
+
+- Current recursive `main` tree contains no identifiable backup/restore implementation, backup scheduler, restore workflow, disaster-recovery runbook or backup verification test. This is a source-tree observation, not proof the hosting provider has no backups.
+- Marketing commitment advertises monthly backups. That must be distinguished from platform-level backup automation: scope (DB + uploads + theme/plugin config + secrets), retention, encryption, geographic separation, restore-point objective (RPO), recovery-time objective (RTO), restore testing, client isolation and backup failure alerts are not defined in this codebase.
+- Require per-install backups and restore verification. A restore must preserve WooCommerce orders, POS records, stock movement ledger, FBR fiscal references, license binding and encrypted credentials consistently; it must not restore one subsystem to a different point in time from another.
+- Secrets/config export must be reviewed before any backup/export feature is treated as safe. Current ThemeBootstrapper config export calls BrandingManager::exportConfig(); the exported schema has not yet been audited for API keys, license material, tax credentials or customer data.
+
+#### License manager / central control boundary
+
+- Local `LicenseManager` calls external endpoint `https://license.junctionsystems.pk/api/validate`; central service source is not in this repository and remains unaudited. No claim can be made yet that central dashboard, package billing, invoices, payment verification, deployment provisioning or entitlement push are implemented.
+- Local manager caches license data for 24 hours and allows a seven-day offline grace. This is technical connectivity grace and must remain distinct from the separately owner-confirmed 7-day unpaid-invoice grace. Policy for revoked/suspended license while cache is still fresh, clock rollback, stale package downgrade and central entitlement push needs testing.
+- The remote request HMAC key is derived from a random key stored in the same WordPress options database as the encrypted license key/cache. If the DB is compromised, both encrypted key and local HMAC secret are exposed together. Consider per-install signed response verification with a public-key signature, secure key rotation and no symmetric master secret stored alongside the data it protects.
+- License cache encryption uses AES-256-CBC without an authentication tag; ciphertext tampering is not cryptographically authenticated. Use authenticated encryption (e.g. AES-GCM) or encrypt-then-MAC with key separation, and plan rotation/backup restore behaviour.
+- `LicenseFeatures::forTier()` silently maps unknown tier names to Basic. Unknown/corrupt tier should fail closed with explicit error, not silently grant a fallback package.
+- LicenseFeatures defines 24 slugs, FeatureManager defines a separate local flag catalogue with different slugs, and ThemeBootstrapper checks local FeatureManager flags. No authoritative mapping/intersection between signed central entitlements, local operational toggles and endpoint-level authorization has been demonstrated. Local editable flags cannot be the authority for paid feature rights.
+- ThemeBootstrapper registers a `pkstore_require_feature` callback using `$this->container`, but constructor stores the service container as `$this->c`. This is an undefined-property reference and likely breaks the central license guard when invoked. The inspected feature bootstrapping also does not call `LicenseManager::requireFeature()` consistently at every sensitive route/job/provider boundary.
+- LicenseManager imports `LicenseExpiredException`, `LicenseDomainMismatch`, `LicenseInvalidException` and `LicenseFeatureNotAvailable`; current recursive tree exposes only `LicenseException.php` under `src/License/Exception`. The absent exception files may cause runtime class-not-found errors when those paths execute. Must run class/autoload checks and confirm exact main tree before release.
+- License admin UI previously observed displays full decrypted license key to admin users. Mask by default, allow controlled rotate/reveal only to platform owner, and audit every reveal/change. Store-level `manage_options` must not confer authority to change package entitlement.
+- `LicenseManager::lockout()` writes a lockout reason/time, while exact enforcement points and safe recovery/re-activation behaviour need verification. Ensure billing suspension preserves the restricted billing/recovery area and never deletes customer business data.
+
+#### FBR / fiscal continuity dependency
+
+- FBR credentials, taxpayer registration, branch/POS terminal identifiers, invoice counters/official references and fiscal submission queue will become critical deployment data. They must be included in encrypted per-install backup and verified restore, but secrets must not appear in plaintext exports or general logs.
+- Database migration design must include additive FBR schema migrations with rollback/forward-repair plan, unique fiscal idempotency constraints, source-order linkage, submission attempts/status, provider response reference, invoice snapshot and credit-note/refund linkage.
+- License entitlements must gate FBR server-side across POS sale, WooCommerce checkout/order, refund/credit note, scheduled retries and manual resubmission; hiding the FBR settings menu is not enforcement.
+
+#### Required verification / decisions
+
+- Build and run automated PHP lint, class autoload/reference scan, DB schema install/upgrade tests from clean and prior versions, interrupted migration tests, rollback/forward-repair tests, and backup-restore drills. These tests have not been run in this audit pass.
+- Confirm hosting backup provider/plan, frequency, retention, encryption, offsite copy, restore SLA and whether backup/restore is centrally monitored across all customer installations.
+- Obtain read-only source/API documentation and authorized test access for the central license/billing service before claiming central management is complete.
+- Define a canonical signed entitlement document and one shared resolver: central package entitlement ∩ platform-owner feature toggle ∩ deployment health/license status; fail closed on invalid signature/unknown feature/invalid tier, while applying documented safe offline grace.
+- Define data retention/deletion for chat, OTP, logistics payloads, customer data, POS and fiscal records, subject to applicable legal retention requirements.
