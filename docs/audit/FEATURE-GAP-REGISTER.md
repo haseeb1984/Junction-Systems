@@ -232,6 +232,10 @@ Questions to verify before architecture decision:
 
 **Official website reference:** `https://juncsys.com` (identified by the owner as the Junction Systems website). The owner supplied the current pricing/package copy in this conversation; direct automated retrieval of the site was unavailable during this audit session, so the supplied copy is the source of truth for this record until the live page can be independently reviewed.
 
+- **Owner clarification:** The marketing website also contains working feature demos. Treat these demos as behavioural/UX references for intended workflows, not merely promotional screenshots. When access is available, exercise each relevant demo and record observed inputs, outputs, workflows and limitations; compare those observations against the actual application's `main` branch. A demo does not by itself prove that the corresponding production feature is implemented, secure or integrated in the application.
+- The website is not the application source of truth: use GitHub `main` for actual implementation evidence, website demos for expected behaviour/UX, and the pricing page for advertised package commitments. Record any mismatch as a verification gap rather than assuming either side is correct.
+
+
 **Owner-provided package details recorded (16 Nov 2026):**
 
 The currently advertised plans are monthly subscriptions, with hosting, SSL, monthly backups, installation/integration setup, bug-fixing support and inventory-management support described as included. No setup fee; cancel anytime.
