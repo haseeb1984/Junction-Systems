@@ -392,3 +392,48 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
 - No production changes or merges performed as part of this audit.
+
+
+### Focused source pass — POS, inventory, affiliate and external integrations
+
+**Review pass recorded (16 Nov 2026):** Inspected the corresponding controllers, application use cases, repositories, database tables and integration service classes on `main`. This remains static review; no live gateway/API credentials or WordPress runtime were used.
+
+#### POS and inventory
+
+1. POS is a custom-table workflow, not a demonstrated WooCommerce-native POS order pipeline. It creates rows in `pkstore_pos_orders` and line-item tables; the reviewed sale use case did not create a WooCommerce order.
+2. The POS sale endpoint accepts client-supplied `unit_price_pkr`, per-item discount and sale-level discount. The use case copies the supplied unit price rather than deriving it exclusively from the authoritative WooCommerce product/variation price. This permits price tampering unless another uninspected layer validates it.
+3. The sale use case catches stock-adjustment `DomainException` and continues the sale, explicitly allowing a POS sale to complete even if stock deduction fails/stock goes below zero. The owner must decide the stock-negative policy, but inventory consistency requires a visible exception/reconciliation path.
+4. The POS sync queue currently marks pending custom POS orders as synced; the inspected `SyncPOSQueueUseCase` does not create corresponding WooCommerce orders or transmit orders to an external server. “Offline-first”/sync-to-WooCommerce is therefore not established by this path.
+5. POS controller grants access to either `manage_woocommerce` or `edit_posts`. Session close, sale, order-list and receipt handlers do not consistently check that the session/location belongs to the current cashier or that the cashier has access to that location. Session close is particularly sensitive because it accepts a session ID.
+6. POS receipt WhatsApp endpoint constructs and returns a `wa.me` URL; it does not send a WhatsApp Business API message. It trusts posted receipt item names, quantities and totals for the message.
+7. Inventory schema includes products, locations, stock levels, stock movement ledger, suppliers, purchase orders and POS records. The presence of these tables is useful groundwork, but supplier/purchase-order receiving and multi-location reconciliation require separate workflow tests.
+8. Multi-location is a feature flag, but no enforcement was seen in the reviewed POS controller. POS accepts a caller-supplied location ID, defaults to location 1 and relies on repository/use-case behaviour; authorization and location ownership need to be enforced server-side.
+9. Barcode label page is registered in admin bootstrap without a visible `barcode_labels` feature check. Inventory and POS are locally gated by `FeatureManager`, but licensing is not enforced at these routes.
+
+#### Affiliate system
+
+1. Affiliate registration requires login and records a JazzCash/EasyPaisa payout destination. The affiliate dashboard returns the affiliate's payment account and commission/payout details to the logged-in affiliate; verify masking and account-change verification.
+2. Public affiliate product listing exposes active affiliate-submitted product records and tracked redirect URLs. Review moderation, destination URL validation, prohibited content and abuse prevention before public launch.
+3. Payout use case creates a payout record and attempts JazzCash transfer; EasyPaisa is not implemented in the inspected payout path and instead fails to an admin manual-payment email path.
+4. Payout processing has a likely PHP syntax defect in the JazzCash URL expression: the selected base URL is followed by a string literal without a concatenation operator. Validate with PHP lint; if confirmed, the payout class cannot be parsed.
+5. Commission repository supports lookup by order ID and status updates, but the reviewed code needs an idempotency/unique database constraint and proof that commissions are created only for eligible paid/settled orders. No full reversal/refund/chargeback reconciliation was demonstrated in this pass.
+
+#### Analytics and marketing integrations
+
+1. GA4 client-side event output contains a malformed `view_cart` JavaScript value expression (an extra quote after the cart total). Purchase event is emitted on the order-received page and also via Measurement Protocol on payment complete; these two paths can double-count without a shared transaction-level deduplication strategy.
+2. GA4 and Meta Pixel purchase paths mark a post-meta “fired” flag before confirming the browser event was delivered. A page/network failure can therefore suppress a retry. The server-side GA4/Meta event paths also need event-ID/deduplication alignment with browser events.
+3. GA4 and Meta events hard-code PKR. Confirm store currency and ensure consent/privacy preferences are respected before loading tracking scripts or sending server-side customer identifiers.
+4. Meta CAPI hashes email/phone, but the inspected payload does not include browser event ID/fbc/fbp matching signals or a deduplication event ID. The browser and server purchase events may be counted separately.
+5. Mailchimp subscribes the billing email as `subscribed` on checkout/order processing and on payment complete. The reviewed path does not check marketing consent or distinguish transactional order sync from marketing-list opt-in. This is a consent/compliance risk.
+6. Mailchimp order sync uses a hard-coded PKR currency and its request method construction and endpoint composition need API-level verification. HTTP status/error responses are not surfaced beyond null JSON.
+7. Klaviyo service similarly adds profiles to a list and emits events on payment complete without a visible marketing-consent gate. Cart event is only emitted for logged-in users; API revision and payloads need live validation.
+8. QuickBooks and Daraz service classes exist, but source presence is not evidence of OAuth lifecycle, token refresh, conflict resolution, retry queues, webhook reconciliation or safe two-way sync. Daraz product push is capped at 100 products and uses placeholder/default package dimensions and a generic brand; order import creates WooCommerce orders without adding product line items in the inspected method.
+9. Daraz request signing and XML body construction require sandbox verification. Product-feed code uses raw product SKU/name/description values in XML and should be reviewed for proper XML escaping and variation handling.
+10. No dedicated integration health dashboard, last-success timestamp, dead-letter queue or operator retry workflow was demonstrated for these marketing/accounting/marketplace connectors.
+
+#### Code quality and validation items surfaced
+
+- At least one likely parse-time defect was identified in affiliate payout URL concatenation; run PHP lint across every PHP file before runtime acceptance.
+- The source pass surfaced malformed/fragile generated JavaScript in GA4 cart tracking; run JS syntax checks on all shipped modules and emitted inline scripts.
+- API integrations need contract tests against current provider sandbox/API versions; class construction and local method calls alone are insufficient.
+- Feature flag checks, license entitlement checks, role permissions, consent checks and per-cashier ownership must be treated as separate controls, not assumed to be interchangeable.
