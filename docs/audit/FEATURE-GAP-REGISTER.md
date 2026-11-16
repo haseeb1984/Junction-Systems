@@ -555,3 +555,47 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 
 - The inspected `main` tree contains per-install license classes and a local store operations dashboard, but no complete central platform application for customer deployments, package catalogue, feature entitlement management, recurring monthly/yearly subscriptions, invoices, payment reconciliation, 7-day overdue grace/suspension, restricted billing recovery, deployment health or signed entitlement propagation.
 - The license URL points to a remote endpoint, but the central service implementation is outside this repository. Its API contract, security, data model, payment automation and operational reliability remain unverified and must be audited separately before treating the current client-side license manager as complete.
+
+
+### Focused source pass — storefront JavaScript, tracking privacy, webhook and database install
+
+**Review pass recorded (16 Nov 2026):** Inspected the shipped ES modules, API client, checkout OTP frontend, tracking UI/controller, courier webhook handler, database installers and asset enqueuer. Static source review only.
+
+#### Storefront JavaScript and checkout integration
+
+1. COD checkout prevention is implemented in browser JavaScript through `state.isVerified`. This is not a security boundary: a direct Store API/classic checkout request can bypass browser-side state unless an independent server-side checkout validation verifies a server-persisted OTP proof bound to customer/order/phone/payment method. No such enforcement was established in the inspected controller/use case.
+2. Checkout JavaScript binds to classic WooCommerce selectors and a custom `data-cod-section`. Compatibility with WooCommerce Checkout Blocks/Store API, express payment methods, checkout field refresh, order-pay and guest checkout has not been demonstrated.
+3. `AssetEnqueuer::deregisterJQuery()` globally deregisters jQuery, jQuery Core and jQuery Migrate on every non-admin frontend page. This can break WooCommerce core scripts, themes, payment gateways, analytics and third-party extensions that declare jQuery dependencies. Run a plugin/theme compatibility matrix before enabling this optimisation.
+4. `assets/js/lib/api-client.mjs` retries any non-API network failure once, including POST requests. A request may have reached the server even when the response was lost; retrying OTP send, stock adjustment or other non-idempotent operations can duplicate side effects unless every endpoint uses idempotency keys.
+5. The API client sends a JSON body for POST requests and includes a nonce in that body. Confirm all REST routes read the body consistently and do not expect standard `X-WP-Nonce` headers; cross-origin/proxy caching and preflight behaviour also need validation.
+6. Cart add-to-cart code posts directly to `/?wc-ajax=add_to_cart`, does not inspect `response.ok` or WooCommerce's JSON error result, and increments the visible cart count regardless of whether the product was actually added. It also does not send a WooCommerce nonce or update fragments/variation data. The UI can report a false cart success.
+7. Boot module imports `./modules/affiliate.mjs` when affiliate markup exists, but that module is absent from the recursive `main` tree. The affiliate storefront widget therefore has a failed dynamic import unless the file is supplied externally (no such build step was found in the repository).
+8. Boot uses `Promise.allSettled`, which hides module failures from the user and logs only to console. There is no production-facing telemetry for failed feature initialization.
+9. Tracking UI labels Urdu/English together and caches results in sessionStorage for five minutes. The server response contains only the latest event, not a full courier event history; stale tracking data can be displayed until TTL expires.
+
+#### Tracking endpoint and customer data exposure
+
+1. Tracking REST permission callback verifies a publicly available WordPress nonce only. It does not bind the tracking number to the current customer/order, nor does it require a verified email/phone or another ownership factor.
+2. The endpoint tries TCS, Leopards and Trax sequentially for any caller-supplied tracking number. There is no rate limit or order ownership check in the inspected controller, creating a tracking-number enumeration/privacy risk and avoidable courier API consumption.
+3. PostEx and Rider are absent from the tracking resolver; only TCS, Leopards and Trax can be queried here.
+4. Tracking widget accepts a tracking number from the URL query string and automatically submits it. Consider leakage through browser history, referrer headers, analytics and shared devices.
+5. Courier provider responses are reduced to a single current status event. The full timeline, proof-of-delivery details, delivery attempt history and carrier-specific error state are not exposed.
+
+#### Courier webhooks and shipment state integrity
+
+1. Webhook routes are publicly callable by design, relying on provider signature verification inside the handler. Invalid signatures are silently acknowledged with HTTP 200; this hides attacks/configuration failures from provider retries and operator monitoring.
+2. The handler has no visible event ID/replay-deduplication store. Replayed signed events can repeatedly update the WooCommerce order and trigger downstream hooks.
+3. There is no explicit allowed-state transition matrix or event timestamp ordering. A late/replayed “in transit” event could regress an order after “delivered” or “returned”.
+4. The order lookup scans postmeta by tracking number and carrier but does not use a dedicated indexed mapping table. Duplicate tracking numbers or reused carrier numbers could associate an event with the wrong order.
+5. Webhook handler only covers TCS, Leopards and Trax. PostEx/Rider callback verification and state updates are not implemented in this route.
+6. The circuit breaker returns `success=true` with a synthetic `PENDING-<order>` tracking value when every courier fails. Callers must treat `pending` as unbooked and must not show a real tracking number or dispatch-ready state. The scheduled retry has no visible bounded retry/backoff/dead-letter policy or operator resolution screen.
+7. Circuit breaker returns immediately when a courier responds with a non-success result instead of trying the next courier; only thrown exceptions trigger failover. This may prevent failover on ordinary provider rejection/timeout responses represented as unsuccessful DTOs.
+
+#### Database schema, installation and migration
+
+1. The database installer creates OTP, logistics, chat, city mapping, affiliate and inventory tables and seeds city mappings. The inventory/affiliate schema needs a documented ERD, foreign-key/cleanup policy, unique constraints, transaction boundaries and data migration tests.
+2. Main installer updates a single `pkstore_db_version` option to `2.0.0`; no per-module migration history, incremental upgrade runner or rollback strategy was demonstrated.
+3. The installer relies on WordPress `dbDelta()` and does not check/report every SQL result. A failed table/column migration may still leave the DB version marked current, making subsequent upgrades skip repair.
+4. City seeding exits when any mapping row exists; a partially seeded table will not be completed on later runs. City/courier IDs also need periodic reconciliation with provider master data.
+5. Database tables use a mixture of IDs and no foreign-key constraints. Deleting WooCommerce products/users/orders can leave orphaned inventory, commission, payout, OTP or logistics records unless explicit cleanup hooks and retention policies are added.
+6. No backup restore or schema-upgrade test evidence exists. The advertised monthly backup commitment is an operational hosting obligation and is not implemented/proven by these installers.
