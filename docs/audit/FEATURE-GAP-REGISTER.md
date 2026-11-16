@@ -149,10 +149,18 @@ Questions to verify before architecture decision:
 - It may provide delivery estimates only when supported by verified data. It must not invent delivery dates, time windows, shipping charges, service coverage or courier events.
 - If delivery information is unavailable, stale or uncertain, the AI should clearly say it cannot verify the detail and refer the customer to the configured human support channel where appropriate.
 
+## Owner verification queue — cart and checkout assistance
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI may help customers choose products and guide them through adding items to the cart and completing checkout.
+- The AI must not place an order or submit checkout on the customer's behalf without the customer's explicit confirmation for that specific purchase.
+- The AI must not imply an order has been placed until WooCommerce confirms successful order creation. If the customer completes checkout themselves, the AI may help explain the next steps using verified order information.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner confirmed full-catalogue product discovery, exact variation availability/price checking, product answers containing SKU, current sale price, stock status and a direct product link, catalogue-grounded popular recommendations with no invented product details, exact stock quantity disclosure only by store-owner opt-in, verified in-stock alternatives, strict budget ceilings, language matching, relevant in-session context, contextual WhatsApp handoff, configurable support contacts/hours, direct courier tracking links when available, and human-only order cancellation and modification; recorded above, and policy explanation with human-only return/refund approval and processing; recorded above.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, and cart/checkout sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, and explicit customer confirmation before an order is submitted.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
