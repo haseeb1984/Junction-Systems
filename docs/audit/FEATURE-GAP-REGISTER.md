@@ -228,6 +228,17 @@ Questions to verify before architecture decision:
 - **Owner decision confirmed (16 Nov 2026):** The central panel must support package upgrades and downgrades for an individual client deployment. After the platform owner changes the package, the new package's feature entitlements/configuration should automatically propagate to that specific installation and take effect there.
 - Package changes must be deployment-scoped, authenticated, auditable and observable. The central panel should show propagation/application success or failure; on failure, it must not silently report the new package as active while the client still enforces old entitlements. Preserve data and settings for features that are temporarily disabled or removed by a downgrade unless a separately approved migration/data-retention policy says otherwise.
 
+## Owner verification queue — client invoicing and payment history
+
+**Owner decision confirmed (16 Nov 2026):**
+
+- The central platform panel should automatically generate invoices for each client deployment.
+- Each invoice should clearly identify the assigned package, package charges, billing period, issue date, due date and payment status.
+- The central panel should retain a per-client invoice and payment history, including paid, unpaid, overdue and applicable adjustment/credit records.
+- Invoice generation and payment records must be tied to the correct client account and deployment, with role-restricted access so clients cannot view another client's billing information.
+- Invoice totals and status must be traceable to the applicable package/pricing and verified payment records. Do not mark an invoice paid from an unverified customer claim or screenshot.
+- The exact billing cadence, currency/tax treatment, proration for mid-cycle package changes, invoice numbering, payment methods and credit-note/refund workflow remain to be verified before implementation.
+
 ## Owner verification queue — overdue payments and automatic license enforcement
 
 **Owner decision confirmed (16 Nov 2026):**
