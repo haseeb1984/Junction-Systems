@@ -809,3 +809,15 @@ Several integrations have declared registration classes but incomplete/incorrect
 - Implement real incremental SSE forwarding with disconnect/timeout/error handling, structured error events, bounded buffers and observability; do not silently end the stream.
 - Apply layered abuse controls (IP/device/account/session, atomic counters, bot controls), protect nonce/session, and ensure chat UUID cannot be used to read another customer's data.
 - Add clear customer-requested human handoff with verified store WhatsApp/support details and minimum necessary conversation context.
+
+
+### New owner-requested requirement — Pakistan FBR integration (2026-11-16)
+
+- Owner explicitly requested that FBR (Federal Board of Revenue, Pakistan) integration be added as a required Junction Systems capability.
+- Initial source-tree scan of current `main` (289 tracked paths) found no identifiable FBR/Federal Board of Revenue/tax-integration implementation file or obvious FBR-specific module. Treat as **not found / presumed missing pending full code-path verification**, not as a completed integration.
+- Add FBR integration to the canonical product roadmap and package-entitlement matrix only after the owner approves exact scope and commercial tier placement. Do not silently assign it to Basic/Standard/Enterprise based on assumptions.
+- Required audit/design scope: identify applicable Pakistan tax regime(s) and taxpayer eligibility; FBR/POS integration or Digital Invoicing API requirements; invoice/receipt registration and unique fiscal identifiers; QR/barcode or verifiable invoice data where mandated; real-time/offline queue behaviour; cancellation/credit-note/refund handling; tax rates/exemptions and customer tax identity; branch/location and terminal mapping; credentials/certificate lifecycle; API authentication/signature, idempotency, retries and reconciliation; audit trail, retention, backups and reporting; sandbox/certification and production onboarding.
+- Architecture must support per-client/per-install credentials and tenant isolation, with Junction platform owner controlling package entitlement and deployment-level enablement, while authorized store roles manage permitted business/tax settings. Never share credentials or tax records between client installations.
+- POS, WooCommerce online orders, refunds/returns, invoice generation and accounting exports must not produce duplicate or contradictory fiscal records. FBR acceptance/rejection/timeout must be represented truthfully; an unconfirmed submission must never be labelled fiscally registered.
+- Do not hardcode tax rates, legal eligibility, invoice format or API endpoints. Verify current official FBR documentation and applicable rules during the dedicated FBR design pass before implementation.
+- Package placement, whether all tiers or selected tiers, exact compliance scope, and whether integration is mandatory for all Pakistani clients remain owner decisions.
