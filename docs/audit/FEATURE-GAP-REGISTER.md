@@ -182,10 +182,19 @@ Questions to verify before architecture decision:
 - The AI must not bypass the OTP requirement, generate or disclose OTPs, or independently mark an OTP as verified.
 - OTP validation must be performed by the trusted OTP verification flow and its authoritative result. If OTP delivery or verification fails, the AI should explain the verified state and route the customer to the configured support process rather than bypassing the control.
 
+## Owner verification queue — spam and suspicious order abuse
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The system should help detect suspicious repeated orders, OTP abuse and automated spam attempts using auditable signals and configurable safeguards.
+- Detection must not automatically block a genuine customer solely because an activity is flagged as suspicious. Use proportionate friction, verification or human review, with a clear recovery path for legitimate customers.
+- Rate limits and abuse controls must be enforced server-side; client-generated identifiers alone are not sufficient.
+- Record relevant security events without unnecessarily retaining or exposing sensitive customer data. False positives and recovery/support handling must be included in testing.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, and COD OTP sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, explicit customer confirmation before order submission, no unsupported payment claims or duplicate charges, and no AI bypass of COD OTP verification.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, and abuse-prevention sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, and proportionate abuse detection without automatically blocking genuine customers.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
