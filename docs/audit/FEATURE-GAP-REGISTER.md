@@ -479,3 +479,40 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - Verify every class imported or referenced by bootstrap/service bindings exists and is autoloadable, including EasyPaisa and license exception classes.
 - Create a clean WordPress 6.4+/WooCommerce 8+ test site using PHP 8.2+ and run activation, upgrade, theme switch, checkout, order status, gateway callbacks, shipping, inventory, POS, affiliate, admin permissions and uninstall/backup restore tests.
 - Test actual client hosting constraints (shared hosting, cron reliability, Action Scheduler, PHP extensions, outbound HTTP, memory/time limits, SSL and backup restoration); source code cannot prove the advertised hosting/backup/support service.
+
+
+### Focused source pass — REST security, COD OTP and stock consistency
+
+**Review pass recorded (16 Nov 2026):** Inspected REST permission callbacks, security hardening, COD OTP controller/use cases/repository, inventory stock mutation and affiliate hooks. Static review only.
+
+#### COD OTP — verification does not yet establish order ownership or server-side checkout enforcement
+
+1. COD OTP endpoints are public storefront REST endpoints protected by a WordPress nonce. A public page nonce is a CSRF control, not proof that the caller owns the WooCommerce order or controls the phone number.
+2. Send/verify handlers accept caller-supplied order ID and phone. The reviewed controller does not load the order for normal physical orders and compare the supplied phone with the order's billing phone, confirm the order is still pending checkout, or confirm COD is the selected payment method.
+3. Digital-only bypass checks whether the supplied order ID refers to a digital-only order, but does not bind the request to an authenticated customer/session or prove ownership. Review whether an attacker can use a known digital order ID to receive a successful bypass response.
+4. The OTP verification use case marks only the OTP attempt row verified. The reviewed code does not persist a verified flag/token against the WooCommerce order or make server-side order creation/payment validation depend on successful verification. The checkout JavaScript's `state.isVerified` is client-side state and can be bypassed by a crafted checkout request unless a server-side checkout validation hook independently enforces OTP.
+5. OTP send limit is three sends per phone per 15 minutes; OTP expires after five minutes and allows three verification attempts. Repository update uses an optimistic attempt-count condition, but send counting/invalidation and concurrent verification/resend need race-condition tests.
+6. COD checkout UI derives order ID from a page meta element. Confirm how a not-yet-created checkout order ID is populated in a real WooCommerce checkout, including classic checkout vs Blocks/Store API; the current template emits an empty `data-order-id` attribute.
+7. The success response says the CoD order is confirmed, but the inspected verify path only verifies the phone/OTP; it does not itself confirm/create/update the order. Customer-facing wording must not overstate the transaction state.
+
+#### Inventory stock and WooCommerce synchronization
+
+1. Stock adjustment performs read → in-memory mutation → database update → movement insert without a database transaction or atomic SQL update. Concurrent POS/online orders can race and lose stock updates or produce inconsistent movement history.
+2. `getStock()` creates a missing stock row after a read; concurrent first-time access can race on the unique product/location key. Insert failures are not checked.
+3. Stock update and movement insert return values are not checked, so a failed movement-ledger write can leave the stock quantity changed without its audit record.
+4. WooCommerce sale hooks listen to payment complete, processing and completed. A single order can trigger the same deduction path more than once; the reviewed method does not store a per-order/per-line idempotency marker. Duplicate stock deduction is a risk.
+5. The same `SyncWooCommerceStockUseCase` is called on order status/payment hooks and its full hourly sync writes the sum of all custom location stock into WooCommerce product stock. Confirm the intended online/physical stock allocation model, order status transitions, refunds/cancellations/restocks and variable-product handling before relying on the result.
+6. POS and online WooCommerce sales both mutate custom stock through different hooks/use cases. Their interaction, duplicate event prevention, stock reservations and reconciliation are not yet proven.
+
+#### REST and privilege boundary
+
+1. The security hardener exempts any request URI containing broad path fragments such as `/pkstore/v1/chat` or `/pkstore/v1/webhooks/` from the anonymous REST restriction. Individual endpoints still need their own correct permission/signature checks; path-prefix exemption itself does not authenticate them.
+2. Login throttling keys directly off `REMOTE_ADDR`; proxy-aware client IP handling, atomic counters, IPv6 normalization and shared-IP lockout recovery need testing.
+3. POS and inventory routes expose operational data and actions under broad WordPress capabilities. The owner-confirmed staff least-privilege model requires explicit cashier, stock clerk, manager and owner capabilities plus resource-level checks (session/location), not just `edit_posts` or `manage_woocommerce`.
+4. The review did not find a consistent audit trail for who changed prices, adjusted stock, closed a POS session, changed integration credentials or accessed sensitive chat/order data.
+
+#### Affiliate source-code validation
+
+- The inspected `AffiliateHooks::trackRef()` source appears to contain a malformed string/quote sequence in the `$_GET['ref']` fallback expression. Confirm with PHP lint; if the literal source matches the fetched text, it is a parse-time failure for that class.
+- Commission recording is triggered on both payment-complete and order-completed hooks. The use case performs a prior lookup by order ID, but the commission table needs a database-level unique constraint and transaction/locking to make concurrent duplicate events safe.
+- The payout use case may automatically attempt payout immediately when an affiliate crosses the eligibility threshold. This needs explicit owner confirmation and a tested approval/fraud/chargeback policy before being treated as intended production behaviour.
