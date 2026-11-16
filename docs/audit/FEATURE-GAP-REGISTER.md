@@ -213,6 +213,16 @@ Questions to verify before architecture decision:
 - Conversation context sent to a human-support handoff must be limited to relevant information, with customer awareness/consent; unrelated history and sensitive data must not be included.
 - Access controls must be enforced server-side, not merely hidden in the frontend or delegated to AI prompt instructions. Audit and test for cross-customer data leakage and unauthorized direct API access.
 
+## Owner verification queue — central client-installation monitoring
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The platform owner/vendor should have a central admin panel to monitor each deployed client installation.
+- At minimum, show license status, activation status, expiry date and deployment/installation health for each client.
+- Monitoring must distinguish license validity from technical health: a valid license does not prove an installation is healthy, and an unhealthy deployment does not by itself prove a license is invalid.
+- Access to the central panel and client installation data must be restricted to authorized platform-owner personnel. Client installations must not be able to view or alter other customers' license or health records.
+- Health checks should use a secure, authenticated mechanism and report the last successful check/time and actionable failure state where available; do not expose secrets or customer data unnecessarily.
+
 ## Owner verification queue — platform-level package and feature administration
 
 **Owner clarification recorded (16 Nov 2026):**
