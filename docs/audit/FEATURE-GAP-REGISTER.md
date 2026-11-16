@@ -165,10 +165,19 @@ Questions to verify before architecture decision:
 - A customer message, receipt image, screenshot or claimed transaction reference alone must not be treated as proof that payment succeeded.
 - If payment status cannot be verified, the AI must say it is unconfirmed and direct the customer to the configured human support channel or the appropriate payment provider process. It must not mark an order paid or claim payment success.
 
+## Owner verification queue — payment failures and pending transactions
+
+**Owner decision recorded (16 Nov 2026):**
+
+- If a payment attempt fails, times out or remains pending, the AI must explain only the status supported by verified WooCommerce or payment-gateway records.
+- The AI must not claim that a payment was successful, failed permanently or was charged again unless the authoritative transaction records confirm that outcome.
+- Where the status is unresolved or the customer needs help, the AI should direct the customer to the configured human support channel and provide a concise, relevant handoff context with the customer's awareness/consent.
+- The AI must not initiate a duplicate charge or tell the customer that another charge has been made. Any retry must follow the payment provider's supported flow and require the customer's own action/confirmation.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, and payment verification sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, and explicit customer confirmation before an order is submitted.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification, and payment failure sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, explicit customer confirmation before order submission, and no unsupported payment-success/failure or duplicate-charge claims.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
