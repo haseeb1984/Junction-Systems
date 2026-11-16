@@ -230,6 +230,8 @@ Questions to verify before architecture decision:
 
 ## Owner-provided current package catalogue and pricing
 
+**Official website reference:** `https://juncsys.com` (identified by the owner as the Junction Systems website). The owner supplied the current pricing/package copy in this conversation; direct automated retrieval of the site was unavailable during this audit session, so the supplied copy is the source of truth for this record until the live page can be independently reviewed.
+
 **Owner-provided package details recorded (16 Nov 2026):**
 
 The currently advertised plans are monthly subscriptions, with hosting, SSL, monthly backups, installation/integration setup, bug-fixing support and inventory-management support described as included. No setup fee; cancel anytime.
