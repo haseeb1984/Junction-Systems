@@ -678,3 +678,38 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - Test both directions for every feature: disabled must fail closed on UI and direct server requests; enabled but unconfigured must show actionable setup state without claiming operational success.
 - Payment gateway sandbox tests must cover valid/invalid/duplicate callbacks, wrong order/amount/currency/session, replay, timeout and provider-side pending/failed states.
 - Courier tests must cover disabled provider direct booking/webhook/tracking, unsuccessful DTO failover, timeout, duplicate and out-of-order webhooks, pending vs booked state and operator retry.
+
+
+### Latest pass — feature catalogue, package-tier mapping and admin enforcement (2026-11-16)
+
+#### Confirmed source findings
+
+- The source defines 22 local feature flags in `src/Core/Feature/FeatureManager.php`. They are loaded from the locally editable WordPress option `pkstore_features`; absent values fall back to defaults, several of which are enabled by default. `FeatureSettingsController` lets any local user with `manage_options` save all flags. This is not the approved Junction platform-owner-only package entitlement model.
+- A separate `LicenseFeatures::ALL/BY_TIER` catalogue defines 24 different feature slugs. Its names do not map one-to-one to the 22 `FeatureManager` keys (examples: `jazzcash_payment` vs `payment_jazzcash`, `dukaan_ai` vs `ai_chat`, `junction_pos` vs `pos`, `inventory_management` vs `inventory`, `multi_location_inventory` vs `multi_location`). No verified translation/normalization layer was found in the inspected code. Therefore license feature names cannot be assumed to gate the actual local feature flags correctly.
+- Package-tier mismatch against the supplied marketing commitments:
+  - Basic marketing includes POS, inventory, Dukaan AI, WhatsApp Business API, QuickBooks/Daraz sync and white-label; source `LicenseFeatures::BY_TIER['basic']` omits POS/inventory/WhatsApp/QuickBooks/Daraz and uses separate `white_label`/ `basic_reports` slugs.
+  - Standard marketing includes WhatsApp Business API and QuickBooks/Daraz sync; source Standard list omits WhatsApp/QuickBooks/Daraz, and adds GA4/Meta/Mailchimp/POS/inventory/barcode.
+  - Enterprise marketing includes all Standard features plus PostEx/Rider, WhatsApp automation, QuickBooks, Daraz, Klaviyo, multi-location, Foree. Source Enterprise is `ALL`, but because the catalogue's slugs differ from FeatureManager and tier definitions do not match Basic/Standard marketing, this does not prove actual entitlements.
+  - Marketing feature repetition across tiers remains authoritative as advertised; do not silently remove or tier-shift features to match code.
+- `LicenseFeatures::forTier()` silently maps any unknown tier to Basic. This should fail closed or return an explicit invalid-tier error rather than granting a fallback feature list, subject to checking all call sites.
+- `GatewayRegistry` registers JazzCash and EasyPaisa unconditionally; it does not receive/use FeatureManager despite bootstrap constructing it with two arguments. Foree is not registered there. This is a further confirmation that package feature flags do not govern gateway availability.
+- `ShippingRegistry` registers TCS/Leopards/Trax unconditionally. It also schedules booking/tracking paths without an evident central entitlement gate at those entry points.
+- `ThemeBootstrapper::boot()` calls `new GatewayRegistry($this->c, $this->fm)`, but the current constructor accepts only the container. Confirm runtime compatibility and remove stale/mismatched constructor wiring in a separately approved fix.
+- Inventory admin controller registers Inventory, POS, Stock Log and Purchase Orders together whenever the inventory module controller is registered. The POS menu/page is therefore coupled to the inventory flag at bootstrap, even though POS has a separate flag. Conversely, the page handlers check only `manage_woocommerce`, not a central license entitlement or per-feature entitlement.
+- Affiliate admin controller is registered unconditionally in admin bootstrap, even when the affiliate front-end controller/hooks are feature-disabled. Its pages check only `manage_woocommerce`; this can expose orphaned management pages while the feature is off.
+- Barcode Labels admin page is separately registered unconditionally and checks only `manage_woocommerce`; it does not check `barcode_labels` or central license entitlement.
+- Setup Wizard currently exposes General, JazzCash, EasyPaisa, TCS, Leopards, Trax, SMS/OTP and AI tabs. No equivalent setup tabs were found for Foree, PostEx, Rider, WhatsApp Business API, QuickBooks, Daraz, Mailchimp, Klaviyo, GA4, Meta CAPI or multi-location. AI tab branches to the bundled Groq plugin if active, otherwise presents a Gemini API key setup, despite the separately observed OpenAI bridge/provider wiring. This remains an unresolved, conflicting AI setup path.
+- `LicenseAdminUI::renderTab()` prints the full decrypted license key in the admin page to users with access to that page. License keys should be masked by default and only revealed through an explicit, audited owner-only action if truly required.
+- The Setup Wizard's License tab URL is referenced by LicenseAdminUI, but the wizard's declared tabs omit a `license` tab. The license screen integration therefore needs runtime verification; the notice can link to a tab that renders “No settings for this tab” unless an additional registration/conditional path supplies it.
+
+#### Consequence
+
+The advertised package matrix, license-tier catalogue, local feature flags, bootstrap registration and actual endpoint authorization are five separate layers with no demonstrated single source of truth. A client could be promised a feature that the license catalogue denies, or see a feature enabled locally that is not centrally entitled; a disabled feature may still have registered admin/gateway/shipping entry points. This is a release-blocking architecture and commercial-consistency gap.
+
+#### Required next checks
+
+- Generate a canonical, owner-approved mapping from every marketed package feature to one stable entitlement ID and map that ID to implementation flags, dependency rules and all entry points.
+- Review every call site of `LicenseFeatures::forTier()`, `hasFeature()`, `requireFeature()`, `FeatureManager::isEnabled()` and the `pkstore_require_feature` hook; establish actual execution coverage, not merely declarations.
+- Verify whether `LicenseAdminUI` is registered and how the License tab is rendered; inspect the complete remainder of SetupWizard and theme bootstrap wiring.
+- Test each package in a clean installation: UI, direct REST/AJAX, checkout gateway/shipping availability, cron, webhook, admin page, and downgrade/upgrade transitions.
+- Confirm what should happen when POS is entitled but inventory is not, and when a package lists the same capability in multiple tiers. Preserve existing data on downgrade.
