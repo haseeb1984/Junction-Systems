@@ -516,3 +516,42 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 - The inspected `AffiliateHooks::trackRef()` source appears to contain a malformed string/quote sequence in the `$_GET['ref']` fallback expression. Confirm with PHP lint; if the literal source matches the fetched text, it is a parse-time failure for that class.
 - Commission recording is triggered on both payment-complete and order-completed hooks. The use case performs a prior lookup by order ID, but the commission table needs a database-level unique constraint and transaction/locking to make concurrent duplicate events safe.
 - The payout use case may automatically attempt payout immediately when an affiliate crosses the eligibility threshold. This needs explicit owner confirmation and a tested approval/fraud/chargeback policy before being treated as intended production behaviour.
+
+
+### Focused source pass — admin UX, dashboard, AI prompt and remaining runtime blockers
+
+**Review pass recorded (16 Nov 2026):** Inspected admin controllers/templates, dashboard queries, barcode printing, AI prompt/context/provider bridges and feature-settings copy.
+
+#### Admin and operational dashboard
+
+1. Admin navigation and several operational screens use broad `manage_woocommerce` or `manage_options` capabilities. There is no demonstrated custom role/capability matrix for store owner, cashier, inventory clerk, customer-support agent and Junction Systems platform operator.
+2. Feature Settings page explicitly says disabled features are “completely unloaded” and claims payment gateways/couriers/integrations are removed. Source inspection contradicts this: gateway/shipping registries are unconditional, and some feature-dependent pages/hooks are registered without their own feature check.
+3. Feature Settings is writable by any local `manage_options` user and persists `pkstore_features` directly. This conflicts with the owner-confirmed rule that only the Junction Systems platform owner may control package entitlements and feature activation.
+4. Dashboard summary is a local operational overview (orders today, booking failures, OTP activity, AI chat counts and courier delivery ratios). It is not a central multi-deployment dashboard and does not monitor license status, subscription invoices, payment state, package sync or remote installation health.
+5. Dashboard values are cached for one hour; “Refresh Stats” is exposed as a query-string action. Validate capability/nonce and operational freshness under real support usage.
+6. The OTP audit list and logistics logs contain operational/customer-linked data. Verify masking, retention, export restrictions and least-privilege access.
+7. Purchase-order schema/template exists, but the reviewed inventory controller/admin navigation did not demonstrate complete supplier, purchase-order creation, receiving, partial receipt, stock posting and cancellation workflows. Table/template presence is not a completed procurement module.
+8. Barcode label output supports A4 HTML and ZPL, but no printer discovery/driver integration or physical label-printer compatibility tests were found. Treat “label printer” as printable output formats pending hardware verification.
+
+#### AI prompt and provider consistency
+
+1. Theme prompt hard-codes the persona as “PK Store” and states PKR, nationwide COD for physical products, instant digital delivery and Urdu/English language behaviour. These assumptions conflict with the owner's requirement that store-specific facts come from the client's configured store settings and that Roman Urdu be answered in Roman Urdu.
+2. Prompt instructs the AI to use only the product data supplied, but current theme retrieval supplies at most five products and plugin retrieval at most 40 popular in-stock products. The prompt safety rule cannot compensate for incomplete catalogue context.
+3. Theme provider bridge is named/configured as OpenAI, reports model `gpt-4o-mini`, but the application use case passes a Gemini model identifier. Gemini bridge exists but is not selected by the service container. Setup wizard stores a Gemini key, not the OpenAI key read by the bound bridge.
+4. AI chat dashboard is based on persisted chat rows and does not establish provider health, latency, errors, model usage/cost, unresolved conversations or human handoff success.
+5. AI streaming path buffers provider stream output in memory before yielding parsed deltas; it is not true incremental pass-through to the customer and can increase memory/latency on shared hosting.
+6. The theme AI prompt and plugin AI prompt are different, so the same store can provide inconsistent delivery, return, COD, language and product answers depending on which widget responds.
+
+#### Additional source-level blockers to confirm with automated lint
+
+- `FacebookPixelService::register()` as fetched appears to contain an escaped variable token in the callback array (`[\\$this, ...]`). If present in the literal PHP file, it is a PHP parse error.
+- `AffiliateHooks::trackRef()` appears to contain an extra quote in the empty-string fallback. If present in the literal PHP file, it is a PHP parse error.
+- `ProcessPayoutUseCase::payJazzCash()` appears to be missing a concatenation operator between the selected base URL and the API path. If present in the literal PHP file, it is a PHP parse error.
+- `LicenseManager` imports several exception classes that are absent from the recursive `main` tree. License activation/validation may fail at runtime when those exception types are instantiated or caught.
+- `GatewayRegistry` and service configuration reference an EasyPaisa gateway class absent from the recursive `main` tree. This needs class existence/autoload testing.
+- These are source-text findings, not yet lint-confirmed. The next technical gate is an automated syntax/autoload scan over the exact repository checkout.
+
+#### Central platform scope gap
+
+- The inspected `main` tree contains per-install license classes and a local store operations dashboard, but no complete central platform application for customer deployments, package catalogue, feature entitlement management, recurring monthly/yearly subscriptions, invoices, payment reconciliation, 7-day overdue grace/suspension, restricted billing recovery, deployment health or signed entitlement propagation.
+- The license URL points to a remote endpoint, but the central service implementation is outside this repository. Its API contract, security, data model, payment automation and operational reliability remain unverified and must be audited separately before treating the current client-side license manager as complete.
