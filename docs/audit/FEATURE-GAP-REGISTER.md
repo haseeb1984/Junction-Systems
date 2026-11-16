@@ -1033,3 +1033,39 @@ The owner clarified that some licensing code may already exist but the complete 
 - Do not conclude that no remote service exists solely from this repository. Its source may be in another private repository, hosting account or standalone application. It remains unverified until the owner supplies its repository or read-only API/specification/access.
 - Architectural direction: keep the central licensing/billing service as a standalone application/API, independent of the WooCommerce theme. The WordPress theme should become a thin deployment agent/client that securely registers its immutable deployment ID, receives signed package entitlements, enforces them server-side, and reports health/sync state.
 - Reuse the existing client only after fixing and testing it against the central service contract. Do not extend the theme into the central admin/billing control plane or assume the current endpoint implements the owner’s full requirements.
+
+
+### Staff roles, permissions and deployment data boundaries — source audit (2026-11-16)
+
+#### Confirmed implementation
+- The reviewed application relies primarily on native WordPress/WooCommerce capabilities such as `manage_options`, `manage_woocommerce` and `edit_posts`.
+- No custom cashier, stock clerk, store manager or deployment-specific employee role registration was found in the reviewed source paths.
+- Admin operations menu is generally gated by `manage_woocommerce`; feature settings and branding use `manage_options`.
+- POS REST routes share one permission callback: `manage_woocommerce OR edit_posts`. Inventory REST routes require `manage_woocommerce`.
+- The POS controller records the current WordPress user as cashier when opening a session, but the inspected close-session, list-orders, current-session, sale and receipt methods do not consistently verify that the caller owns the referenced session or is assigned to its location.
+- Inventory responses expose cost price, sale price, stock, supplier/warehouse-related operational data to every user who passes `manage_woocommerce`. No field-level role restriction is evident in these controllers.
+- FeatureSettingsController lets any `manage_options` user change local feature toggles. This conflicts with the owner-confirmed rule that only Junction platform owner controls paid package entitlements; a local toggle must never grant a central entitlement.
+- SecurityHardener removes selected WP user REST endpoints and restricts parts of `/wp/v2/` and `/wc/`, but this is not a substitute for per-route authorization. It explicitly exempts broad URI prefixes for COD, chat, webhooks and tracking, so each endpoint must enforce its own authorization/signature/ownership.
+- Login throttling is keyed to `REMOTE_ADDR` and uses transient counters; proxy trust, atomicity and distributed deployment behavior are not established.
+
+#### Security and business gaps
+- A user with `edit_posts` may access POS endpoints under the current shared callback even if they are not a cashier or assigned to the store/location.
+- POS close-session accepts a session ID and does not check that the current user owns that session or has manager override permission. Listing orders similarly does not prove session ownership.
+- POS current-session accepts caller-supplied location ID and returns cashier/session details without checking location assignment.
+- POS sale accepts caller-supplied session and location IDs; the use case checks session state but reviewed code does not bind it to current cashier or permitted location.
+- Inventory has no visible location-scoped authorization: a user with `manage_woocommerce` can request stock for arbitrary location IDs and list all locations.
+- The receipt WhatsApp endpoint accepts caller-supplied phone, order reference, item lines and total; it does not load and verify a persisted POS order before producing the message URL.
+- Local feature toggles are controlled by WordPress administrators, not centrally synchronized entitlements. This is an authority-boundary violation, not just a UI issue.
+- The review has not established cross-deployment data isolation at the hosting/database layer. The intended architecture is one isolated customer installation per deployment; verify unique DB credentials, backups, logs, API credentials, uploads and support access per installation.
+- No audit log was established for employee permission changes, session overrides, price overrides, inventory adjustments, exports, sensitive customer-data access or credential changes.
+
+#### Required role model for owner confirmation/design
+- Platform owner: central-only authority for customer deployments, package entitlements, licenses, invoices, payments, suspension/reactivation, deployment health and centrally controlled integrations.
+- Store owner: full authority within their own installation for store settings, employee accounts/roles, products, pricing, business policies and operations permitted by the purchased package; cannot change central entitlements or license status.
+- Store manager: explicitly granted operational management, approvals and reports; no central licensing/billing authority.
+- Cashier: POS sales and own/current shift operations; no arbitrary session closure, cost-price access, global stock adjustment, customer exports or employee administration unless explicitly granted.
+- Inventory staff: assigned-location stock receipts/counts/transfers/adjustments; no payment gateway secrets, license controls, full customer exports or unrestricted POS session access.
+- Support staff: limited customer support/order lookup and permitted human handoff; sensitive payment, API keys, licensing and financial exports masked or unavailable by default.
+- Enforce both capability and resource ownership (deployment, location, session, order, employee assignment) server-side. Add auditable manager overrides and reason codes for sensitive actions.
+- Role matrix and exact permissions remain owner-verification items; do not invent final business policy or add roles before confirming.
+
