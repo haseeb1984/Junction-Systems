@@ -213,16 +213,18 @@ Questions to verify before architecture decision:
 - Conversation context sent to a human-support handoff must be limited to relevant information, with customer awareness/consent; unrelated history and sensitive data must not be included.
 - Access controls must be enforced server-side, not merely hidden in the frontend or delegated to AI prompt instructions. Audit and test for cross-customer data leakage and unauthorized direct API access.
 
-## Owner verification queue — platform-level AI administration and client settings
+## Owner verification queue — platform-level package and feature administration
 
 **Owner clarification recorded (16 Nov 2026):**
 
-- AI platform-level configuration is controlled by the Junction Systems platform owner/vendor, not by the customer's store owner.
-- The vendor sets up the customer's installation and controls AI enable/disable, the Groq API key and AI model configuration.
-- The customer/store owner manages their own business-related settings within the installation, such as store information, product/business policies, support contacts/hours and other operational preferences exposed for client configuration.
-- Store employees may access only the business/support functions explicitly granted to their role. They must not automatically receive access to platform-level AI configuration, provider credentials or licensing controls.
-- Platform-level controls and secrets must be enforced server-side and must not be exposed in frontend responses, logs, chat history or client/staff views.
-- Keep platform-owner controls distinct from client business settings in the admin UX, capability checks, documentation and support procedures.
+- Junction Systems platform owner/vendor controls package entitlements and enables/disables the complete set of product features for each licensed client installation, not AI alone.
+- The vendor configures each customer's installation according to the purchased package/license, including which modules, integrations and premium capabilities are available.
+- Platform-controlled configuration includes package/feature entitlements, AI enable/disable, Groq API key and model configuration, licensing controls and deployment setup.
+- The customer/store owner manages their own business-related settings within the enabled features, such as store information, product/business policies, support contacts/hours, operational preferences and other settings intentionally exposed for client configuration.
+- Store employees may access only the business/support functions explicitly granted to their role. They must not automatically receive access to platform-level package entitlements, feature toggles, provider credentials or licensing controls.
+- Feature entitlements and platform-level controls must be enforced server-side across admin screens, REST/AJAX endpoints, background jobs and direct routes; hiding a menu or UI control is not sufficient.
+- A client must not be able to enable an unlicensed feature by changing a request, option, URL, database value or frontend state. Disabled features must fail closed without breaking unrelated licensed functionality.
+- Keep platform-owner controls distinct from client business settings in the admin UX, capability checks, documentation, upgrade/deployment process and support procedures.
 
 
 ## Owner verification queue — chat history and admin access
