@@ -144,7 +144,7 @@ Questions to verify before architecture decision:
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner confirmed full-catalogue product discovery, exact variation availability/price checking, product answers containing SKU, current sale price, stock status and a direct product link, catalogue-grounded popular recommendations with no invented product details, exact stock quantity disclosure only by store-owner opt-in, verified in-stock alternatives, strict budget ceilings, language matching, relevant in-session context, contextual WhatsApp handoff, configurable support contacts/hours, direct courier tracking links when available, and human-only order cancellation and modification; recorded above.
+- Owner confirmed full-catalogue product discovery, exact variation availability/price checking, product answers containing SKU, current sale price, stock status and a direct product link, catalogue-grounded popular recommendations with no invented product details, exact stock quantity disclosure only by store-owner opt-in, verified in-stock alternatives, strict budget ceilings, language matching, relevant in-session context, contextual WhatsApp handoff, configurable support contacts/hours, direct courier tracking links when available, and human-only order cancellation and modification; recorded above, and policy explanation with human-only return/refund approval and processing; recorded above.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
