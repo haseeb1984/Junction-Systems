@@ -228,6 +228,18 @@ Questions to verify before architecture decision:
 - **Owner decision confirmed (16 Nov 2026):** The central panel must support package upgrades and downgrades for an individual client deployment. After the platform owner changes the package, the new package's feature entitlements/configuration should automatically propagate to that specific installation and take effect there.
 - Package changes must be deployment-scoped, authenticated, auditable and observable. The central panel should show propagation/application success or failure; on failure, it must not silently report the new package as active while the client still enforces old entitlements. Preserve data and settings for features that are temporarily disabled or removed by a downgrade unless a separately approved migration/data-retention policy says otherwise.
 
+## Owner verification queue — overdue payments and automatic license enforcement
+
+**Owner decision confirmed (16 Nov 2026):**
+
+- When a client's payment becomes overdue, the system should automatically send a payment warning/notice.
+- If payment is not received within the configured grace period, the affected client installation should be automatically suspended according to its licensing/payment status.
+- Once payment is received and verified through an authoritative payment-gateway notification or an authorized, auditable manual confirmation, the license/installation should automatically reactivate and the central panel should show the updated status.
+- Do not reactivate based only on a customer screenshot, message or unverified payment claim.
+- Warning schedules, grace-period duration, payment reconciliation, webhook signature verification, retries/idempotency and suspension/reactivation events must be configurable or explicitly specified and auditable.
+- Suspension must not silently delete customer/store data, orders, configuration, chat history or feature data. Define the exact customer-facing restricted state and recovery/payment path; preserve data unless a separately approved retention/deletion policy applies.
+- If payment confirmation or license-sync delivery fails, show a clear pending/error state in the central panel and avoid falsely reporting successful reactivation. Retry safely without duplicate payment processing or conflicting entitlement state.
+
 ## Owner verification queue — platform-level package and feature administration
 
 **Owner clarification recorded (16 Nov 2026):**
