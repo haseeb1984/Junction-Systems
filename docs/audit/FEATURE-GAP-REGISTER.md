@@ -213,6 +213,15 @@ Questions to verify before architecture decision:
 - Conversation context sent to a human-support handoff must be limited to relevant information, with customer awareness/consent; unrelated history and sensitive data must not be included.
 - Access controls must be enforced server-side, not merely hidden in the frontend or delegated to AI prompt instructions. Audit and test for cross-customer data leakage and unauthorized direct API access.
 
+## Owner verification queue — AI administration and staff permissions
+
+**Owner decision recorded (16 Nov 2026):**
+
+- Only the store owner may enable/disable the AI assistant, configure the store's Groq API key, and select/configure the AI model.
+- Employees/staff may access only the AI/support functions explicitly granted to their role. They must not automatically receive access to AI provider credentials, model configuration, licensing controls or other owner-only settings.
+- Enforce these permissions server-side using WordPress capabilities/roles; hiding admin controls in the UI is not sufficient.
+- The AI API key must be stored and handled as a secret, must not be exposed in frontend responses, logs, chat history or staff views, and must be isolated to that customer's installation.
+
 ## Owner verification queue — chat history and admin access
 
 **Owner decision recorded (16 Nov 2026):**
