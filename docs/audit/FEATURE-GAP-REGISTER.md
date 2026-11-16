@@ -141,6 +141,14 @@ Questions to verify before architecture decision:
 - The AI must not approve returns, authorize refunds, issue refunds or promise that a refund/return has been accepted. Customer requests must be handed to human support for review and processing.
 - The AI must not invent eligibility rules, deadlines, fees, refund timelines or exceptions. If the applicable policy is missing or unclear, it should say so and refer the customer to human support.
 
+## Owner verification queue — delivery and shipping information
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI may explain the store's configured delivery policy and shipping charges using current, store-specific settings and verified integration data.
+- It may provide delivery estimates only when supported by verified data. It must not invent delivery dates, time windows, shipping charges, service coverage or courier events.
+- If delivery information is unavailable, stale or uncertain, the AI should clearly say it cannot verify the detail and refer the customer to the configured human support channel where appropriate.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
