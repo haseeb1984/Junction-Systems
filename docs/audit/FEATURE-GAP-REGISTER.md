@@ -1000,3 +1000,36 @@ Several integrations have declared registration classes but incomplete/incorrect
 
 - Checked the connected GitHub repositories named Junction/Junction Systems. The only directly matching product source remains haseeb1984/Junction-Systems. The other visible repository junctiontools is a separate online-tools website project, not the Junction Systems license/billing control plane. JunctionLMS is a separate LMS project. No central licensing/billing source was identified in these repositories.
 - This does not prove the central panel does not exist; it may be hosted outside the connected repositories or under another repository/account. Its implementation remains unverified until its exact repository/API is provided.
+
+
+### Licensing implementation classification — refined after source reinspection (2026-11-16)
+
+The owner clarified that some licensing code may already exist but the complete central licensing platform is expected to be independent of the WordPress theme. The audit therefore distinguishes a partial WordPress license client from the separate central control plane; do not label licensing as wholly absent.
+
+#### Confirmed WordPress-side implementation in `main`
+- `src/License/LicenseManager.php` contains a client-side license manager with key format validation (`JUNC-...`), activate/deactivate/validate actions, domain binding, encrypted key/cache storage, a 24-hour cache TTL, a 7-day connectivity grace, expiry checks, feature-list checks, lockout reason/time, and calls to `https://license.junctionsystems.pk/api/validate`.
+- The client sends action, license key, current domain, product identifier, version and an HMAC signature. It handles HTTP 403 as domain mismatch and 402 as expired. This proves a remote validation integration was attempted; it does not prove that the remote endpoint is live, owned, secure, complete, or backed by a central admin panel.
+- `src/License/LicenseFeatures.php` contains a local slug list and hard-coded Basic/Standard/Enterprise feature maps.
+- `src/License/LicenseAdminUI.php` provides WordPress admin activation/deactivation UI, expiry notices and feature display. It currently displays the full decrypted license key.
+- `src/License/Exception/LicenseException.php` defines the base and four derived exception classes in one file.
+- The WordPress theme bootstrap attempts to install a `pkstore_require_feature` action hook that resolves LicenseManager and calls `requireFeature()`.
+
+#### Confirmed gaps/defects in the WordPress-side client
+- `ThemeBootstrapper` constructor stores the service container as `$this->c`, but the license guard closure references `$this->container`. The guard will not resolve the manager as written.
+- The license guard is registered as an action hook; the inspected source does not establish that every privileged feature entry point invokes it. Existing local `FeatureManager` checks remain a separate authorization path.
+- `LicenseFeatures::forTier()` maps an unrecognized tier silently to Basic; malformed/unknown package data should fail closed.
+- The local 24-hour cache and 7-day network-offline grace are connectivity behavior only. They are not the owner-confirmed 7-day unpaid-invoice grace and must not be conflated.
+- Cache is trusted locally during its TTL; a central suspension/downgrade may not reach the installation immediately. No signed entitlement revision, monotonic update, push/poll sync status or bounded reconciliation mechanism is evident in this client code.
+- The remote response body is accepted as decoded JSON and cached without a verifiable server signature. The request HMAC uses a key stored in the same WordPress database; this does not establish secure server-to-client entitlement authenticity.
+- Encryption uses AES-256-CBC without an authentication tag. The generated encryption key is stored in the same WordPress options database as encrypted values.
+- The in-memory cache is returned before a fresh remote check; expiry/domain checks run locally, but current remote revocation/package changes are not fetched on every request.
+- `deactivate()` ignores whether the remote response acknowledged deactivation, then deletes local key/cache/grace. This can leave central activation state and local state inconsistent if the remote call fails or reports failure without throwing.
+- `isLockedOut()` reads a persistent lockout option, but the inspected manager does not provide a clear/reset workflow. The local guard defect and incomplete call-site coverage mean lockout is not proven to block every protected operation.
+- WordPress admin activation/deactivation requires `manage_options`; this is a local site-admin capability, not proof of Junction platform-owner authorization.
+- License UI exposes the decrypted full key and claims successful activation unlocks all features, while feature gating is not consistently authoritative across all routes/jobs/integrations.
+
+#### Central platform status — not established by this repository
+- The endpoint `license.junctionsystems.pk/api/validate` is referenced, but the server-side implementation, database, admin dashboard, customer/deployment registry, package editor, billing/subscription engine, invoice/payment verification, overdue scheduler, suspension/reactivation workflow, entitlement signing, deployment sync, and central audit/RBAC are not present in this repository tree.
+- Do not conclude that no remote service exists solely from this repository. Its source may be in another private repository, hosting account or standalone application. It remains unverified until the owner supplies its repository or read-only API/specification/access.
+- Architectural direction: keep the central licensing/billing service as a standalone application/API, independent of the WooCommerce theme. The WordPress theme should become a thin deployment agent/client that securely registers its immutable deployment ID, receives signed package entitlements, enforces them server-side, and reports health/sync state.
+- Reuse the existing client only after fixing and testing it against the central service contract. Do not extend the theme into the central admin/billing control plane or assume the current endpoint implements the owner’s full requirements.
