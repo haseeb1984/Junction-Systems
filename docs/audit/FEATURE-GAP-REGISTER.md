@@ -133,6 +133,14 @@ Questions to verify before architecture decision:
 - Do not expose personal details such as address or phone number without appropriate verification.
 - Include a direct courier tracking link when the integration supplies a valid URL; otherwise explain that a direct link is unavailable.
 
+## Owner verification queue — returns and refunds
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI may explain the store's configured return and refund policy using verified, store-specific policy information.
+- The AI must not approve returns, authorize refunds, issue refunds or promise that a refund/return has been accepted. Customer requests must be handed to human support for review and processing.
+- The AI must not invent eligibility rules, deadlines, fees, refund timelines or exceptions. If the applicable policy is missing or unclear, it should say so and refer the customer to human support.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
