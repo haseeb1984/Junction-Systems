@@ -237,6 +237,7 @@ Questions to verify before architecture decision:
 - Once payment is received and verified through an authoritative payment-gateway notification or an authorized, auditable manual confirmation, the license/installation should automatically reactivate and the central panel should show the updated status.
 - Do not reactivate based only on a customer screenshot, message or unverified payment claim.
 - Warning schedules, grace-period duration, payment reconciliation, webhook signature verification, retries/idempotency and suspension/reactivation events must be configurable or explicitly specified and auditable.
+- During suspension, the client/store owner must retain access to a restricted billing/recovery area in the admin panel to view the outstanding amount, complete payment and check license/reactivation status. The storefront and licensed operational features remain suspended until payment is verified and reactivation succeeds. Recovery access must be narrowly scoped and must not expose a way to bypass licensing or enable suspended features.
 - Suspension must not silently delete customer/store data, orders, configuration, chat history or feature data. Define the exact customer-facing restricted state and recovery/payment path; preserve data unless a separately approved retention/deletion policy applies.
 - If payment confirmation or license-sync delivery fails, show a clear pending/error state in the central panel and avoid falsely reporting successful reactivation. Retry safely without duplicate payment processing or conflicting entitlement state.
 
