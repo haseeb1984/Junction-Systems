@@ -157,10 +157,18 @@ Questions to verify before architecture decision:
 - The AI must not place an order or submit checkout on the customer's behalf without the customer's explicit confirmation for that specific purchase.
 - The AI must not imply an order has been placed until WooCommerce confirms successful order creation. If the customer completes checkout themselves, the AI may help explain the next steps using verified order information.
 
+## Owner verification queue — payment status verification
+
+**Owner decision recorded (16 Nov 2026):**
+
+- The AI must report payment status only from authoritative, verified WooCommerce order records or the connected payment gateway's verified transaction records.
+- A customer message, receipt image, screenshot or claimed transaction reference alone must not be treated as proof that payment succeeded.
+- If payment status cannot be verified, the AI must say it is unconfirmed and direct the customer to the configured human support channel or the appropriate payment provider process. It must not mark an order paid or claim payment success.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, and cart/checkout sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, and explicit customer confirmation before an order is submitted.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, and payment verification sections above. Key boundaries include catalogue-grounded product answers, verified store-specific policies and payment records, human-only order cancellation/modification and return/refund decisions, verified delivery estimates, and explicit customer confirmation before an order is submitted.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
