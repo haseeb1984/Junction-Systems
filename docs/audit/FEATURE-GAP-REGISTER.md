@@ -233,7 +233,7 @@ Questions to verify before architecture decision:
 **Owner decision confirmed (16 Nov 2026):**
 
 - When a client's payment becomes overdue, the system should automatically send a payment warning/notice.
-- If payment is not received within the configured grace period, the affected client installation should be automatically suspended according to its licensing/payment status.
+- The grace period after the overdue warning is **7 days (one week)**; if payment is still not received when that period ends, the affected client installation should be automatically suspended according to its licensing/payment status. The grace period should be centrally configurable for future policy changes.
 - Once payment is received and verified through an authoritative payment-gateway notification or an authorized, auditable manual confirmation, the license/installation should automatically reactivate and the central panel should show the updated status.
 - Do not reactivate based only on a customer screenshot, message or unverified payment claim.
 - Warning schedules, grace-period duration, payment reconciliation, webhook signature verification, retries/idempotency and suspension/reactivation events must be configurable or explicitly specified and auditable.
