@@ -201,10 +201,20 @@ Questions to verify before architecture decision:
 - Conversation context sent to a human-support handoff must be limited to relevant information, with customer awareness/consent; unrelated history and sensitive data must not be included.
 - Access controls must be enforced server-side, not merely hidden in the frontend or delegated to AI prompt instructions. Audit and test for cross-customer data leakage and unauthorized direct API access.
 
+## Owner verification queue — chat history and admin access
+
+**Owner decision recorded (16 Nov 2026):**
+
+- Store owners should be able to view customer chat history in the admin panel to investigate support issues and maintain service continuity.
+- Chat-history access must be permission-controlled and limited to authorized store personnel; staff should not receive broader access than their role requires.
+- The system must provide configurable data-retention controls and a documented deletion/expiry process consistent with applicable privacy requirements.
+- Chat records should be protected in storage and transit, and access to customer conversations should be auditable. Avoid exposing unrelated customer conversations or sensitive data in admin views, exports or support handoffs.
+- The customer-facing privacy notice should explain that chats may be stored and reviewed by authorized store support staff.
+
 ## Status
 
 - Initial source inventory and first AI/product-context review completed.
-- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, abuse-prevention, and customer-data privacy sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, proportionate abuse detection, and minimum-necessary customer data with server-side ownership/access checks.
+- Owner-confirmed AI requirements are recorded in the product catalogue, order support, returns/refunds, delivery/shipping, cart/checkout, payment verification/failures, COD OTP, abuse-prevention, customer-data privacy, and chat-history sections above. Key boundaries include catalogue-grounded answers, verified store-specific policy/payment data, human-only sensitive order/refund actions, explicit purchase confirmation, no unsupported payment claims or duplicate charges, no OTP bypass, proportionate abuse detection, minimum-necessary customer data, server-side ownership/access checks, and permissioned/auditable chat-history access with retention controls.
 - Full feature-by-feature source review: pending.
 - Runtime/integration/security tests: pending.
 - Owner feature verification: pending.
