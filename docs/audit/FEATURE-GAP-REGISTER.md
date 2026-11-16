@@ -599,3 +599,44 @@ The currently advertised plans are monthly subscriptions, with hosting, SSL, mon
 4. City seeding exits when any mapping row exists; a partially seeded table will not be completed on later runs. City/courier IDs also need periodic reconciliation with provider master data.
 5. Database tables use a mixture of IDs and no foreign-key constraints. Deleting WooCommerce products/users/orders can leave orphaned inventory, commission, payout, OTP or logistics records unless explicit cleanup hooks and retention policies are added.
 6. No backup restore or schema-upgrade test evidence exists. The advertised monthly backup commitment is an operational hosting obligation and is not implemented/proven by these installers.
+
+
+### Focused source pass — theme/plugin lifecycle, dependency loading and data governance
+
+**Review pass recorded (16 Nov 2026):** Rechecked the current `main` tree, theme entry point, bootstrapper, bundled AI plugin entry point, feature manager, license manager and database installers. Static source review only; no WordPress runtime or syntax tests were executed.
+
+#### Activation, upgrades and version identity
+
+1. Theme database installation is attached to `after_switch_theme`. The inspected `functions.php` does not register a general upgrade runner on normal requests or a version-aware migration check. A site that updates the theme ZIP without switching themes may not run newly required schema migrations.
+2. Main installer unconditionally writes `pkstore_db_version = 2.0.0` after calling the table installers. It does not check each `dbDelta()`/insert result before advancing the version. This reinforces the risk that a partially failed install/upgrade is recorded as complete.
+3. Version identity is inconsistent: `functions.php` defines `PKSTORE_VERSION = 1.0.1`, `style.css` advertises theme version `3.2.1`, and `README.txt` also identifies the package as v1.0.1. The license server receives `PKSTORE_VERSION`, so it may see a different version from the one WordPress update tooling/admin reports.
+4. Bundled AI plugin is version `1.1.0`, but it is only present as a source folder in this theme repository. Theme activation does not copy/install/activate it; the admin notice points to generic `plugin-install.php`, not a verified package installation/update path.
+5. The bundled plugin registers an activation hook to seed default options, but no deactivation or uninstall hook/file is present in the repository tree. There is no documented policy for retaining or erasing its API key, chat/session data, settings or scheduled work on plugin removal.
+6. No theme `uninstall.php`, plugin uninstall handler, migration test suite, or documented rollback path was found in the repository tree. Theme switching should not delete client data, but a supported uninstall/data-export/retention policy is also not demonstrated.
+
+#### Bootstrap and feature/licensing enforcement
+
+1. `ThemeBootstrapper::boot()` registers a `pkstore_require_feature` callback that calls `$this->container->make(...)`, but the class constructor stores the container as `$this->c` and declares no `$container` property. When this hook fires, the callback attempts to access an undefined property and cannot reliably obtain the license manager. This is a concrete bootstrap defect in the feature/licensing enforcement hook.
+2. The bootstrapper registers `ShippingRegistry` unconditionally, while feature flags include individual courier entitlements. The review still does not establish consistent per-courier entitlement checks at every booking, tracking, webhook, admin and scheduled-job entry point.
+3. `FeatureManager` loads local `pkstore_features` options and exposes local enable/disable/save operations. This remains a separate local flag layer, not a signed entitlement source from the Junction central owner panel. The local admin feature page also remains writable by `manage_options`, contrary to the owner-confirmed platform-owner-only package control.
+4. Theme feature registration is conditional for some modules, but the registered courier retry callback, tracking controller, custom order statuses and other shared hooks need explicit authorization/entitlement checks at the operation boundary. Hiding a menu or not registering a widget is not sufficient enforcement.
+5. The license manager uses a seven-day offline grace period for license-server reachability. This is distinct from the owner-confirmed seven-day unpaid-invoice grace period; the two clocks, reasons, customer messaging and suspension/recovery paths must not be conflated.
+6. The client license manager calls `https://license.junctionsystems.pk/api/validate`, but the central service is not part of this repository. Activation, signed entitlement payloads, expiry, package changes, revocation, invoice/payment state and remote recovery therefore remain unverified.
+
+#### Data governance, privacy and operational retention
+
+1. The reviewed source tree contains chat history, OTP attempts, courier request/response logs, affiliate payout and inventory records, but no WordPress personal-data exporter/eraser hooks or documented retention/expiry cleanup job were found. Confirm applicable data subject export/deletion requirements and retention exceptions before production use.
+2. The chat-history table stores message content and session UUID; the reviewed installer defines no expiry/cleanup policy. Owner-facing chat access, customer deletion requests, backup retention and staff access auditing need a single documented policy.
+3. Logistics logs store request payloads as LONGTEXT and may include customer/order/shipping details or provider credentials depending on the logged request. Define field-level redaction, access permissions, retention and deletion before using these logs for long-term diagnostics.
+4. OTP attempt records store phone, order ID and hashed code with timestamps; no cleanup schedule was found in the inspected installer/bootstrap lifecycle. Expired OTP rows should not become permanent customer data.
+5. License key encryption uses AES-256-CBC with a randomly generated key stored in the same WordPress options database. CBC encryption has no authentication tag; tampering detection, key rotation, database-only compromise, backups and restore/migration across domains require a hardened secrets design.
+6. `ThemeBootstrapper::applyBranding()` prints configured primary/secondary/accent colour values directly into a CSS style block and prints configured custom CSS. Validate/allowlist colour tokens and restrict custom CSS editing to a trusted owner capability; otherwise malformed or attacker-controlled settings can inject markup/script-capable CSS contexts.
+7. The config export AJAX endpoint exports branding/configuration JSON after a `manage_options` check and nonce. Confirm the export schema excludes API keys, license material, webhook secrets, customer data and other credentials, and audit where exported files are stored/shared.
+
+#### Test, build and packaging readiness
+
+1. The current recursive `main` tree has no `composer.json`, `package.json`, PHPUnit/PHPCS/PHPStan configuration, test directory, or `.github/workflows` CI workflow. No repository-defined repeatable automated quality gate was found.
+2. Theme and plugin source therefore lack demonstrated automated PHP syntax checks, JS module syntax checks, autoload/class-reference checks, dependency compatibility tests and release-package validation.
+3. The tree has no visible dependency lockfile or reproducible asset build manifest. Confirm whether all shipped JavaScript/CSS is source-ready and whether any generated/vendor assets are expected to be produced outside this repository.
+4. The next verification gate must run against a clean checkout of the exact release commit: PHP lint over every PHP file, JS syntax checks, static class/file reference scan, clean WordPress/WooCommerce install, theme switch/upgrade, plugin activation/deactivation/uninstall, backup restore and the owner-approved feature/role matrix. These tests have not yet been run.
+
