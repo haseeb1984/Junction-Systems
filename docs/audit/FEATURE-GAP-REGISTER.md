@@ -856,3 +856,40 @@ Several integrations have declared registration classes but incomplete/incorrect
 - Paginate hourly stock sync and test >500 products; define whether WooCommerce stock is sum of locations or online-available allocation, with reserved stock/backorders rules.
 - Align courier tracking metadata keys and test shipping/delivery notification after successful booking.
 - Add FBR fiscal outbox/idempotency/reconciliation linked to order/POS receipt, with provider acceptance/rejection state, offline retry and credit-note/refund linkage.
+
+
+### Latest pass — POS offline synchronization and courier booking integrity (2026-11-16)
+
+#### Confirmed source findings
+
+- `ProcessPOSSaleUseCase::execute()` checks that a session exists and is open, but the use case itself does not check that the current cashier owns the session or that the supplied location is assigned to that cashier. Controller permissions/resource checks are insufficient; enforce inside the use case.
+- POS sale accepts caller-supplied `unit_price_pkr`, item discount and sale discount. It loads product master data but uses caller-supplied unit price when present; no role-based override reason, maximum discount policy, price floor or manager approval is visible. Quantity validation (positive integer/stock availability) and payment split reconciliation also need validation.
+- POS order and order items are saved in separate DB operations without transaction. If item save or stock adjustment fails after order header insert, a partially persisted sale can remain.
+- POS stock deduction catches `DomainException` and continues, so the sale is accepted while stock remains unchanged. This needs an explicit owner-approved policy; default safe handling should prevent a false successful sale or mark it as stock exception requiring manager resolution.
+- POS session totals are updated after sale without a transaction covering order, items, stock ledger and session totals. A failure mid-way can create financial/session mismatch.
+- `SyncPOSQueueUseCase::execute()` does not create a WooCommerce order, transmit the sale to an external server or call `ProcessPOSSaleUseCase`; it simply marks pending POS orders as synced. The result count therefore overstates synchronization. There is no remote payload, remote acknowledgement or idempotency reference.
+- `WpPOSOrderRepository::findPending()` reads at most 50 rows, with no pagination/locking/claim state. Concurrent workers can process the same pending orders. `update()` changes only sync status and timestamp; it does not store WooCommerce order ID or external acknowledgement.
+- POS offline order reference/record needs a durable idempotency key generated at terminal creation and retained through retries. On reconnect, the system must reconcile product, price, tax, payment and inventory changes since the sale was made; never silently reprice a completed customer sale.
+- `BookShipmentUseCase::execute()` saves tracking metadata only when result is success and tracking number is not synthetic PENDING. But the underlying circuit breaker returns synthetic PENDING as `success=true`; retry handler then adds an order note for any success, which can describe a pending booking as “Courier booked”. Status semantics need explicit enum: booked, pending, rejected, failed, cancelled.
+- `CourierCircuitBreaker::bookWithFailover()` tries the next courier only when provider throws an exception. If a provider returns a non-success `ShipmentResultDTO`, it returns immediately and does not fail over. It treats only thrown exceptions as circuit failures.
+- If all couriers are open/fail, `optimistic()` returns `success=true` with tracking `PENDING-{orderId}`, schedules one Action Scheduler retry and emails admin. This is a false-success semantic and does not persist a durable booking job/outbox status, retry count, max attempts, last error, or operator resolution. Retry scheduling can also be unavailable when Action Scheduler is not installed.
+- `BookShipmentUseCase::retryForOrder()` rebuilds the shipment DTO and rebooks without an explicit duplicate-booking guard or checking whether a real courier tracking number already exists. Multiple retries can create duplicate shipments.
+- `BookShipmentUseCase::buildDto()` hardcodes country PK, weight default 0.5kg, empty dimensions and standard service. COD amount equals full order total; shipping discounts, partial payments, already-paid status, tax/declared value and provider-specific COD cap are not separately considered.
+- PostEx class is a standalone API client with booking and COD remittance retrieval; it is not included in the inspected common `CourierProviderInterface` failover constructor path. No remittance scheduler/reconciliation UI was found in this pass.
+- Rider class hardcodes same-day cities (Karachi, Lahore, Islamabad, Rawalpindi), pickup defaults and 1kg weight, logs full API response (may include PII), and does not expose tracking/webhook status integration in the inspected path.
+
+#### FBR integration impact
+
+- POS offline queue must not mark a sale “synced” until server-side order/fiscal reconciliation receives an explicit acknowledgement. FBR fiscal submission must be an idempotent, separately tracked step after authoritative sale data is accepted; an offline POS receipt should clearly distinguish local provisional receipt from officially registered fiscal invoice where applicable.
+- POS tax amount/rate/taxpayer details must be snapshotted at sale time, not recalculated using changed current settings when the device reconnects. FBR rejection/timeout must remain visible and retryable without creating duplicate fiscal invoices.
+- WooCommerce online orders and POS sales must share one canonical fiscal invoice/outbox model, with distinct source IDs and stable unique idempotency keys. Refunds/credit notes must reference the original fiscal invoice.
+- Courier booking success is not proof of delivery or COD remittance; FBR sale reporting and tax liability must not be inferred from shipment status alone. Reconcile sale/payment/refund/tax independently.
+
+#### Required verification
+
+- POS transaction tests: fail between header/items/stock/session updates; prove rollback or durable exception workflow. Test two concurrent cashiers and offline duplicate retries.
+- POS pricing/discount tests: tampered unit price, negative/zero quantity, excessive discount, unauthorized discount override, split payments not matching total, product disabled/deleted, changed tax config while offline.
+- POS sync tests: >50 pending records, multiple workers, no network, duplicate retries, server rejection, missing product, idempotency, WooCommerce order creation and correct order items/totals/tax/payment status.
+- Courier tests: unsuccessful DTO failover, timeout, duplicate retry, already-booked order, pending vs booked status, action scheduler unavailable, retry exhaustion and operator reconciliation.
+- Implement durable POS/courier outbox state with idempotency, bounded exponential retry, dead-letter/manual resolution and traceable provider acknowledgements.
+- For FBR, test offline provisional receipts, server acknowledgement, official invoice reference/QR or other mandated response, duplicate replay, API rejection, timeout reconciliation, return/refund/credit note and branch/terminal mapping against official FBR sandbox.
