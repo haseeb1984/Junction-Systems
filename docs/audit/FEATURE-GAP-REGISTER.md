@@ -994,3 +994,9 @@ Several integrations have declared registration classes but incomplete/incorrect
 
 - Obtain central license/billing service repository or read-only API specification and authorized sandbox account. Audit database schema, auth, license key issuance, customer/deployment mapping, package feature matrix, invoice generation, gateway verification, 7-day overdue scheduler, suspension/restore state machine, signed entitlement generation, deployment sync retries, audit logs and admin RBAC.
 - Test multi-install isolation, same key concurrent activation, hostname migration, domain takeover, revoked key, package upgrade/downgrade, stale cache, 7-day offline, unpaid overdue, verified payment, duplicate gateway webhook, delayed webhook, failed sync, clock skew, backup restore and deactivation retry.
+
+
+### Cross-repository check — possible central platform source (2026-11-16)
+
+- Checked the connected GitHub repositories named Junction/Junction Systems. The only directly matching product source remains haseeb1984/Junction-Systems. The other visible repository junctiontools is a separate online-tools website project, not the Junction Systems license/billing control plane. JunctionLMS is a separate LMS project. No central licensing/billing source was identified in these repositories.
+- This does not prove the central panel does not exist; it may be hosted outside the connected repositories or under another repository/account. Its implementation remains unverified until its exact repository/API is provided.
