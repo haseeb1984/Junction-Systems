@@ -1069,3 +1069,44 @@ The owner clarified that some licensing code may already exist but the complete 
 - Enforce both capability and resource ownership (deployment, location, session, order, employee assignment) server-side. Add auditable manager overrides and reason codes for sensitive actions.
 - Role matrix and exact permissions remain owner-verification items; do not invent final business policy or add roles before confirming.
 
+
+
+### Customer privacy, public endpoints and order-data exposure — source audit (2026-11-16)
+
+#### COD OTP endpoints
+- `/cod/send-otp` and `/cod/verify-otp` are public storefront routes protected only by a WordPress nonce. A public nonce is not proof that the caller owns the supplied order or phone number.
+- Controller accepts caller-supplied `order_id` and `phone`; it does not load the order and compare the phone with the order billing phone, confirm that the order belongs to the current customer/session, or verify COD payment method/status before sending/verifying.
+- Digital-only bypass trusts the supplied order ID and checks whether its products are virtual/downloadable; it does not prove order ownership or checkout-session binding.
+- Successful OTP verification response claims the COD order is confirmed, but inspected controller only calls OTP use case; no durable order-level verified marker or WooCommerce checkout validation hook was established in this path.
+- This is a potential order/phone enumeration and verification-binding vulnerability. Require signed checkout context, server-side order/customer/phone/method validation, rate limits by IP + phone + order + session, and persist a one-time verification proof bound to the eventual order.
+
+#### AI chat endpoints and chat privacy
+- Public `/chat` and `/chat/stream` routes use a public nonce and caller-provided `session_uuid`; rate limit is keyed only by that UUID. New UUIDs can bypass it.
+- No customer authentication or order ownership is required for public product chat; that may be appropriate for anonymous shopping, but any future order lookup, personal recommendations based on customer profile, or human support handoff must add verified identity and order-level authorization.
+- Streaming controller catches all throwables and returns only `[DONE]`; structured errors and operational visibility are missing.
+- Review AI chat persistence for retention, deletion/export requests, access controls, prompt/provider logging, redaction and backups before claiming customer privacy compliance. No end-to-end privacy lifecycle is established by these controller files.
+
+#### Affiliate account data
+- Affiliate dashboard is restricted to logged-in users and loads data for the current user’s affiliate record, which is a positive ownership check.
+- However, it returns the full affiliate payout account number in the API response along with commission, payout and order IDs. Mask payout destination by default; expose full value only to a narrowly authorized owner/admin workflow.
+- Public affiliate product listing intentionally exposes approved product details and redirect URLs. Verify moderation and ensure private submitter/payment data never enters public DTOs.
+- Affiliate account registration accepts payment account data; change/verification/audit controls need review.
+
+#### POS and inventory data
+- POS order list endpoint accepts a session ID and returns customer name, order total, payment method and order references without verifying that the caller owns the session or has an assigned location.
+- WhatsApp receipt endpoint trusts caller-supplied phone, order reference, item descriptions and total instead of loading the persisted POS order; it can produce fabricated receipts/messages.
+- Inventory endpoints return cost price, sale price and stock to any user with `manage_woocommerce`; no field-level separation or location assignment is implemented in the reviewed controller.
+- These endpoints need resource-level authorization and DTO minimization, not only broad WordPress capabilities.
+
+#### Tracking and courier webhooks
+- Public tracking endpoint is nonce-protected but accepts any tracking number and returns courier status/events. A public nonce does not prove the requester owns the order. Consider order-number + email/phone verification or a high-entropy customer tracking token and per-IP throttling.
+- Courier webhook routes are intentionally public and rely on provider signature verification. Invalid signatures, missing tracking numbers and unmatched orders all return HTTP 200 success, concealing failures and suppressing provider retries. Record security/processing outcomes and return provider-appropriate error codes where safe.
+- Webhook handler lacks visible event-ID deduplication/replay protection and provider event ordering safeguards; a stale event may regress order status. Add durable event idempotency, timestamp/sequence checks and a legal status transition matrix.
+
+#### Privacy lifecycle and customer-data governance
+- In the reviewed tree, no clearly identifiable project-owned WordPress personal-data exporter/eraser integration, retention scheduler or customer-data deletion workflow was found. This is a source-tree finding, not a statement about WordPress/WooCommerce core capabilities or the operator's legal obligations.
+- Define retention/deletion rules for OTP records, AI chat transcripts, affiliate payout details, POS customer details, webhook payload logs and exported configuration. Legal/tax/accounting retention exceptions must be owner/legal decisions.
+- Ensure config exports/backups/logs exclude or protect customer personal data, payment destinations, license keys, API tokens and FBR credentials.
+- For the separate-install deployment model, customer records must remain within that client's isolated database/storage/backup namespace. Support access must be explicitly authorized, time-bounded and audited.
+- No formal breach-response, subject-access request, correction/export, consent record, data-processing agreement or subprocessor inventory was established in the reviewed source. These require product/operations policy and legal review; do not claim compliance based on code inspection.
+
