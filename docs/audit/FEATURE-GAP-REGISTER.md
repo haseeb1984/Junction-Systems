@@ -215,13 +215,15 @@ Questions to verify before architecture decision:
 
 ## Owner verification queue — central client-installation monitoring
 
-**Owner decision recorded (16 Nov 2026):**
+**Owner clarification recorded (16 Nov 2026):**
 
-- The platform owner/vendor should have a central admin panel to monitor each deployed client installation.
-- At minimum, show license status, activation status, expiry date and deployment/installation health for each client.
-- Monitoring must distinguish license validity from technical health: a valid license does not prove an installation is healthy, and an unhealthy deployment does not by itself prove a license is invalid.
-- Access to the central panel and client installation data must be restricted to authorized platform-owner personnel. Client installations must not be able to view or alter other customers' license or health records.
-- Health checks should use a secure, authenticated mechanism and report the last successful check/time and actionable failure state where available; do not expose secrets or customer data unnecessarily.
+- There will be one central platform-owner panel from which all client deployments are managed.
+- The panel is the control plane for every deployment: assign the purchased package, switch that package's included features ON/OFF, manage licensing, and manage client payments.
+- Each deployment must receive and enforce its own package entitlements and feature configuration. A client cannot self-enable features excluded or disabled by the platform owner.
+- The central panel must also show each deployment's license status, activation status, expiry and technical/deployment health.
+- Licensing/payment state and technical health must remain distinct: payment or license status must not be inferred from deployment health, and health must not be inferred from payment status.
+- Central access and cross-client records must be restricted to authorized platform-owner personnel. Client installations must not be able to view or alter another client's deployment, license, package or payment records.
+- Any package/feature change should be auditable and securely propagated to the correct installation, with a visible success/failure state. A failed sync must not silently leave the central panel and client installation showing conflicting entitlements.
 
 ## Owner verification queue — platform-level package and feature administration
 
