@@ -1153,3 +1153,44 @@ The owner clarified that some licensing code may already exist but the complete 
 - Central package defaults and individual overrides are commercial entitlements. The deployment must enforce the latest verified, signed entitlement server-side for key-add, key-replace and key-use operations; a local WordPress administrator/store owner must not be able to raise the limit by changing local options or API requests.
 - Define precedence explicitly: individual deployment override when present; otherwise current package default. If a downgrade lowers the limit below the number of already stored keys, do not silently delete credentials or disrupt data. Platform owner must choose which keys remain enabled or mark excess keys inactive until the count is within entitlement. Do not use excess keys for rotation.
 - Entitlement changes must be revisioned, audited and synchronized safely; expose effective limit and sync status without exposing secrets.
+
+
+### WooCommerce checkout, customer accounts, order lifecycle and refunds — source audit (2026-11-17)
+
+#### Checkout template and COD verification binding
+- The custom checkout template `templates/woocommerce/checkout/form-checkout.php` renders the checkout form with `data-order-id=""` (empty).
+- `AssetEnqueuer::injectConfig()` places `WC()->session->get('order_awaiting_payment')` into the `pkstore-config` meta tag as the OTP order ID. On a customer's first checkout, there may not yet be an order awaiting payment; this must be verified in a live classic-checkout flow.
+- `assets/js/modules/checkout.mjs` sends that meta-derived ID and the browser-entered phone to public OTP routes. The checkout submit guard relies on the in-memory JavaScript `state.isVerified` flag. This is not a server-side security boundary and can be bypassed by direct HTTP requests or a modified browser.
+- `CodOtpController` accepts caller-supplied order ID and phone. Its digital-only bypass loads the supplied order and skips OTP when all items are virtual/downloadable, but does not prove the requester owns that order or that the order belongs to the current checkout/session.
+- `VerifyCodOtpUseCase` validates an OTP attempt against phone + caller-supplied order ID and marks that attempt verified. The inspected path does not create a durable, signed verification proof bound to the final WooCommerce order, billing phone, checkout session and COD payment method. No server-side WooCommerce checkout validation hook consuming such proof was found in the reviewed source.
+- The controller's success message says the CoD order is confirmed, although the use case only verifies the phone/OTP attempt; order creation/payment remains a separate WooCommerce operation.
+- Required design: bind OTP to a server-created checkout/order context or signed checkout token; compare normalized phone to the authoritative checkout/order billing phone; enforce selected payment method is COD; consume one-time proof during server-side checkout validation; prevent replay across orders/sessions; handle classic checkout and Blocks/Store API separately. Do not trust a browser boolean or caller-supplied order ID.
+
+#### Customer registration, guest checkout and order access
+- The repository contains a custom WooCommerce checkout template but no identifiable custom customer-registration/account-creation controller, guest-order ownership service, or project-specific order-view/cancel/refund REST workflow in the tracked source tree.
+- The theme delegates billing/shipping fields and order review to WooCommerce hooks. This suggests standard WooCommerce checkout components are used, but it does not prove the deployed store's guest checkout, account creation, email verification, password flow, Blocks checkout, or order-key access configuration.
+- No project-specific server-side order lookup by order number + verified email/phone was established in this pass. Any AI/order-support feature must verify ownership against authoritative WooCommerce order data before disclosing order, payment, address, phone or shipment details.
+- Runtime verification remains required for logged-in checkout, guest checkout, account creation during checkout, guest order-pay/order-received links, password reset, order key leakage, WooCommerce Blocks/Store API, and caching/CDN behaviour around personalized checkout pages.
+
+#### Payment initiation and callback observations
+- JazzCash `process_payment()` creates a timestamp + order-suffix transaction reference and sends amount in minor units with hard-coded PKR. The callback validates an HMAC and loads the order by bill reference, but the inspected callback does not visibly compare callback amount, currency, merchant ID, transaction reference and persisted initiation record against the expected order/payment attempt before calling `payment_complete()`. Invalid/missing callback data is acknowledged with HTTP 200, which can conceal failed verification and suppress provider retries.
+- Foree initiation stores a session ID in order metadata. Its callback reads `session_id`, `status` and `order_id` from query parameters; when status equals `SUCCESS`, it calls `payment_complete()` without a visible provider signature check, server-to-server status verification, stored-session match, amount/currency validation or replay/idempotency guard. This is a critical payment-forgery risk if the callback is reachable as written.
+- Foree declares WooCommerce support for `refunds`, but the inspected class has no `process_refund()` implementation. It is also not added by the current `GatewayRegistry`, which registers JazzCash and EasyPaisa only. Therefore Foree's runtime availability is not established by this registry path.
+- JazzCash and Foree both hard-code PKR. Confirm store currency and gateway eligibility; do not assume all deployments are PKR-only.
+- These gateway findings supplement the earlier payment audit; provider contract and sandbox tests are required before any gateway is enabled in production.
+
+#### Refunds, cancellations, returns and fiscal linkage
+- No project-owned WooCommerce refund/return workflow, refund REST controller, refund approval process, refund webhook reconciliation, or explicit stock-restoration hook was identified in the reviewed tracked source paths.
+- WooCommerce core may still provide its native manual refund functionality; this source finding does not establish that native refunds are absent. It means Junction-specific refund automation, approval controls, payment-provider refund execution and reconciliation are not proven.
+- No inspected project hook reverses affiliate commission/balance for refunds, partial refunds, chargebacks or order cancellations. Commission creation is triggered from payment-complete and order-completed hooks; a later refund/reversal ledger is not evident.
+- Earlier inventory review found stock deductions on payment-complete, processing and completed, but no corresponding project-owned refund/cancel/failed-payment stock restoration path. This can leave custom inventory inconsistent after refunds or cancellations.
+- This is also a prerequisite gap for FBR: a fiscal credit note/refund document must link to the original accepted fiscal invoice and the authoritative WooCommerce refund/credit-note record. Neither a project-owned refund workflow nor an FBR credit-note workflow is established yet.
+- Owner-confirmed customer-facing policy remains: AI may explain configured return/refund policy but must not approve returns, authorize or issue refunds, or promise acceptance; all such requests go to human support.
+
+#### Required end-to-end runtime test matrix
+- Logged-in customer checkout; guest checkout; account creation during checkout; checkout with existing account; classic checkout and Blocks/Store API.
+- COD OTP before first order, after failed checkout, repeated checkout, changed billing phone, changed payment method, guest session expiry, browser refresh, replayed OTP and direct API call.
+- Virtual-only, mixed virtual/physical and physical-only cart behaviour.
+- Payment pending, success, decline, timeout, duplicate callback, forged callback, amount/currency mismatch, wrong order/session, callback replay and delayed callback.
+- Full refund, partial refund, refund after shipment, cancellation before/after payment, chargeback and restock/no-restock policy.
+- Verify resulting WooCommerce order status, gateway transaction metadata, stock ledger, affiliate commission/balance, analytics purchase events, courier booking state and future FBR fiscal records remain consistent.
