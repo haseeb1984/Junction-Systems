@@ -1241,3 +1241,44 @@ The owner clarified that some licensing code may already exist but the complete 
 - No demonstrated product deletion/archival strategy protects inventory history, POS references, affiliate links, order lines or fiscal records.
 - No tested sync conflict policy exists for simultaneous WooCommerce admin edits, POS sales, online sales, warehouse transfers and scheduled sync.
 - Define canonical IDs and immutable snapshots for each sale line: WooCommerce product ID, variation ID, SKU, product name, selected attributes, unit price, tax, discount, currency, quantity and stock location at sale time. This snapshot is also required for POS reconciliation and FBR invoice correctness.
+
+
+### Suppliers, purchase orders, goods receiving and stock transfers — source audit (2026-11-17)
+
+#### Supplier master data
+- A `Supplier` domain entity and `pkstore_inventory_suppliers` table exist with name, contact, phone, email, address and active flag.
+- The reviewed admin controller and REST controller expose no supplier create/edit/archive/list workflow. The Purchase Orders admin page joins supplier names for display, but no supplier management UI/service was identified.
+- No supplier validation, duplicate detection, contact history, payment terms, tax registration, opening balance, purchase ledger or supplier statement workflow was established. Do not treat the presence of a table/entity as a working supplier module.
+
+#### Purchase orders are schema/display only in reviewed paths
+- `PurchaseOrder` domain entity supports statuses draft, sent, partial, received and cancelled, and methods `markReceived()` / `markPartial()`; it does not contain item-level receiving logic or persistence orchestration.
+- Database tables exist for purchase-order headers and items, including ordered and received quantities and unit cost. However, repository search and reviewed application/controller paths found no PO repository, create/send/update/cancel use case, supplier workflow, item editor, or PO REST endpoints.
+- The admin `purchase-orders.php` template is a read-only table listing existing PO headers. The controller only selects PO headers joined to supplier/location names; no create, edit, send, receive, cancel or print action is exposed.
+- The reviewed inventory REST controller has product, stock, barcode and location routes only; no purchase-order or supplier routes.
+- Therefore supplier/PO capability is not a complete functional procurement workflow despite the schema, entity and admin menu being present.
+
+#### Goods receiving and partial deliveries
+- No goods-receipt entity, receipt header/line tables, receiving use case, or service that updates `quantity_received` was found in the tracked source paths.
+- No workflow was found to validate received quantity against outstanding quantity, support partial receipts across multiple deliveries, record supplier delivery note/invoice references, capture received-by/time, or reject over-receipt/closed-PO receipts.
+- No inspected code connects a PO receipt to stock increases at the PO's destination location or creates `purchase_receive` stock movement ledger entries.
+- No purchase cost/landed cost, freight, tax, discount, damaged/short quantity, batch/lot, expiry date or serial-number receiving workflow is established.
+- The PO header `received_at` and item `quantity_received` columns alone do not demonstrate receiving functionality.
+- Consequence: a store operator cannot rely on the inspected project code to convert a supplier delivery into an auditable stock increase or correctly update WooCommerce availability.
+
+#### Transfers and stock reconciliation
+- `MovementType` defines `transfer_in` and `transfer_out`, but no stock-transfer aggregate, transfer request/dispatch/receive workflow, or transfer service was found in the tracked source paths.
+- No two-step transfer process exists in reviewed code to deduct stock from the source location at dispatch, receive at destination, record in-transit quantity, handle partial/lost/damaged receipt, and reconcile discrepancies.
+- Location repository can list active locations and identify one online location; stock repository can read location and total stock. This is read support, not transfer/reconciliation workflow.
+- Stock adjustments write the quantity balance and movement ledger as separate DB operations without transaction/atomic update; this earlier finding also applies to manual counts and would be unsafe as the foundation of receiving/transfers.
+- Low-stock report aggregates all locations. It does not calculate location-specific reorder needs, stock reserved for open orders, in-transit stock, committed stock or available-to-promise quantities.
+- No scheduled reconciliation compares purchase orders, receipt records, stock movement ledger, location balances and WooCommerce stock, nor an exception queue for mismatches was identified.
+
+#### Required procurement/inventory workflow before claiming this feature
+- Supplier CRUD and supplier identity/terms with restricted access and audit.
+- PO lifecycle: draft → approved → sent → partially received → received, with cancellation and revision history; preserve ordered quantities/cost snapshots.
+- Goods receipt documents with immutable receipt IDs, per-line accepted/rejected/damaged/short quantities, receiving user/time/location, supplier delivery-note reference and idempotency.
+- Stock balance + movement ledger + receipt state committed atomically; duplicate webhook/manual submit must not double-receive.
+- Partial receipt and backorder handling; prevent over-receipt unless explicitly approved.
+- Stock transfer: request → approve → dispatch → in-transit → partial/full receive → discrepancy resolution, with paired transfer-out/transfer-in movements and audit trail.
+- Reconciliation dashboard for PO outstanding quantities, goods receipts, supplier invoices, stock ledger, per-location balances, WooCommerce available stock and POS stock. Provide repair actions with approvals rather than silently overwriting quantities.
+- Define how procurement cost, landed cost, taxes and supplier invoice/payment obligations relate to accounting integrations and FBR. Do not infer tax treatment or accounting policy from the current integer PKR fields.
