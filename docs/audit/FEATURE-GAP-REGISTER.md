@@ -1194,3 +1194,50 @@ The owner clarified that some licensing code may already exist but the complete 
 - Payment pending, success, decline, timeout, duplicate callback, forged callback, amount/currency mismatch, wrong order/session, callback replay and delayed callback.
 - Full refund, partial refund, refund after shipment, cancellation before/after payment, chargeback and restock/no-restock policy.
 - Verify resulting WooCommerce order status, gateway transaction metadata, stock ledger, affiliate commission/balance, analytics purchase events, courier booking state and future FBR fiscal records remain consistent.
+
+
+### Product catalogue, variable products, pricing and inventory synchronization — source audit (2026-11-17)
+
+#### Two product records / catalogue ownership
+- WooCommerce product data lives in WooCommerce posts/product objects. Junction's custom inventory installer separately creates `pkstore_inventory_products` with its own SKU, barcode, name, category, cost price, sale price, reorder point and optional `wc_product_id`.
+- Inventory product creation is a separate manual admin/REST operation. In the reviewed source paths, no complete product lifecycle bridge was found that automatically creates/updates the Junction inventory record when a WooCommerce product is created/edited, or reconciles deleted/trashed products, SKU changes, category changes, product type changes or price changes.
+- The custom inventory repository's `update()` updates barcode/name/category/cost/sale/reorder fields but not SKU or `wc_product_id`. There is no reviewed duplicate-link reconciliation or explicit one-to-one uniqueness constraint on `wc_product_id`; only an index is declared.
+- Risk: the same sellable item can have divergent SKU/name/price/catalogue state between WooCommerce and Junction inventory. Decide and document the authoritative product master and whether custom inventory records are created from WooCommerce products or vice versa. Avoid silently inventing a second product.
+- The inventory REST create endpoint requires SKU and name but accepts a caller-supplied WooCommerce product ID; product existence/type/link uniqueness and price consistency are not visibly validated in that controller.
+
+#### Variable products and variations
+- WooCommerce order stock synchronization uses `$item->get_product_id()` and does not use `$item->get_variation_id()` in the inspected implementation.
+- The custom inventory schema links only one `wc_product_id` per inventory product and has no explicit variation ID/parent ID/variation attribute/SKU model.
+- The AI product repository queries only `post_type='product'`, then hydrates the parent product. It does not query `product_variation` records or resolve a selected variation's exact SKU, attributes, price, stock and purchasable state.
+- Consequence: variable products cannot be confidently represented as exact sellable variants in custom inventory or AI answers from this path. Parent-level attributes may describe available options, not the selected variation's actual stock/price.
+- Required design: define whether inventory is tracked at parent or variation level. For variant-tracked inventory, use variation ID as the stock identity, preserve parent relation and selected attributes, and ensure POS, WooCommerce orders, barcode labels and FBR line items all refer to the same sellable variant. Add tests for parent-managed stock versus variation-managed stock and shared parent stock.
+
+#### Price and currency integrity
+- AI `WcProductRepository::mapToContext()` sets `pricePkr` from `get_regular_price()`, and separately sets `salePricePkr` when `is_on_sale()`. It does not use WooCommerce's effective `get_price()` as the authoritative current payable price.
+- This can make AI quote the regular price instead of the actual active sale price. The value object and minified prompt expose regular price under `px` and sale price separately, leaving the model to infer which is payable.
+- Product context casts prices to integer and labels fields as PKR, while WooCommerce may use decimals or another store currency. No currency-decimal precision or currency-aware formatting is applied in this mapping.
+- The custom inventory schema stores cost and sale prices as integer `*_pkr` fields, so fractional currency values and non-PKR deployments are not represented faithfully.
+- POS previously reviewed accepts client-supplied unit price and discounts; the custom inventory sale price is not demonstrated as a trusted server-side price authority.
+- Required design: use WooCommerce's server-side effective price for online display/AI answers, keep currency and decimal precision from WooCommerce settings, and define a controlled POS price snapshot/override policy with permissions and audit reasons. Tax, coupons, fees, shipping and variation price must be distinguished from base product price.
+
+#### Stock synchronization and location model
+- `InventoryHooks` invokes the same WooCommerce sale deduction on `woocommerce_payment_complete`, `woocommerce_order_status_processing` and `woocommerce_order_status_completed`. No order/item idempotency marker is visible in `SyncWooCommerceStockUseCase::onWooCommerceSale()`; repeat status/payment events can deduct the same order more than once.
+- The sale sync resolves inventory product using order item's parent `product_id`, and deducts quantity from the single location marked `is_online`. It does not visibly account for variation ID, refunded quantity, cancelled quantity, partial fulfilment, backorders or which physical warehouse actually fulfilled the online order.
+- `syncAllToWooCommerce()` fetches only `findAll(500, 0)`; products after the first 500 are never reached by that full sync. No pagination loop or continuation cursor is present.
+- Full sync sums every custom location's quantity and writes that sum to WooCommerce product stock, then forces `manage_stock=true` and stock status based only on total > 0. This can override WooCommerce's pre-existing stock-management configuration and availability policy. It can also advertise stock in locations that cannot fulfil online orders.
+- `AdjustStockUseCase` syncs total custom stock to WooCommerce after each adjustment, irrespective of which location changed; this reinforces the all-location sum policy. Location allocation/reservation and online-available quantity are not separated.
+- Custom stock adjustment is read-modify-write followed by a separate movement insert; there is no DB transaction or atomic conditional update. Concurrent orders/adjustments can lose updates or leave ledger and balance inconsistent. Repository write return values are not consistently checked.
+- When WooCommerce sale deduction fails due to insufficient custom stock, the exception is logged and swallowed; the paid order is not reversed or held for operator review by this path. This can leave paid orders and inventory divergent.
+- Required design: a single idempotent stock event per order line/fulfilment/refund; transactional ledger + balance update; explicit reservation/release/commit lifecycle; pagination; stock ownership/warehouse routing; online-available stock policy; variation-aware identifiers; and a reconciliation report with actionable exceptions. Do not assume sum of every location is sellable online stock.
+
+#### Digital products and customer-facing availability
+- AI repository forces every virtual/downloadable product to `in_stock` with quantity 999, irrespective of WooCommerce stock-management settings. This may misrepresent finite-license/download inventory or a store's deliberate stock restriction.
+- AI product search returns at most five products and searches title/excerpt only; category fallback is a limited hard-coded mapping. It does not establish a complete catalogue search, SKU lookup in the conversation resolution path, product pagination, ranking, or variation resolution.
+- Product data context includes regular/sale price, stock status/quantity, short description, categories, attributes and brand, but no verified per-variation purchasability, tax class, shipping class, backorder policy, minimum/maximum quantity or full description.
+- Customer-facing stock quantity is not required by default; earlier owner direction was In Stock / Out of Stock, with exact quantity only if store owner chooses to expose it. Ensure AI follows the same visibility setting and does not reveal internal warehouse/cost data.
+
+#### Product and stock workflow gaps to resolve
+- No complete source-backed purchase receiving workflow was established in this pass despite purchase-order schema/admin page. Verify supplier PO item creation, receiving partial quantities, cost updates, stock ledger and cancellation.
+- No demonstrated product deletion/archival strategy protects inventory history, POS references, affiliate links, order lines or fiscal records.
+- No tested sync conflict policy exists for simultaneous WooCommerce admin edits, POS sales, online sales, warehouse transfers and scheduled sync.
+- Define canonical IDs and immutable snapshots for each sale line: WooCommerce product ID, variation ID, SKU, product name, selected attributes, unit price, tax, discount, currency, quantity and stock location at sale time. This snapshot is also required for POS reconciliation and FBR invoice correctness.
