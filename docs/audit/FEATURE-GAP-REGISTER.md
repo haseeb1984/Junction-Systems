@@ -1282,3 +1282,67 @@ The owner clarified that some licensing code may already exist but the complete 
 - Stock transfer: request → approve → dispatch → in-transit → partial/full receive → discrepancy resolution, with paired transfer-out/transfer-in movements and audit trail.
 - Reconciliation dashboard for PO outstanding quantities, goods receipts, supplier invoices, stock ledger, per-location balances, WooCommerce available stock and POS stock. Provide repair actions with approvals rather than silently overwriting quantities.
 - Define how procurement cost, landed cost, taxes and supplier invoice/payment obligations relate to accounting integrations and FBR. Do not infer tax treatment or accounting policy from the current integer PKR fields.
+
+
+### POS register, cashier sessions, tender reconciliation and offline sales — source audit (2026-11-17)
+
+#### Cashier sessions and cash drawer close
+- POS session open uses a location-wide lookup for any open session. If one exists, the controller returns/resumes it for the caller without checking that the current user is the recorded cashier or authorized manager. Multiple cashiers cannot safely operate independent drawers at one location under the current one-open-session-per-location lookup.
+- Opening a session accepts caller-supplied location ID and opening cash; the controller does not validate that the location exists, is active/POS-enabled, or is assigned to the cashier.
+- Session close accepts a session ID and closing cash; the controller checks only that the session exists and is open. It does not verify cashier ownership, location assignment or manager override authority.
+- Critical cash variance defect: `POSSession::recordSale()` updates cash/JazzCash/EasyPaisa totals in memory, but `WpPOSSessionRepository::update()` persists only total_sales_pkr and status. It does not persist total_cash_pkr, total_jazzcash, total_easypaisa, total_card_pkr, closing_cash or closed_at. On the next request, the session is reconstructed with the old payment totals; closing variance therefore ignores cash sales and can be materially wrong. Closing cash/time are not durably saved.
+- `recordSale()` treats every payment method other than JazzCash and EasyPaisa as cash. Card sales are therefore counted as cash; split payment is passed as method 'split' and also counted entirely as cash. Entity has no correct card-total accumulator despite a DB column existing.
+- Session update does not persist the calculated tender breakdown. Session close summary shows only total sales and cash variance, not expected vs counted cash, card, JazzCash, EasyPaisa, refunds, paid-ins/paid-outs or tender-wise reconciliation.
+- A cashier can close a session while locally queued offline sales still exist; no server-side queue reconciliation/close guard is present. Closing and then syncing queued sales can attach later transactions to a closed session only if sale endpoint's open-session check is bypassed or session handling changes; currently the sale use case rejects a closed session, leaving offline queued sales unable to sync after closure.
+
+#### POS sale validation and atomicity
+- Sale processing verifies only that the supplied session exists and is open. It does not ensure supplied location matches session location, current user is session cashier, or cashier has location access.
+- Product lookup uses internal inventory product ID, but caller-provided quantity, unit price, line discount, order discount, payment method and payment split are not robustly validated in the use case.
+- Negative/zero quantities, negative discounts/prices, unsupported payment methods, malformed split amounts and split totals not equal to order total are not explicitly rejected in the inspected path. Integer casts alone are not business validation.
+- Caller-supplied unit price overrides inventory sale price; no server-side price-floor/discount approval, manager override reason or price snapshot provenance is enforced. This can permit unauthorized price manipulation.
+- `POSOrder::create()` calculates subtotal as unit price × quantity and total as subtotal minus order-level discount; line-level discount is not deducted in this calculation. The persisted line total is also unit price × quantity and does not subtract line discount. Receipt and order totals can therefore diverge when line discounts are supplied.
+- POS order header save, line-item save, each stock adjustment and session-total update are separate DB operations with no encompassing transaction. A failure after header insert can leave an incomplete sale; a failure after one stock deduction can leave only some lines deducted; session totals may not match saved orders.
+- Stock deduction errors for insufficient stock are caught/logged and sale still succeeds. No manager override, negative-stock ledger exception, stock-reconciliation task or visible warning in the sale response is provided.
+- No duplicate-sale idempotency key is accepted or persisted. Rapid double submit, browser retry or response timeout can create duplicate POS orders.
+
+#### Payment methods and tender handling
+- UI exposes Cash, JazzCash, EasyPaisa and Card buttons, but does not render a split-payment interface. Backend schema supports JSON `payment_split`, but the inspected frontend does not submit it.
+- POS payment method is recorded as a label; no cash tendered/change-due amount, JazzCash/EasyPaisa transaction reference, card terminal reference, settlement confirmation, payment proof or gateway/terminal reconciliation is captured.
+- Card is not properly tracked in session totals, and split payment is accounted as cash in the domain method.
+- The POS UI's Foree card terminal marketing feature is not connected to this POS sale path in reviewed code; selecting Card is not evidence of a Foree terminal transaction.
+- No void, refund, partial refund, exchange, return-to-stock, cash drawer paid-in/paid-out, cash drop or manager-authorized correction workflow was identified in POS paths.
+
+#### Offline-first claim — browser queue is not safe synchronization
+- The POS template uses IndexedDB for cached products and an offline queue, but this is only a browser-local queue; server-side POS sync does not replay queued sales into WooCommerce.
+- Online sale handler catches every error, not only confirmed network/offline failures. If the server commits a sale but the response is lost, browser queues the same sale locally; when reconnected it posts a new sale without idempotency and can duplicate the transaction. Server validation/permission errors may also be misclassified as offline sales.
+- Offline queue reference is generated in browser as `OFFLINE-{timestamp}`, but it is not sent as a stable idempotency key. Flush discards that reference and calls `/pos/sale` with a new request; the server generates a new order reference. The local ref cannot reconcile a retry or prove exactly-once processing.
+- Offline queue payload does not store an authoritative product/price/tax snapshot signed or versioned by the server, and cached products/stock may be stale. No offline stock reservation or conflict-resolution policy exists.
+- Flush sends each queued payload to `/pos/sale`; that endpoint requires an open session. If the original session was closed while offline, queue sync fails repeatedly. No reassign-to-new-session, supervisor reconciliation or pending-close control is provided.
+- Queue has no explicit per-item state/attempt counter/last error/dead-letter UI, no cross-tab/device coordination, and no verified exactly-once delivery. No protection against browser storage eviction/device loss was established.
+- Server `SyncPOSQueueUseCase` merely changes pending records to synced; it does not create WooCommerce orders, call an external sync target, or reconcile acknowledgements. Its `ProcessPOSSaleUseCase` dependency is not used. `markSynced(?int $wcOrderId)` ignores the WC order ID; repository update only writes sync status/time. Thus the displayed online/offline sync badge is not evidence of POS-to-WooCommerce synchronization.
+
+#### Receipts, printing and returns
+- Thermal receipt output is implemented as browser popup/window.print HTML, not a demonstrated ESC/POS printer integration, print spooler or printer status/retry workflow.
+- Receipt data is composed in browser from client cart values; there is no durable receipt reprint/void workflow tied to saved POS order and line snapshots.
+- WhatsApp receipt endpoint builds a `wa.me` click-to-chat URL. It does not send a WhatsApp Business API message or confirm delivery.
+- WhatsApp receipt endpoint trusts caller-supplied phone, order reference, item names/quantities/line totals and grand total; it does not load and verify a saved POS order. A user with route capability can construct a misleading receipt message.
+- Browser uses popup opening only after awaiting the WhatsApp API call; browser popup blockers may block it. No delivery state or receipt-sent confirmation is stored; `receipt_sent` remains false in the reviewed flow.
+- No POS-specific returns, exchanges, refund approval, original-sale linkage, returned-item condition/restock decision, tender refund or fiscal credit-note workflow was found. Existing stock movement enum includes POSReturn, but no POS return service/controller was identified.
+
+#### POS permissions and audit
+- All POS routes share `manage_woocommerce OR edit_posts`; this is broader than a dedicated cashier permission. POS admin page itself requires `manage_woocommerce`, creating inconsistent access between UI and REST.
+- Order listing accepts any session ID and returns customer name, totals, payment method and order reference without checking session ownership/location assignment.
+- Session current endpoint accepts caller-supplied location and returns cashier ID/opening cash/sales totals without location membership enforcement.
+- Session close and sale routes lack consistent ownership checks. No cashier role, manager approval workflow, supervisor override audit, or per-action audit log was established.
+- No immutable audit trail for price overrides, discounts, voids, tender corrections, drawer variance explanations, receipt reprints or offline reconciliation was found.
+
+#### Required POS acceptance criteria
+- Unique idempotency key per locally created sale; server persists it atomically and returns same sale on retries.
+- Atomic sale transaction: header, line snapshots, tender rows, stock movements and session totals commit/rollback together; concurrency-safe stock updates.
+- Server-authoritative product/variation/price/tax snapshots; validated quantities, line/order discounts, price override limits and manager approval reason.
+- Cashier-owned drawer sessions, multiple drawers per location if needed, role/location checks and safe session resume/close.
+- Persist expected tender totals and closing cash/time; calculate variance from cash tender only; separately reconcile card/JazzCash/EasyPaisa/split tender and refunds.
+- Offline queue with durable device identity, idempotent retry, server acknowledgement, pending-sale review, closed-session recovery, stale-price/stock conflict handling and no false “synced” status.
+- Real WooCommerce order creation/mapping if POS-to-WooCommerce sync is a product promise; store wc_order_id, stable linkage and retry/reconciliation.
+- Persist receipt snapshots and support reprint; clarify whether printing is browser-only or certified thermal integration; WhatsApp Business API delivery status distinct from click-to-chat.
+- Human-approved returns/exchanges/refunds, original sale linkage, tender refund tracking, stock disposition and FBR credit note linkage.
