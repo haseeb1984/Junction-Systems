@@ -1383,3 +1383,9 @@ The owner clarified that some licensing code may already exist but the complete 
 - Establish invoice/fiscal state machine (not submitted, pending, accepted, rejected, unknown/reconciliation required), official identifiers/QR only from verified FBR responses, immutable audit and idempotency.
 - Establish refund/return source workflow and linked fiscal credit-note handling before claiming end-to-end FBR readiness.
 - Verify actual WooCommerce tax settings, order tax lines, gateway payload/amount reconciliation, POS receipts, FBR sandbox, network timeouts, duplicate requests, rejection, refund/credit-note and reconciliation tests in a runtime environment.
+
+
+#### Official FBR documentation checked (2026-11-18)
+- FBR's current Digital Invoicing FAQ states that electronic invoicing applies to registered persons notified under the relevant provisions and that integration for notified persons is through a licensed integrator; it also says PRAL can provide integration services on demand. Treat applicability to each Junction client as a taxpayer-specific legal/onboarding verification, not as a universal product toggle.
+- FBR's official technical-assistance page publishes Digital Invoicing API documentation; the reviewed technical specification describes API integration and token-based authorization. Exact current endpoints, payload schema, scenario/reference data, validation, sandbox, token provisioning and production routing must be taken from the current official documentation/onboarding, not copied from older PDFs or guessed.
+- The FBR FAQ describes digital invoice cancellation/modification in terms of debit/credit notes subject to applicable conditions. This supports recording a linked credit/debit-note workflow as a design dependency, but does not establish the exact workflow/legal eligibility for every Junction customer.
