@@ -1,7 +1,7 @@
 # Junction Systems — Feature & Gap Audit Register
 
 **Audit status:** In progress — source review only; runtime tests not yet executed.  
-**Baseline:** `main` at `38b6eee00d92b5a7240c62fb3e8d06a3f80c3c4b` (reviewed 15 Nov 2026).  
+**Baseline:** `main` at `38b6eee00d92b5a7240c62fb3e8d06a3f80c3c4b` (source review updated 18 Nov 2026).  
 **Purpose:** Record current behaviour, dependencies, gaps and owner-verification questions before proposing or implementing feature changes.
 
 ## Change-control rules
