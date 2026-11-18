@@ -1346,3 +1346,40 @@ The owner clarified that some licensing code may already exist but the complete 
 - Real WooCommerce order creation/mapping if POS-to-WooCommerce sync is a product promise; store wc_order_id, stable linkage and retry/reconciliation.
 - Persist receipt snapshots and support reprint; clarify whether printing is browser-only or certified thermal integration; WhatsApp Business API delivery status distinct from click-to-chat.
 - Human-approved returns/exchanges/refunds, original sale linkage, tender refund tracking, stock disposition and FBR credit note linkage.
+
+
+### Tax, invoice totals and FBR readiness — source audit (2026-11-18)
+
+#### WooCommerce online checkout and tax authority
+- The reviewed Junction-specific checkout template and JavaScript customize COD phone verification, but no Junction-owned tax calculation, tax-rate configuration, tax-class resolution, invoice numbering, tax invoice rendering, or fiscal registration path was identified in the tracked source. Online tax calculation appears delegated to WooCommerce/core and store configuration; runtime configuration and plugins were not inspected.
+- The reviewed custom payment gateways transmit a PKR amount/currency to providers. JazzCash converts WooCommerce order total to minor units and hard-codes pp_TxnCurrency=PKR; Foree sends number_format(order total, 2) and hard-codes currency=PKR. Neither reviewed path demonstrates a separate tax amount, tax breakdown, tax authority registration, or validation that gateway amount equals a persisted order payable total under the configured currency.
+- Do not infer that WooCommerce tax is disabled or absent: its core settings and live order tax lines were not available in this source-only review. Verify tax-inclusive/exclusive pricing, tax classes, shipping tax, discounts, exemptions, rounding, refunds and configured currency in a real installation.
+
+#### POS tax calculation and fiscal invoice gap
+- POS UI shows subtotal, one order-level discount and grand total; it has no tax row, tax rate/class selection, tax breakdown or tax-inclusive/exclusive toggle.
+- ProcessPOSSaleUseCase enriches line items with product ID/SKU/name/quantity/unit price/discount and passes these to POSOrder::create(). No tax calculation or tax snapshot is performed in the inspected path.
+- POSOrder::create() calculates subtotal as unit price × quantity and total as subtotal minus order discount, clamped at zero. No tax, shipping, fee, exemption or currency field is represented in the POS order entity/repository schema inspected.
+- POS receipt template prints subtotal, optional discount and total only. It does not print tax amounts/rates, taxpayer identity/registration, fiscal invoice number, official validation/QR, or FBR response state.
+- POS sales are custom POS records and the reviewed sale path does not create WooCommerce orders. Therefore the POS path has no demonstrated WooCommerce tax engine reuse or common fiscal invoice source record.
+- The custom POS payment/session model and WooCommerce payment gateway/order total flows are separate; no canonical tax/payable reconciliation across them was found.
+
+#### Financial data consistency risks
+- POS accepts caller-provided unit price and discounts, with no verified server-authoritative pricing/discount validation. Any future tax/fiscal invoice could be based on tampered amounts unless validated and snapshotted server-side.
+- POS sale header and line persistence are separate, non-transactional operations; there is no tax line table/ledger or durable tax calculation version in the inspected custom POS schema.
+- Custom inventory price fields and POS amounts are integer PKR; WooCommerce gateway paths support formatted decimal totals but force PKR. Multi-currency/decimal policy is not established.
+- Payment callback paths audited previously have important verification gaps; FBR acceptance must not be coupled to unverified payment success or mark an invoice fiscalized merely because a callback says success.
+- No project-owned refund/credit-note workflow was established in earlier source review. An FBR credit note would therefore have no demonstrated authoritative source event or idempotent linkage to a refund.
+
+#### FBR integration status
+- Recursive main-branch tree scan and reviewed POS/checkout/payment source paths did not identify an FBR client, fiscal invoice submission service, taxpayer/branch configuration, FBR response persistence, invoice QR/verification data, retry/reconciliation queue or credit-note workflow. Treat FBR as NOT IMPLEMENTED in the reviewed repository, subject to external code/service verification.
+- This is a source finding, not a legal determination. Official FBR requirements, eligible taxpayer/transaction scope, current API, onboarding/certification, mandatory fields, invoice format, QR/verification rules, sandbox/production and offline/retry obligations must be verified against current official documentation before design; no tax rates or legal mandates are inferred here.
+- Owner-requested FBR integration remains a recorded requirement. It should be a centrally entitled, per-installation integration with per-client credentials/configuration, but fiscal transaction state must remain tied to each installation's authoritative sale/order.
+- Required safety: one idempotent fiscal submission per eligible source transaction; never report registered/accepted without official response; timeouts remain pending/unknown until reconciliation; preserve raw response with sensitive-data controls; retry safely; handle cancellations/refunds through the officially required linked credit-note process; and keep POS/WooCommerce order, tax calculation, payment status and fiscal state distinct but reconciled.
+
+#### Required financial/tax design decisions and acceptance criteria
+- Define canonical sale source and line snapshot for both WooCommerce and POS, including product/variation/SKU, quantity, effective unit price, discount, tax class/rate/amount, tax-inclusive/exclusive flag, currency, shipping/fees, payable total and source ID.
+- POS must validate server-authoritative prices and discount permissions, calculate or explicitly reuse a verified tax engine, and persist tax components atomically before receipt/fiscal submission.
+- Confirm store currency and rounding precision; remove PKR/integer-only assumptions if the product is expected to support other currencies or fractional pricing.
+- Establish invoice/fiscal state machine (not submitted, pending, accepted, rejected, unknown/reconciliation required), official identifiers/QR only from verified FBR responses, immutable audit and idempotency.
+- Establish refund/return source workflow and linked fiscal credit-note handling before claiming end-to-end FBR readiness.
+- Verify actual WooCommerce tax settings, order tax lines, gateway payload/amount reconciliation, POS receipts, FBR sandbox, network timeouts, duplicate requests, rejection, refund/credit-note and reconciliation tests in a runtime environment.
