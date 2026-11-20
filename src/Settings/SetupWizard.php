@@ -27,6 +27,7 @@ final class SetupWizard {
     }
 
     public function register(): void {
+        $this->licenseUI->register();
         add_action('admin_menu', [$this, 'addPage']);
         add_action('admin_post_pkstore_save_settings', [$this, 'handleSave']);
     }
