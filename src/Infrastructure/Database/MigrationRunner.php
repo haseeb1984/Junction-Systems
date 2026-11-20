@@ -1,0 +1,105 @@
+<?php
+declare(strict_types=1);
+namespace PkStore\Infrastructure\Database;
+
+/**
+ * Versioned, lock-protected schema migration entry point.
+ *
+ * Add future migrations to MIGRATIONS with a new monotonically increasing
+ * version. A migration is marked complete only after it returns successfully
+ * and the required schema has been verified.
+ */
+final class MigrationRunner {
+    private const VERSION_OPTION = 'pkstore_db_version';
+    private const LOCK_OPTION = 'pkstore_db_migration_lock';
+    private const ERROR_OPTION = 'pkstore_db_migration_error';
+    private const LOCK_TTL = 900;
+
+    /** @var array<string, callable> */
+    private const MIGRATIONS = [
+        '2.0.0' => [Installer::class, 'installSchema'],
+    ];
+
+    public static function register(): void {
+        add_action('init', [self::class, 'maybeRun'], 1);
+        add_action('admin_notices', [self::class, 'adminNotice']);
+    }
+
+    public static function maybeRun(): void {
+        $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
+        $pending = array_filter(
+            array_keys(self::MIGRATIONS),
+            static fn(string $version): bool => version_compare($current, $version, '<')
+        );
+
+        if (!$pending) return;
+
+        $lockTime = (int) get_option(self::LOCK_OPTION, 0);
+        if ($lockTime && (time() - $lockTime) < self::LOCK_TTL) return;
+        if ($lockTime) delete_option(self::LOCK_OPTION);
+
+        // add_option is atomic for a unique option name and prevents two requests
+        // from running the same DDL migration concurrently.
+        if (!add_option(self::LOCK_OPTION, time(), '', false)) return;
+
+        try {
+            foreach (self::MIGRATIONS as $version => $migration) {
+                $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
+                if (version_compare($current, $version, '>=')) continue;
+
+                call_user_func($migration);
+                self::verifyRequiredTables();
+                update_option(self::VERSION_OPTION, $version, false);
+            }
+
+            delete_option(self::ERROR_OPTION);
+        } catch (\\Throwable $error) {
+            // Do not expose SQL details or configuration values to store users.
+            update_option(self::ERROR_OPTION, 'Database migration failed. Contact Junction support.', false);
+            error_log('[PK Store] Database migration failed: ' . get_class($error));
+        } finally {
+            delete_option(self::LOCK_OPTION);
+        }
+    }
+
+    private static function verifyRequiredTables(): void {
+        global $wpdb;
+
+        $required = [
+            'pkstore_otp_attempts',
+            'pkstore_logistics_log',
+            'pkstore_chat_history',
+            'pkstore_city_mappings',
+            'pkstore_affiliates',
+            'pkstore_affiliate_products',
+            'pkstore_affiliate_commissions',
+            'pkstore_affiliate_payouts',
+            'pkstore_inventory_products',
+            'pkstore_inventory_stock',
+            'pkstore_inventory_locations',
+            'pkstore_inventory_movements',
+            'pkstore_pos_sessions',
+            'pkstore_pos_orders',
+            'pkstore_pos_order_items',
+            'pkstore_inventory_suppliers',
+            'pkstore_purchase_orders',
+            'pkstore_purchase_order_items',
+        ];
+
+        foreach ($required as $suffix) {
+            $table = $wpdb->prefix . $suffix;
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+            if ($found !== $table) {
+                throw new \\RuntimeException('Required database table was not created: ' . $suffix);
+            }
+        }
+    }
+
+    public static function adminNotice(): void {
+        if (!current_user_can('manage_options')) return;
+        $message = get_option(self::ERROR_OPTION, '');
+        if (!$message) return;
+
+        echo '<div class="notice notice-error"><p>' . esc_html($message) . '</p></div>';
+    }
+}
