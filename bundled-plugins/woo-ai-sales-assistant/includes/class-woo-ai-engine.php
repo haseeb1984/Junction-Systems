@@ -54,12 +54,16 @@ class Woo_AI_Engine {
 
         // Migrate existing plaintext keys without interrupting a working store.
         $encrypted = self::encrypt_api_key($stored);
-        if ($encrypted !== "") {
-            $current = get_option("woo_ai_settings", []);
-            if (is_array($current) && ($current["api_key"] ?? null) === $stored) {
-                $current["api_key"] = $encrypted;
-                update_option("woo_ai_settings", $current, false);
-            }
+        if ($encrypted === "") {
+            // Do not continue using a plaintext credential if encryption cannot
+            // be performed (for example, missing WordPress salts).
+            return "";
+        }
+
+        $current = get_option("woo_ai_settings", []);
+        if (is_array($current) && ($current["api_key"] ?? null) === $stored) {
+            $current["api_key"] = $encrypted;
+            update_option("woo_ai_settings", $current, false);
         }
         return $stored;
     }
