@@ -4,7 +4,7 @@ namespace PkStore\Bootstrap;
 use PkStore\Container\ServiceContainer;
 use PkStore\Core\Feature\FeatureManager;
 use PkStore\Core\Branding\BrandingManager;
-use PkStore\Infrastructure\Http\{CodOtpController,AiChatController,ShippingWebhookHandler,TrackingController,AffiliateController,InventoryController,POSController};
+use PkStore\Infrastructure\Http\{CodOtpController,ShippingWebhookHandler,TrackingController,AffiliateController,InventoryController,POSController};
 use PkStore\Infrastructure\WooCommerce\{GatewayRegistry,ShippingRegistry,AssetEnqueuer,AffiliateHooks,InventoryHooks};
 use PkStore\Infrastructure\Admin\AdminMenuController;
 use PkStore\Infrastructure\Admin\Affiliate\AffiliateAdminController;
@@ -40,10 +40,6 @@ final class ThemeBootstrapper {
         // ── CoD OTP ──────────────────────────────────────────────
         if ($this->fm->isEnabled('cod_otp'))
             (new CodOtpController($this->c))->register();
-
-        // ── AI Chat ──────────────────────────────────────────────
-        if ($this->fm->isEnabled('ai_chat'))
-            (new AiChatController($this->c))->register();
 
         // ── Couriers ─────────────────────────────────────────────
         (new ShippingWebhookHandler($this->c))->register();
