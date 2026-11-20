@@ -53,8 +53,46 @@ final class FeatureManager {
         return self::$instance;
     }
 
+    /**
+     * Local configuration can disable an entitlement, but can never grant one.
+     * The central license is the authoritative upper bound for every feature.
+     */
+    private const LICENSE_FEATURES = [
+        'payment_jazzcash' => 'jazzcash_payment',
+        'payment_easypaisa' => 'easypaisa_payment',
+        'payment_foree' => 'foree_pay',
+        'cod_otp' => 'cod_otp',
+        'ai_chat' => 'dukaan_ai',
+        'courier_tcs' => 'tcs_courier',
+        'courier_leopards' => 'leopards_courier',
+        'courier_trax' => 'trax_courier',
+        'courier_postex' => 'postex_courier',
+        'courier_rider' => 'rider_courier',
+        'affiliate_system' => 'affiliate_system',
+        'whatsapp_api' => 'whatsapp_api',
+        'mailchimp' => 'mailchimp',
+        'klaviyo' => 'klaviyo',
+        'google_analytics' => 'analytics_ga4',
+        'facebook_pixel' => 'facebook_pixel',
+        'inventory' => 'inventory_management',
+        'pos' => 'junction_pos',
+        'barcode_labels' => 'barcode_labels',
+        'multi_location' => 'multi_location_inventory',
+        'quickbooks' => 'quickbooks_sync',
+        'daraz_sync' => 'daraz_sync',
+    ];
+
     public function isEnabled(string $feature): bool {
-        return $this->features[$feature] ?? false;
+        if (!($this->features[$feature] ?? false)) {
+            return false;
+        }
+
+        $licenseFeature = self::LICENSE_FEATURES[$feature] ?? null;
+        if ($licenseFeature === null) {
+            return false;
+        }
+
+        return (new \\PkStore\\License\\LicenseManager())->hasFeature($licenseFeature);
     }
 
     public function enable(string $feature): void  { $this->features[$feature] = true;  $this->save(); }
