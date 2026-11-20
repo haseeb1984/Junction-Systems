@@ -50,7 +50,7 @@ final class SettingsManager{
         if ($salt === '') {
             throw new \RuntimeException('WordPress salts are required to encrypt integration credentials.');
         }
-        return hash('sha256', $salt . get_site_url(), true);
+        return hash('sha256', $salt, true);
     }
 
     private function encrypt(string $value): string {
