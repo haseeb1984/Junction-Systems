@@ -43,6 +43,7 @@ final class FeatureManager {
 
     private function __construct() {
         $saved = get_option('pkstore_features', []);
+        if (!is_array($saved)) $saved = [];
         foreach (self::FEATURES() as $key => $def) {
             $this->features[$key] = isset($saved[$key]) ? (bool)$saved[$key] : $def['default'];
         }
