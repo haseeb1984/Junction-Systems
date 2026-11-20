@@ -12,11 +12,63 @@ class Woo_AI_Engine {
     private const TK_TPM      = "woo_ai_tpm";
     private const TK_BACKOFF  = "woo_ai_backoff";
 
+    /**
+     * Encrypt newly saved Groq credentials with authenticated encryption.
+     * Legacy plaintext options are read once and transparently migrated.
+     */
+    public static function encrypt_api_key(string $api_key): string {
+        $salt = function_exists("wp_salt") ? wp_salt("auth") . wp_salt("secure_auth") : "";
+        if ($salt === "") return "";
+
+        $key = hash("sha256", $salt, true);
+        $iv = random_bytes(12);
+        $tag = "";
+        $ciphertext = openssl_encrypt($api_key, "aes-256-gcm", $key, OPENSSL_RAW_DATA, $iv, $tag, "", 16);
+        if ($ciphertext === false || strlen($tag) !== 16) return "";
+        return "enc:v2:" . base64_encode($iv . $tag . $ciphertext);
+    }
+
+    private static function decrypt_api_key(string $stored): string {
+        if (!str_starts_with($stored, "enc:v2:")) return $stored;
+
+        $salt = function_exists("wp_salt") ? wp_salt("auth") . wp_salt("secure_auth") : "";
+        if ($salt === "") return "";
+        $raw = base64_decode(substr($stored, 7), true);
+        if ($raw === false || strlen($raw) < 28) return "";
+
+        $key = hash("sha256", $salt, true);
+        $iv = substr($raw, 0, 12);
+        $tag = substr($raw, 12, 16);
+        $ciphertext = substr($raw, 28);
+        $plain = openssl_decrypt($ciphertext, "aes-256-gcm", $key, OPENSSL_RAW_DATA, $iv, $tag);
+        return $plain === false ? "" : $plain;
+    }
+
+    private static function get_api_key(array $opts): string {
+        $stored = trim((string)($opts["api_key"] ?? ""));
+        if ($stored === "") return "";
+
+        if (str_starts_with($stored, "enc:v2:")) {
+            return self::decrypt_api_key($stored);
+        }
+
+        // Migrate existing plaintext keys without interrupting a working store.
+        $encrypted = self::encrypt_api_key($stored);
+        if ($encrypted !== "") {
+            $current = get_option("woo_ai_settings", []);
+            if (is_array($current) && ($current["api_key"] ?? null) === $stored) {
+                $current["api_key"] = $encrypted;
+                update_option("woo_ai_settings", $current, false);
+            }
+        }
+        return $stored;
+    }
+
     public static function process(string $user_message): array {
         $opts = get_option("woo_ai_settings", []);
         $wa   = self::get_whatsapp();
 
-        if (empty($opts["api_key"])) {
+        if (self::get_api_key($opts) === "") {
             return self::err("AI assistant is not configured. Contact the store admin.", $wa);
         }
 
@@ -45,7 +97,7 @@ class Woo_AI_Engine {
             "timeout"     => WOO_AI_TIMEOUT,
             "data_format" => "body",
             "headers"     => [
-                "Authorization" => "Bearer " . trim($opts["api_key"]),
+                "Authorization" => "Bearer " . self::get_api_key($opts),
                 "Content-Type"  => "application/json",
                 "User-Agent"    => "WooCommerce-AI-Assistant/" . WOO_AI_VERSION,
             ],
