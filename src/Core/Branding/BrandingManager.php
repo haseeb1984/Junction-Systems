@@ -29,6 +29,7 @@ final class BrandingManager {
 
     private function __construct() {
         $saved = get_option('pkstore_branding', []);
+        if (!is_array($saved)) $saved = [];
         $this->config = array_merge(self::$DEFAULTS, $saved);
     }
 
