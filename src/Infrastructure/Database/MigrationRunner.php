@@ -53,7 +53,7 @@ final class MigrationRunner {
             }
 
             delete_option(self::ERROR_OPTION);
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             // Do not expose SQL details or configuration values to store users.
             update_option(self::ERROR_OPTION, 'Database migration failed. Contact Junction support.', false);
             error_log('[PK Store] Database migration failed: ' . get_class($error));
@@ -90,7 +90,7 @@ final class MigrationRunner {
             $table = $wpdb->prefix . $suffix;
             $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
             if ($found !== $table) {
-                throw new \\RuntimeException('Required database table was not created: ' . $suffix);
+                throw new \RuntimeException('Required database table was not created: ' . $suffix);
             }
         }
     }
