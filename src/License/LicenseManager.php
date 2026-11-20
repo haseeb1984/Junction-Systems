@@ -159,8 +159,12 @@ final class LicenseManager {
             throw $e;
         } catch (LicenseExpiredException $e) {
             throw $e;
+        } catch (LicenseInvalidException $e) {
+            // A definitive invalid/revoked response is not an outage and must
+            // never be converted into an offline grace-period entitlement.
+            throw $e;
         } catch (LicenseException $e) {
-            // Remote unreachable or unknown error — use grace period
+            // Transport/service outage only: use the last known-good cache.
             return $this->handleGrace($e);
         }
     }
