@@ -32,4 +32,14 @@ if (\PkStore\License\LicenseFeatures::forTier('not-a-tier') !== []) {
     throw new \RuntimeException('Unknown license tiers must not receive default entitlements.');
 }
 
+$basic = \PkStore\License\LicenseFeatures::forTier('basic');
+foreach (['junction_pos', 'inventory_management', 'whatsapp_api', 'quickbooks_sync', 'daraz_sync'] as $required) {
+    if (!in_array($required, $basic, true)) {
+        throw new \RuntimeException('Basic package entitlement is missing: ' . $required);
+    }
+}
+if (in_array('mailchimp', $basic, true)) {
+    throw new \RuntimeException('Mailchimp must remain a Standard package extra.');
+}
+
 echo "Smoke tests passed.\n";
