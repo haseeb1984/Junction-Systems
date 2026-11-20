@@ -22,14 +22,22 @@ require_once WOO_AI_PLUGIN_DIR . "includes/class-woo-ai-engine.php";
 require_once WOO_AI_PLUGIN_DIR . "includes/class-woo-ai-admin.php";
 require_once WOO_AI_PLUGIN_DIR . "includes/class-woo-ai-widget.php";
 
-add_action("plugins_loaded", function () {
+add_action("init", function () {
     if (!class_exists("WooCommerce")) {
         add_action("admin_notices", fn() => print("<div class=\"notice notice-error\"><p><strong>WooCommerce AI Sales Assistant</strong> requires WooCommerce.</p></div>"));
         return;
     }
+
+    // This bundled assistant is licensed by the PK Store theme. Do not allow
+    // direct plugin activation to bypass the installation's central entitlement.
+    if (!class_exists(\PkStore\Core\Feature\FeatureManager::class)
+        || !\PkStore\Core\Feature\FeatureManager::getInstance()->isEnabled("ai_chat")) {
+        return;
+    }
+
     Woo_AI_Admin::init();
     Woo_AI_Widget::init();
-});
+}, 20);
 
 register_activation_hook(__FILE__, function () {
     if (!get_option("woo_ai_settings")) {
