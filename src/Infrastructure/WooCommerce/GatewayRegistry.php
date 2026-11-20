@@ -14,9 +14,9 @@ final class GatewayRegistry {
     public function register(): void {
         add_filter('woocommerce_payment_gateways', function (array $gateways): array {
             $available = [
-                'payment_jazzcash' => \\PkStore\\Infrastructure\\Payment\\JazzCashGateway::class,
-                'payment_easypaisa' => \\PkStore\\Infrastructure\\Payment\\EasyPaisaGateway::class,
-                'payment_foree' => \\PkStore\\Infrastructure\\Payment\\Foree\\ForeePayGateway::class,
+                'payment_jazzcash' => \PkStore\Infrastructure\Payment\JazzCashGateway::class,
+                'payment_easypaisa' => \PkStore\Infrastructure\Payment\EasyPaisaGateway::class,
+                'payment_foree' => \PkStore\Infrastructure\Payment\Foree\ForeePayGateway::class,
             ];
 
             foreach ($available as $feature => $gatewayClass) {
