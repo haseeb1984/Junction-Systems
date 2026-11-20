@@ -83,6 +83,7 @@ final class LicenseAdminUI {
         $tier      = $this->license->getTier();
         $expiry    = $this->license->getExpiry();
         $key       = $this->license->getKey();
+        $maskedKey = $key ? str_repeat('•', max(0, strlen($key) - 4)) . substr($key, -4) : '';
         $error     = get_transient('pkstore_license_error');
         $activated = isset($_GET['activated']);
         $deactivated = isset($_GET['deactivated']);
@@ -116,7 +117,7 @@ final class LicenseAdminUI {
             </div>
           </div>
           <div style="font-size:13px;color:#166534;margin-bottom:16px">
-            Key: <code style="background:#dcfce7;padding:2px 8px;border-radius:4px"><?php echo esc_html($key ?? ''); ?></code>
+            Key: <code style="background:#dcfce7;padding:2px 8px;border-radius:4px"><?php echo esc_html($maskedKey); ?></code>
           </div>
           <form method="post" action="<?php echo admin_url('admin-post.php'); ?>"
                 onsubmit="return confirm('Deactivate this license? The store features will stop working on this domain.')">
