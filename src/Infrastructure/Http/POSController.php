@@ -10,7 +10,7 @@ final class POSController {
     public function register(): void {
         add_action('rest_api_init', function () {
             $ns   = 'pkstore/v1';
-            $auth = fn()=>current_user_can('manage_woocommerce')||current_user_can('edit_posts');
+            $auth = fn()=>current_user_can('manage_woocommerce');
             register_rest_route($ns,'/pos/session/open',      ['methods'=>'POST','callback'=>[$this,'openSession'],  'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/close',     ['methods'=>'POST','callback'=>[$this,'closeSession'], 'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/current',   ['methods'=>'GET', 'callback'=>[$this,'currentSession'],'permission_callback'=>$auth]);
