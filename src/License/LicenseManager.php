@@ -310,19 +310,42 @@ final class LicenseManager {
         return $key;
     }
 
+    private function encryptionKey(): string {
+        $salt = function_exists('wp_salt') ? wp_salt('auth') . wp_salt('secure_auth') : '';
+        if ($salt === '') {
+            throw new LicenseException('WordPress salts are required to protect the license cache.');
+        }
+        return hash('sha256', $salt . $this->getCurrentDomain(), true);
+    }
+
     private function encrypt(string $plain): string {
-        $key = substr(hash('sha256', $this->getEncryptKey(), true), 0, 32);
-        $iv  = random_bytes(16);
-        $enc = openssl_encrypt($plain, 'AES-256-CBC', $key, 0, $iv);
-        return base64_encode($iv . $enc);
+        $iv = random_bytes(12);
+        $tag = '';
+        $ciphertext = openssl_encrypt($plain, 'aes-256-gcm', $this->encryptionKey(), OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+        if ($ciphertext === false || strlen($tag) !== 16) {
+            throw new LicenseException('Unable to encrypt license data.');
+        }
+        return 'v2:' . base64_encode($iv . $tag . $ciphertext);
     }
 
     private function decrypt(string $ciphertext): string {
-        $key  = substr(hash('sha256', $this->getEncryptKey(), true), 0, 32);
-        $raw  = base64_decode($ciphertext);
-        $iv   = substr($raw, 0, 16);
-        $enc  = substr($raw, 16);
-        return openssl_decrypt($enc, 'AES-256-CBC', $key, 0, $iv) ?: '';
+        if (str_starts_with($ciphertext, 'v2:')) {
+            $raw = base64_decode(substr($ciphertext, 3), true);
+            if ($raw === false || strlen($raw) < 28) return '';
+            $iv = substr($raw, 0, 12);
+            $tag = substr($raw, 12, 16);
+            $encrypted = substr($raw, 28);
+            $plain = openssl_decrypt($encrypted, 'aes-256-gcm', $this->encryptionKey(), OPENSSL_RAW_DATA, $iv, $tag);
+            return $plain === false ? '' : $plain;
+        }
+
+        // Backward compatibility for existing AES-CBC license options.
+        $key = substr(hash('sha256', $this->getEncryptKey(), true), 0, 32);
+        $raw = base64_decode($ciphertext, true);
+        if ($raw === false || strlen($raw) <= 16) return '';
+        $iv = substr($raw, 0, 16);
+        $encrypted = substr($raw, 16);
+        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv) ?: '';
     }
 
     private function encryptJson(array $data): string {
