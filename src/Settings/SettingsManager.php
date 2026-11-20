@@ -16,7 +16,7 @@ final class SettingsManager{
     public function setSecret(string $k,string $v):bool{
         unset($this->cache[$k]);
         try { $encrypted = $this->encrypt($v); }
-        catch (\\Throwable) { return false; }
+        catch (\Throwable) { return false; }
         if ($encrypted === '') return false;
         return update_option(self::ENC.strtolower($k),$encrypted,false);
     }
