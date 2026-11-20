@@ -24,7 +24,7 @@ This is an implementation branch only. No changes have been merged to `main`, an
 ## Validation status
 
 - Source changes are committed on this branch.
-- GitHub Actions workflow has been added, but no completed workflow run is currently visible. Therefore PHP lint and smoke tests are **not yet confirmed passing**.
+- GitHub Actions workflow has been added and runs are being created, but each job currently fails before executing any step (GitHub reports runner ID 0, no runner name, and an empty step list). Therefore PHP lint and smoke tests are **not yet confirmed passing**; repository Actions/runner availability must be fixed or a runner made available.
 - No WordPress/WooCommerce runtime test was possible from the repository connector.
 - No production credentials, payment-provider credentials, or hosting account credentials were accessed.
 - No merge or deployment was performed.
