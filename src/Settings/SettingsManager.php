@@ -13,7 +13,13 @@ final class SettingsManager{
         if($enc!==''){$d=$this->decrypt($enc);if($d!==false){$this->cache[$k]=$d;return $d;}}
         $v=(string)get_option(self::PLAIN.strtolower($k),$default);$this->cache[$k]=$v;return $v;
     }
-    public function setSecret(string $k,string $v):bool{unset($this->cache[$k]);return update_option(self::ENC.strtolower($k),$this->encrypt($v),false);}
+    public function setSecret(string $k,string $v):bool{
+        unset($this->cache[$k]);
+        try { $encrypted = $this->encrypt($v); }
+        catch (\\Throwable) { return false; }
+        if ($encrypted === '') return false;
+        return update_option(self::ENC.strtolower($k),$encrypted,false);
+    }
     public function set(string $k,string $v):bool{unset($this->cache[$k]);return update_option(self::PLAIN.strtolower($k),$v,false);}
     public function isConfigured(string $k):bool{return $this->get($k)!=='';}
     public function getSetupStatus():array{
