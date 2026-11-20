@@ -2,10 +2,14 @@
 declare(strict_types=1);
 namespace PkStore\Settings;
 
+use PkStore\License\LicenseAdminUI;
+use PkStore\License\LicenseManager;
+
 final class SetupWizard {
 
     private const SLUG = 'pkstore-setup';
     private const TABS = [
+        'license'   => 'License',
         'general'   => 'General',
         'jazzcash'  => 'JazzCash',
         'easypaisa' => 'EasyPaisa',
@@ -16,7 +20,11 @@ final class SetupWizard {
         'ai'        => 'Dukaan AI',
     ];
 
-    public function __construct(private readonly SettingsManager $cfg) {}
+    private readonly LicenseAdminUI $licenseUI;
+
+    public function __construct(private readonly SettingsManager $cfg, ?LicenseAdminUI $licenseUI = null) {
+        $this->licenseUI = $licenseUI ?? new LicenseAdminUI(new LicenseManager());
+    }
 
     public function register(): void {
         add_action('admin_menu', [$this, 'addPage']);
@@ -76,6 +84,10 @@ final class SetupWizard {
     }
 
     private function renderTab(string $tab): void {
+        if ($tab === 'license') {
+            $this->licenseUI->renderTab();
+            return;
+        }
         // AI tab — special treatment
         if ($tab === 'ai') {
             $this->renderAiTab();
