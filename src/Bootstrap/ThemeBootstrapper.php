@@ -22,7 +22,7 @@ final class ThemeBootstrapper {
     public function boot(): void {
         // Feature guard hook — called by any feature use case
         add_action('pkstore_require_feature', function(string $feature): void {
-            $license = $this->container->make(\PkStore\License\LicenseManager::class);
+            $license = $this->c->make(\PkStore\License\LicenseManager::class);
             $license->requireFeature($feature);
         });
         $this->setupTheme();
