@@ -315,7 +315,7 @@ final class LicenseManager {
         if ($salt === '') {
             throw new LicenseException('WordPress salts are required to protect the license cache.');
         }
-        return hash('sha256', $salt . $this->getCurrentDomain(), true);
+        return hash('sha256', $salt, true);
     }
 
     private function encrypt(string $plain): string {
