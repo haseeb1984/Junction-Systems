@@ -255,7 +255,7 @@ final class LicenseManager {
             throw new LicenseException("License server returned HTTP {$code}.");
         }
         if (!is_array($data) || !array_key_exists('success', $data) || !is_bool($data['success'])) {
-            throw new LicenseException('License server returned an invalid response.');
+            throw new LicenseInvalidException('License server returned an invalid response.');
         }
         if (!$data['success']) {
             return $data;
@@ -266,14 +266,16 @@ final class LicenseManager {
             if (!is_array($license)
                 || !in_array($license['tier'] ?? null, ['basic', 'standard', 'enterprise'], true)
                 || !is_array($license['features'] ?? null)
-                || !is_string($license['domain'] ?? null)
-                || $license['domain'] === '') {
-                throw new LicenseException('License server returned incomplete entitlement data.');
+                || !array_is_list($license['features'])
+                || (isset($license['domain']) && !is_string($license['domain']))
+                || (isset($license['expires_at']) && !is_string($license['expires_at']))) {
+                throw new LicenseInvalidException('License server returned incomplete entitlement data.');
             }
 
-            $unknownFeatures = array_diff($license['features'], LicenseFeatures::ALL);
-            if ($unknownFeatures) {
-                throw new LicenseException('License server returned unknown feature entitlements.');
+            foreach ($license['features'] as $feature) {
+                if (!is_string($feature) || !in_array($feature, LicenseFeatures::ALL, true)) {
+                    throw new LicenseInvalidException('License server returned an unknown feature entitlement.');
+                }
             }
         }
 
