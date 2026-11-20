@@ -16,7 +16,6 @@ final class GatewayRegistry {
             $available = [
                 'payment_jazzcash' => \PkStore\Infrastructure\Payment\JazzCashGateway::class,
                 'payment_easypaisa' => \PkStore\Infrastructure\Payment\EasyPaisaGateway::class,
-                'payment_foree' => \PkStore\Infrastructure\Payment\Foree\ForeePayGateway::class,
             ];
 
             foreach ($available as $feature => $gatewayClass) {
