@@ -67,21 +67,54 @@ final class BrandingManager {
     public function getAll(): array { return $this->config; }
 
     public function exportConfig(): string {
+        // Portable exports must never contain license keys or credentials.
+        $branding = $this->config;
+        unset($branding['client_license_key']);
+
         return wp_json_encode([
-            'branding' => $this->config,
-            'features' => \PkStore\Core\Feature\FeatureManager::getInstance()->getAll(),
+            'branding' => $branding,
             'exported_at' => current_time('mysql'),
             'version' => PKSTORE_VERSION,
         ], JSON_PRETTY_PRINT);
     }
 
     public static function importConfig(string $json): bool {
+        if ($json === '' || strlen($json) > 65535) return false;
+
         $data = json_decode($json, true);
-        if (!$data) return false;
-        if (isset($data['branding'])) update_option('pkstore_branding', $data['branding']);
-        if (isset($data['features'])) update_option('pkstore_features', $data['features']);
+        if (!is_array($data) || !isset($data['branding']) || !is_array($data['branding'])) {
+            return false;
+        }
+
+        // Only presentation settings are portable. Entitlements and license keys
+        // must always come from the central licensing service.
+        $allowed = array_diff(array_keys(self::$DEFAULTS), ['client_license_key']);
+        $branding = [];
+        foreach ($allowed as $key) {
+            if (!array_key_exists($key, $data['branding']) || !is_scalar($data['branding'][$key])) {
+                continue;
+            }
+
+            $value = (string) $data['branding'][$key];
+            if (in_array($key, ['primary_color', 'secondary_color', 'accent_color', 'email_header_color'], true)) {
+                $branding[$key] = sanitize_hex_color($value) ?: self::$DEFAULTS[$key];
+            } elseif (in_array($key, ['logo_url', 'favicon_url', 'pos_logo_url', 'email_logo_url'], true)) {
+                $branding[$key] = esc_url_raw($value);
+            } elseif ($key === 'custom_css') {
+                $branding[$key] = wp_strip_all_tags($value);
+            } elseif (in_array($key, ['hide_pkstore_brand', 'receipt_show_logo'], true)) {
+                $branding[$key] = $value === '1' ? '1' : '0';
+            } elseif ($key === 'pos_theme') {
+                $branding[$key] = in_array($value, ['light', 'dark'], true) ? $value : 'light';
+            } elseif (in_array($key, ['receipt_header', 'receipt_footer', 'store_tagline'], true)) {
+                $branding[$key] = sanitize_textarea_field($value);
+            } else {
+                $branding[$key] = sanitize_text_field($value);
+            }
+        }
+
+        update_option('pkstore_branding', array_merge(self::$DEFAULTS, $branding));
         self::$instance = null;
-        \PkStore\Core\Feature\FeatureManager::reset();
         return true;
     }
 
