@@ -85,7 +85,10 @@ final class LicenseManager {
     public function deactivate(): bool {
         $key = $this->getStoredKey();
         if (!$key) return false;
-        $this->remoteCall('deactivate', $key);
+        $result = $this->remoteCall('deactivate', $key);
+        if (!($result['success'] ?? false)) {
+            throw new LicenseException($result['message'] ?? 'License deactivation was not confirmed by the license server.');
+        }
         delete_option(self::OPT_LICENSE_KEY);
         delete_option(self::OPT_LICENSE_CACHE);
         delete_option(self::OPT_LICENSE_GRACE);
