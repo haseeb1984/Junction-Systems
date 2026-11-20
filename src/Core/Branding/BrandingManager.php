@@ -55,12 +55,12 @@ final class BrandingManager {
 
     public function saveAll(array $data): void {
         foreach (self::$DEFAULTS as $key => $default) {
-            if (isset($data[$key])) {
-                $this->config[$key] = sanitize_text_field($data[$key]);
+            if (isset($data[$key]) && is_scalar($data[$key])) {
+                $this->config[$key] = sanitize_text_field((string)$data[$key]);
             }
         }
-        if (isset($data['custom_css'])) {
-            $this->config['custom_css'] = wp_strip_all_tags($data['custom_css']);
+        if (isset($data['custom_css']) && is_scalar($data['custom_css'])) {
+            $this->config['custom_css'] = wp_strip_all_tags((string)$data['custom_css']);
         }
         update_option('pkstore_branding', $this->config);
     }
