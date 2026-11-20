@@ -92,7 +92,7 @@ final class FeatureManager {
             return false;
         }
 
-        return (new \\PkStore\\License\\LicenseManager())->hasFeature($licenseFeature);
+        return (new \PkStore\License\LicenseManager())->hasFeature($licenseFeature);
     }
 
     public function enable(string $feature): void  { $this->features[$feature] = true;  $this->save(); }
