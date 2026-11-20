@@ -47,6 +47,14 @@ final class MigrationRunner {
                 $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
                 if (version_compare($current, $version, '>=')) continue;
 
+                // Upgrades must not run until the hosting backup integration
+                // confirms a recent full database + files backup. Fresh installs
+                // have no customer data to protect and do not need this gate.
+                if ($current !== '0.0.0'
+                    && !apply_filters('pkstore_migration_backup_confirmed', false, $version)) {
+                    throw new \RuntimeException('Upgrade migration paused: a recent pre-migration hosting backup has not been confirmed.');
+                }
+
                 call_user_func($migration);
                 self::verifyRequiredTables();
                 update_option(self::VERSION_OPTION, $version, false);
