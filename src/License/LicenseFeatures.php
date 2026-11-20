@@ -65,6 +65,6 @@ final class LicenseFeatures {
     ];
 
     public static function forTier(string $tier): array {
-        return self::BY_TIER[$tier] ?? self::BY_TIER['basic'];
+        return self::BY_TIER[$tier] ?? [];
     }
 }
