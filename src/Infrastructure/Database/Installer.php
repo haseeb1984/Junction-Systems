@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Database;
 final class Installer {
-    public static function run(): void {
+    public static function installSchema(): void {
         global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $cs=$wpdb->get_charset_collate();
         dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_otp_attempts (id CHAR(36) NOT NULL,phone_e164 VARCHAR(16) NOT NULL,hashed_code VARCHAR(255) NOT NULL,order_id VARCHAR(32) NOT NULL,is_verified TINYINT(1) NOT NULL DEFAULT 0,attempt_count TINYINT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL,expires_at DATETIME NOT NULL,PRIMARY KEY (id),INDEX idx_po (phone_e164,order_id),INDEX idx_pc (phone_e164,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
         dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_logistics_log (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,log_type VARCHAR(20) NOT NULL DEFAULT 'request',courier_code VARCHAR(20) NOT NULL DEFAULT '',order_id VARCHAR(32) DEFAULT NULL,endpoint VARCHAR(512) NOT NULL,payload LONGTEXT NOT NULL,http_status SMALLINT NOT NULL DEFAULT 0,duration_ms INT NOT NULL DEFAULT 0,idempotency_key VARCHAR(64) DEFAULT NULL,created_at DATETIME NOT NULL,PRIMARY KEY (id),UNIQUE INDEX idx_idem (idempotency_key),INDEX idx_order (order_id),INDEX idx_courier (courier_code,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
@@ -11,7 +11,6 @@ final class Installer {
         self::seedCities();
         AffiliateInstaller::run();
         InventoryInstaller::run();
-        update_option('pkstore_db_version','2.0.0');
     }
     public static function createCustomOrderStatuses(): void {
         add_action('init',function(){foreach(['wc-shipped'=>'Shipped','wc-out-for-delivery'=>'Out for Delivery','wc-delivery-failed'=>'Delivery Failed','wc-returned'=>'Returned (RTO)']as $s=>$l){register_post_status($s,['label'=>$l,'public'=>true,'show_in_admin_all_list'=>true,'show_in_admin_status_list'=>true,'label_count'=>_n_noop($l.' <span class="count">(%s)</span>',$l.' <span class="count">(%s)</span>')]);}});
