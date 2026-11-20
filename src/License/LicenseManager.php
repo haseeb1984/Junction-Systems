@@ -235,13 +235,42 @@ final class LicenseManager {
             throw new LicenseException('License server unreachable: ' . $response->get_error_message());
         }
 
-        $code = wp_remote_retrieve_response_code($response);
+        $code = (int) wp_remote_retrieve_response_code($response);
         $data = json_decode(wp_remote_retrieve_body($response), true);
 
-        if ($code === 403) throw new LicenseDomainMismatch($data['message'] ?? 'Domain mismatch');
-        if ($code === 402) throw new LicenseExpiredException($data['message'] ?? 'License expired');
+        if ($code === 403) {
+            throw new LicenseDomainMismatch(is_array($data) ? ($data['message'] ?? 'Domain mismatch') : 'Domain mismatch');
+        }
+        if ($code === 402) {
+            throw new LicenseExpiredException(is_array($data) ? ($data['message'] ?? 'License expired') : 'License expired');
+        }
+        if ($code < 200 || $code >= 300) {
+            throw new LicenseException("License server returned HTTP {$code}.");
+        }
+        if (!is_array($data) || !array_key_exists('success', $data) || !is_bool($data['success'])) {
+            throw new LicenseException('License server returned an invalid response.');
+        }
+        if (!$data['success']) {
+            return $data;
+        }
 
-        return $data ?? ['success' => false, 'message' => "HTTP {$code}"];
+        if ($action !== 'deactivate') {
+            $license = $data['data'] ?? null;
+            if (!is_array($license)
+                || !in_array($license['tier'] ?? null, ['basic', 'standard', 'enterprise'], true)
+                || !is_array($license['features'] ?? null)
+                || !is_string($license['domain'] ?? null)
+                || $license['domain'] === '') {
+                throw new LicenseException('License server returned incomplete entitlement data.');
+            }
+
+            $unknownFeatures = array_diff($license['features'], LicenseFeatures::ALL);
+            if ($unknownFeatures) {
+                throw new LicenseException('License server returned unknown feature entitlements.');
+            }
+        }
+
+        return $data;
     }
 
     // ── Lockout ─────────────────────────────────────────────────
