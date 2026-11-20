@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Settings;
 final class SettingsManager{
-    private const ENC='pk_store_enc_';private const PLAIN='pk_store_';private const CIPHER='AES-256-CBC';
+    private const ENC='pk_store_enc_';private const PLAIN='pk_store_';private const CIPHER='AES-256-GCM';
     private array $cache=[];private static ?self $i=null;
     private function __construct(){}
     public static function getInstance():self{if(self::$i===null)self::$i=new self();return self::$i;}
@@ -41,7 +41,42 @@ final class SettingsManager{
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
-    private function key():string{return substr(hash('sha256',(defined('AUTH_KEY')?AUTH_KEY:'pkstore').get_site_url()),0,32);}
-    private function encrypt(string $v):string{$iv=random_bytes(openssl_cipher_iv_length(self::CIPHER));$e=openssl_encrypt($v,self::CIPHER,$this->key(),OPENSSL_RAW_DATA,$iv);return $e===false?'':base64_encode($iv.$e);}
-    private function decrypt(string $enc):string|false{$d=base64_decode($enc,true);if($d===false)return false;$l=openssl_cipher_iv_length(self::CIPHER);return openssl_decrypt(substr($d,$l),self::CIPHER,$this->key(),OPENSSL_RAW_DATA,substr($d,0,$l));}
+    private function legacyKey(): string {
+        return substr(hash('sha256', (defined('AUTH_KEY') ? AUTH_KEY : 'pkstore') . get_site_url()), 0, 32);
+    }
+
+    private function key(): string {
+        $salt = function_exists('wp_salt') ? wp_salt('auth') . wp_salt('secure_auth') : '';
+        if ($salt === '') {
+            throw new \\RuntimeException('WordPress salts are required to encrypt integration credentials.');
+        }
+        return hash('sha256', $salt . get_site_url(), true);
+    }
+
+    private function encrypt(string $value): string {
+        $iv = random_bytes(12);
+        $tag = '';
+        $ciphertext = openssl_encrypt($value, self::CIPHER, $this->key(), OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+        if ($ciphertext === false || strlen($tag) !== 16) return '';
+        return 'v2:' . base64_encode($iv . $tag . $ciphertext);
+    }
+
+    private function decrypt(string $encoded): string|false {
+        // Version 2 uses authenticated AES-GCM. Older CBC values remain readable
+        // so existing stores can migrate without losing saved provider credentials.
+        if (str_starts_with($encoded, 'v2:')) {
+            $raw = base64_decode(substr($encoded, 3), true);
+            if ($raw === false || strlen($raw) < 28) return false;
+            $iv = substr($raw, 0, 12);
+            $tag = substr($raw, 12, 16);
+            $ciphertext = substr($raw, 28);
+            return openssl_decrypt($ciphertext, self::CIPHER, $this->key(), OPENSSL_RAW_DATA, $iv, $tag);
+        }
+
+        $raw = base64_decode($encoded, true);
+        if ($raw === false || strlen($raw) <= 16) return false;
+        $iv = substr($raw, 0, 16);
+        $ciphertext = substr($raw, 16);
+        return openssl_decrypt($ciphertext, 'AES-256-CBC', $this->legacyKey(), OPENSSL_RAW_DATA, $iv);
+    }
 }
