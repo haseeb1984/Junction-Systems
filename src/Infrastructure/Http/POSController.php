@@ -88,7 +88,12 @@ final class POSController {
     }
     public function listOrders(\WP_REST_Request $req): \WP_REST_Response {
         $sessionId = (int)($req->get_param('session_id')??0);
-        $orders    = $this->c->make(POSOrderRepositoryInterface::class)->findBySession($sessionId);
+        $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
+        if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'Session not found.'],404);
+        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        }
+        $orders = $this->c->make(POSOrderRepositoryInterface::class)->findBySession($sessionId);
         return new \WP_REST_Response(['success'=>true,'orders'=>array_map(fn($o)=>['id'=>$o->id,'ref'=>$o->orderRef,'total'=>$o->totalPkr,'method'=>$o->paymentMethod,'customer'=>$o->customerName,'sync'=>$o->getSyncStatus()->value,'created_at'=>$o->createdAt->format('H:i:s')],$orders)],200);
     }
     public function sendWhatsApp(\WP_REST_Request $req): \WP_REST_Response {
