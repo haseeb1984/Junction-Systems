@@ -47,21 +47,26 @@ final class LicenseFeatures {
             'white_label',
             'basic_reports',
             'dukaan_ai',
+            // These are explicitly included in the published Basic package.
+            'junction_pos',
+            'inventory_management',
+            'whatsapp_api',
+            'quickbooks_sync',
+            'daraz_sync',
         ],
         'standard' => [
-            // Includes everything in basic
+            // Everything in Basic, plus the published Standard extras.
             'jazzcash_payment', 'easypaisa_payment', 'cod_otp',
             'tcs_courier', 'leopards_courier', 'trax_courier',
             'affiliate_system', 'white_label', 'basic_reports', 'dukaan_ai',
-            // Standard extras
-            'junction_pos',
-            'inventory_management',
+            'junction_pos', 'inventory_management', 'whatsapp_api',
+            'quickbooks_sync', 'daraz_sync',
             'barcode_labels',
             'analytics_ga4',
             'facebook_pixel',
             'mailchimp',
         ],
-        'enterprise' => self::ALL, // Everything
+        'enterprise' => self::ALL,
     ];
 
     public static function forTier(string $tier): array {
