@@ -25,7 +25,12 @@ final class POSController {
         $openingCash = (int)($req->get_param('opening_cash')??0);
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
         $existing    = $sessionRepo->findOpenByLocation($locationId);
-        if ($existing) return new \WP_REST_Response(['success'=>true,'session_id'=>$existing->id,'message'=>'Existing session resumed.','resumed'=>true],200);
+        if ($existing) {
+            if ($existing->cashierId !== get_current_user_id()) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'This location has an open session assigned to another cashier.'],409);
+            }
+            return new \WP_REST_Response(['success'=>true,'session_id'=>$existing->id,'message'=>'Existing session resumed.','resumed'=>true],200);
+        }
         $session   = POSSession::open($locationId, get_current_user_id(), $openingCash);
         $sessionId = $sessionRepo->save($session);
         return new \WP_REST_Response(['success'=>true,'session_id'=>$sessionId,'message'=>'POS session opened.','resumed'=>false],201);
@@ -36,6 +41,9 @@ final class POSController {
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
         $session     = $sessionRepo->findById($sessionId);
         if (!$session||!$session->isOpen()) return new \WP_REST_Response(['success'=>false,'message'=>'Session not found or already closed.'],404);
+        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        }
         $session->close($closingCash);
         $sessionRepo->update($session);
         return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
@@ -44,6 +52,9 @@ final class POSController {
         $locationId = (int)($req->get_param('location_id')??1);
         $session    = $this->c->make(POSSessionRepositoryInterface::class)->findOpenByLocation($locationId);
         if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'No open session.'],404);
+        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        }
         return new \WP_REST_Response(['success'=>true,'session'=>['id'=>$session->id,'location_id'=>$session->locationId,'cashier_id'=>$session->cashierId,'opening_cash'=>$session->openingCash,'total_sales'=>$session->getTotalSalesPkr(),'opened_at'=>$session->openedAt->format('Y-m-d H:i:s')]],200);
     }
     public function processSale(\WP_REST_Request $req): \WP_REST_Response {
@@ -56,10 +67,20 @@ final class POSController {
         $discount     = (int)($req->get_param('discount_pkr')??0);
         $split        = $req->get_param('payment_split');
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
+        $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
+        if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'The POS session is invalid or closed.'],409);
+        }
+        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        }
         try {
             $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split);
             return new \WP_REST_Response(['success'=>true,'order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'message'=>'Sale processed.'],201);
-        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+        } catch (\Throwable $e) {
+            error_log('[PK Store POS] Sale processing failed: ' . get_class($e));
+            return new \WP_REST_Response(['success'=>false,'message'=>'Sale could not be completed. Please retry or contact support.'],422);
+        }
     }
     public function syncQueue(\WP_REST_Request $req): \WP_REST_Response {
         $result = $this->c->make(SyncPOSQueueUseCase::class)->execute();
