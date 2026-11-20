@@ -17,19 +17,19 @@ final class LicenseFeatures {
         'white_label',
         'basic_reports',
         'dukaan_ai',
-        // Standard tier
         'junction_pos',
         'inventory_management',
+        'whatsapp_api',
+        'quickbooks_sync',
+        'daraz_sync',
+        // Standard tier extras
         'barcode_labels',
         'analytics_ga4',
         'facebook_pixel',
         'mailchimp',
-        // Enterprise tier
+        // Enterprise tier extras
         'postex_courier',
         'rider_courier',
-        'whatsapp_api',
-        'quickbooks_sync',
-        'daraz_sync',
         'klaviyo',
         'multi_location_inventory',
         'foree_pay',
