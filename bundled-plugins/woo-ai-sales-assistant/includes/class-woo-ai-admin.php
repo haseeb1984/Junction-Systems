@@ -39,8 +39,14 @@ class Woo_AI_Admin {
     public static function sanitize(array $input): array {
         $opts = get_option(self::OPTION_KEY, []);
         $submitted_key = sanitize_text_field($input["api_key"] ?? "");
-        if (!empty($submitted_key) && $submitted_key !== str_repeat("•", 16))
-            $opts["api_key"] = $submitted_key;
+        if (!empty($submitted_key) && $submitted_key !== str_repeat("•", 16)) {
+            $encrypted_key = Woo_AI_Engine::encrypt_api_key($submitted_key);
+            if ($encrypted_key === "") {
+                add_settings_error(self::OPTION_KEY, "woo_ai_key_encrypt", "Unable to protect the API key. Check WordPress security salts.", "error");
+            } else {
+                $opts["api_key"] = $encrypted_key;
+            }
+        }
         $opts["model"]          = in_array($input["model"] ?? "", [WOO_AI_MODEL_FAST, WOO_AI_MODEL_SMART], true) ? $input["model"] : WOO_AI_MODEL_FAST;
         $opts["session_limit"]  = max(1, min(100, (int)($input["session_limit"] ?? 10)));
         $opts["allow_paid"]     = !empty($input["allow_paid"]);
