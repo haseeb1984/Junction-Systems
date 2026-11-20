@@ -10,6 +10,7 @@ define('PKSTORE_ASSETS',PKSTORE_URI.'/assets');
 require_once PKSTORE_SRC.'/Bootstrap/Autoloader.php';
 \PkStore\Bootstrap\Autoloader::register(PKSTORE_SRC,'PkStore');
 \PkStore\Bootstrap\Autoloader::register(PKSTORE_SRC,'Psr');
+\PkStore\Infrastructure\Database\MigrationRunner::register();
 add_action('after_setup_theme',function():void{
     $c=\PkStore\Container\ServiceContainer::getInstance();
     $b=require_once PKSTORE_DIR.'/config/services.php';
@@ -17,7 +18,7 @@ add_action('after_setup_theme',function():void{
     (new \PkStore\Bootstrap\ThemeBootstrapper($c))->boot();
 },10);
 add_action('after_switch_theme',function():void{
-    \PkStore\Infrastructure\Database\Installer::run();
+    \PkStore\Infrastructure\Database\MigrationRunner::maybeRun();
     \PkStore\Infrastructure\Database\Installer::createCustomOrderStatuses();
     flush_rewrite_rules();
 });
