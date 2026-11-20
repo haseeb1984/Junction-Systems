@@ -8,7 +8,7 @@ final class InventoryInstaller {
         $cs = $wpdb->get_charset_collate();
 
         // Master product catalogue with inventory data
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_inventory_products (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_products (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             wc_product_id   BIGINT UNSIGNED DEFAULT NULL,
             sku             VARCHAR(100) NOT NULL,
@@ -27,10 +27,10 @@ final class InventoryInstaller {
             UNIQUE INDEX idx_sku (sku),
             INDEX idx_barcode (barcode),
             INDEX idx_wc_product (wc_product_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Stock levels per location
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_inventory_stock (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_stock (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             product_id      INT UNSIGNED NOT NULL,
             location_id     INT UNSIGNED NOT NULL,
@@ -39,10 +39,10 @@ final class InventoryInstaller {
             PRIMARY KEY (id),
             UNIQUE INDEX idx_product_location (product_id, location_id),
             INDEX idx_location (location_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Locations (online store, physical shop, warehouse)
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_inventory_locations (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_locations (
             id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
             name        VARCHAR(100) NOT NULL,
             type        VARCHAR(20)  NOT NULL DEFAULT 'physical',
@@ -52,10 +52,10 @@ final class InventoryInstaller {
             is_active   TINYINT(1)   NOT NULL DEFAULT 1,
             created_at  DATETIME NOT NULL,
             PRIMARY KEY (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Every stock movement (full audit ledger)
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_inventory_movements (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_movements (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             product_id      INT UNSIGNED NOT NULL,
             location_id     INT UNSIGNED NOT NULL,
@@ -72,10 +72,10 @@ final class InventoryInstaller {
             INDEX idx_product (product_id, created_at),
             INDEX idx_location (location_id, created_at),
             INDEX idx_reference (reference_type, reference_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // POS sessions (each open/close of cash drawer)
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_pos_sessions (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_pos_sessions (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             location_id     INT UNSIGNED NOT NULL,
             cashier_id      BIGINT UNSIGNED NOT NULL,
@@ -92,10 +92,10 @@ final class InventoryInstaller {
             PRIMARY KEY (id),
             INDEX idx_location_status (location_id, status),
             INDEX idx_cashier (cashier_id, opened_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // POS orders (offline queue + completed)
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_pos_orders (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_pos_orders (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             session_id      INT UNSIGNED NOT NULL,
             location_id     INT UNSIGNED NOT NULL,
@@ -117,10 +117,10 @@ final class InventoryInstaller {
             INDEX idx_session (session_id),
             INDEX idx_sync (sync_status),
             INDEX idx_created (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // POS order line items
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_pos_order_items (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_pos_order_items (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             order_id        INT UNSIGNED NOT NULL,
             product_id      INT UNSIGNED NOT NULL,
@@ -133,10 +133,10 @@ final class InventoryInstaller {
             PRIMARY KEY (id),
             INDEX idx_order (order_id),
             INDEX idx_product (product_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Suppliers
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_inventory_suppliers (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_suppliers (
             id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
             name        VARCHAR(150) NOT NULL,
             contact     VARCHAR(100) NOT NULL DEFAULT '',
@@ -146,10 +146,10 @@ final class InventoryInstaller {
             is_active   TINYINT(1)   NOT NULL DEFAULT 1,
             created_at  DATETIME NOT NULL,
             PRIMARY KEY (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Purchase orders
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_purchase_orders (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_purchase_orders (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             po_number       VARCHAR(30)  NOT NULL,
             supplier_id     INT UNSIGNED NOT NULL,
@@ -164,10 +164,10 @@ final class InventoryInstaller {
             UNIQUE INDEX idx_po_number (po_number),
             INDEX idx_supplier (supplier_id),
             INDEX idx_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Purchase order items
-        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_purchase_order_items (
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_purchase_order_items (
             id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
             po_id           INT UNSIGNED NOT NULL,
             product_id      INT UNSIGNED NOT NULL,
@@ -177,7 +177,7 @@ final class InventoryInstaller {
             PRIMARY KEY (id),
             INDEX idx_po (po_id),
             INDEX idx_product (product_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        ) ENGINE=InnoDB {$cs};");
 
         // Seed default locations
         self::seedLocations();
