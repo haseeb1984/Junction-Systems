@@ -1,5 +1,5 @@
 <?php
 declare(strict_types=1);
-namespace PkStore\\License\\Exception;
+namespace PkStore\License\Exception;
 
 final class LicenseInvalidException extends LicenseException {}
