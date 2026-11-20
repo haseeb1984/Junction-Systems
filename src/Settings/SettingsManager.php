@@ -48,7 +48,7 @@ final class SettingsManager{
     private function key(): string {
         $salt = function_exists('wp_salt') ? wp_salt('auth') . wp_salt('secure_auth') : '';
         if ($salt === '') {
-            throw new \\RuntimeException('WordPress salts are required to encrypt integration credentials.');
+            throw new \RuntimeException('WordPress salts are required to encrypt integration credentials.');
         }
         return hash('sha256', $salt . get_site_url(), true);
     }
