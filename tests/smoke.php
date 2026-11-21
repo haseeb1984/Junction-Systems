@@ -42,4 +42,27 @@ if (in_array('mailchimp', $basic, true)) {
     throw new \RuntimeException('Mailchimp must remain a Standard package extra.');
 }
 
+
+if (in_array('mailchimp', $basic, true) || in_array('barcode_labels', $basic, true)
+    || in_array('analytics_ga4', $basic, true) || in_array('facebook_pixel', $basic, true)) {
+    throw new \\RuntimeException('Standard package extras must not leak into Basic.');
+}
+
+$standard = \\PkStore\\License\\LicenseFeatures::forTier('standard');
+foreach (['barcode_labels', 'analytics_ga4', 'facebook_pixel', 'mailchimp'] as $required) {
+    if (!in_array($required, $standard, true)) {
+        throw new \\RuntimeException('Standard package entitlement is missing: ' . $required);
+    }
+}
+if (in_array('postex_courier', $standard, true) || in_array('klaviyo', $standard, true)) {
+    throw new \\RuntimeException('Enterprise-only extras must not leak into Standard.');
+}
+
+$enterprise = \\PkStore\\License\\LicenseFeatures::forTier('enterprise');
+foreach (['postex_courier', 'rider_courier', 'klaviyo', 'multi_location_inventory', 'foree_pay'] as $required) {
+    if (!in_array($required, $enterprise, true)) {
+        throw new \\RuntimeException('Enterprise package entitlement is missing: ' . $required);
+    }
+}
+
 echo "Smoke tests passed.\n";
