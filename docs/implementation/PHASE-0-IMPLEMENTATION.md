@@ -115,3 +115,8 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - REST retries can retrieve an existing order even after the cashier has closed the session, subject to cashier/session ownership checks.
 - Offline queueing is now limited to transport/response failures. HTTP validation and authorization errors are surfaced and are not silently queued as offline sales.
 - This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A payload fingerprint/reuse-mismatch check and full runtime retry tests remain recommended.
+
+### POS session concurrency hardening
+- Opening a POS session now starts a database transaction and locks the active inventory-location row before checking for an existing open session and inserting a new one. Concurrent open requests for the same location therefore serialize, including the first-session/no-existing-row case.
+- Closing a POS session now runs in a transaction and locks the session row through the repository's `SELECT ... FOR UPDATE` before checking status, applying closing cash and persisting the closed state. This serializes close against sale processing, which also locks/rechecks the session inside its sale transaction.
+- These protections rely on the location and POS session tables using InnoDB; the installer declares both as InnoDB. They still require runtime concurrency tests on the target MySQL/MariaDB version before production sign-off.
