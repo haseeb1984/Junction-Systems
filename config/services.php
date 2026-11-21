@@ -66,6 +66,7 @@ return static function(ServiceContainer $c):void{
 
     // Inventory use cases
     $c->singleton(\PkStore\Application\Inventory\AdjustStockUseCase::class, fn()=>new \PkStore\Application\Inventory\AdjustStockUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class, fn()=>new \PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase($c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
     $c->singleton(\PkStore\Application\Inventory\GenerateBarcodeUseCase::class, fn()=>new \PkStore\Application\Inventory\GenerateBarcodeUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class)));
     $c->singleton(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class, fn()=>new \PkStore\Application\Inventory\SyncWooCommerceStockUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\LocationRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
 
