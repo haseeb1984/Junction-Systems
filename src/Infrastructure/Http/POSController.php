@@ -120,21 +120,21 @@ final class POSController {
             $existingSession = $this->c->make(POSSessionRepositoryInterface::class)->findById($existingOrder->sessionId);
             if ($existingOrder->sessionId !== $sessionId || $existingOrder->locationId !== $locationId || !$existingSession
                 || ($existingSession->cashierId !== get_current_user_id() && !current_user_can('manage_options'))) {
-                return new \\WP_REST_Response(['success'=>false,'message'=>'POS request reference is already used or access is denied.'],403);
+                return new \WP_REST_Response(['success'=>false,'message'=>'POS request reference is already used or access is denied.'],403);
             }
             try {
                 $fingerprint = ProcessPOSSaleUseCase::requestFingerprint(
                     $sessionId, $locationId, $items, $method, $customerPhone,
                     $customerName, $discount, $split
                 );
-            } catch (\\Throwable $error) {
-                return new \\WP_REST_Response(['success'=>false,'message'=>'POS retry payload is invalid.'],422);
+            } catch (\Throwable $error) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'POS retry payload is invalid.'],422);
             }
             if (!$existingOrder->requestFingerprint
                 || !hash_equals($existingOrder->requestFingerprint, $fingerprint)) {
-                return new \\WP_REST_Response(['success'=>false,'message'=>'POS request reference was reused with a different or unverifiable sale payload.'],409);
+                return new \WP_REST_Response(['success'=>false,'message'=>'POS request reference was reused with a different or unverifiable sale payload.'],409);
             }
-            return new \\WP_REST_Response(['success'=>true,'order_ref'=>$existingOrder->orderRef,'total'=>$existingOrder->totalPkr,'message'=>'Previously processed sale returned.','idempotent'=>true],200);
+            return new \WP_REST_Response(['success'=>true,'order_ref'=>$existingOrder->orderRef,'total'=>$existingOrder->totalPkr,'message'=>'Previously processed sale returned.','idempotent'=>true],200);
         }
 
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
@@ -192,7 +192,7 @@ final class POSController {
             return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
         }
 
-        $clean = preg_replace('/[^\\d]/', '', $phone);
+        $clean = preg_replace('/[^\d]/', '', $phone);
         if (strpos($clean, '0') === 0) $clean = '92' . substr($clean, 1);
         if (strlen($clean) < 10 || strlen($clean) > 15) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Phone number is invalid.'],422);
