@@ -25,11 +25,12 @@ final class InventoryAdminController {
             add_submenu_page('pkstore-operations','POS Register','🖥 POS Register',self::CAP,'pkstore-pos',[$this,'pos']);
         }
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
+        add_submenu_page('pkstore-operations','Inventory Event Health','🔄 Sync Health',self::CAP,'pkstore-inventory-events',[$this,'inventoryEvents']);
         add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders',self::CAP,'pkstore-purchase-orders',[$this,'purchaseOrders']);
     }
 
     public function assets(string $hook): void {
-        $ours = ['store-ops_page_pkstore-inventory','store-ops_page_pkstore-pos','store-ops_page_pkstore-stock-log','store-ops_page_pkstore-purchase-orders'];
+        $ours = ['store-ops_page_pkstore-inventory','store-ops_page_pkstore-pos','store-ops_page_pkstore-stock-log','store-ops_page_pkstore-inventory-events','store-ops_page_pkstore-purchase-orders'];
         if (!in_array($hook,$ours,true)) return;
         wp_enqueue_style('pkstore-admin',PKSTORE_ASSETS.'/css/admin.css',[],PKSTORE_VERSION);
     }
@@ -180,6 +181,60 @@ final class InventoryAdminController {
             ARRAY_A
         ) ?: [];
         include PKSTORE_DIR.'/templates/admin/inventory/stock-log.php';
+    }
+
+
+    /**
+     * Read-only operational view of durable WooCommerce inventory queues.
+     * This deliberately offers no force-complete or direct stock mutation action.
+     */
+    public function inventoryEvents(): void {
+        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
+
+        global $wpdb;
+        $tables = [
+            'sales' => $wpdb->prefix . 'pkstore_wc_order_inventory_queue',
+            'returns' => $wpdb->prefix . 'pkstore_wc_return_inventory_queue',
+            'stock' => $wpdb->prefix . 'pkstore_wc_stock_sync',
+        ];
+        $available = [];
+        $missingQueues = [];
+        foreach ($tables as $key => $table) {
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+            $available[$key] = ($found === $table);
+            if (!$available[$key]) $missingQueues[] = $key;
+        }
+
+        $salesEvents = $available['sales'] ? ($wpdb->get_results(
+            "SELECT 'WooCommerce sale' AS event, CONCAT('#',wc_order_id) AS reference,
+                    'Order-level inventory ingestion' AS details, status, attempts,
+                    next_attempt_at, claimed_at, last_error, created_at
+             FROM {$tables['sales']} ORDER BY updated_at DESC LIMIT 100",
+            ARRAY_A
+        ) ?: []) : [];
+
+        $returnEvents = $available['returns'] ? ($wpdb->get_results(
+            "SELECT CONCAT('WooCommerce ',event_kind,' restock') AS event,
+                    CONCAT('#',wc_order_id) AS reference,
+                    CONCAT('Item ',COALESCE(wc_order_item_id,'—'),' · Product ',wc_product_id,' · Qty ',quantity) AS details,
+                    status, attempts, next_attempt_at, claimed_at, last_error, created_at
+             FROM {$tables['returns']} ORDER BY updated_at DESC LIMIT 100",
+            ARRAY_A
+        ) ?: []) : [];
+
+        $stockEvents = $available['stock'] ? ($wpdb->get_results(
+            "SELECT 'WooCommerce stock sync' AS event,
+                    CONCAT('Junction product #',q.product_id) AS reference,
+                    COALESCE(p.name,'Product mapping unavailable') AS details,
+                    q.status, q.attempts, q.next_attempt_at, q.claimed_at, q.last_error, q.created_at
+             FROM {$tables['stock']} q
+             LEFT JOIN {$wpdb->prefix}pkstore_inventory_products p ON p.id=q.product_id
+             ORDER BY q.updated_at DESC LIMIT 100",
+            ARRAY_A
+        ) ?: []) : [];
+
+        include PKSTORE_DIR.'/templates/admin/inventory/inventory-events.php';
     }
 
     public function purchaseOrders(): void {
