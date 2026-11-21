@@ -152,6 +152,8 @@ foreach ([
 $bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
 $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
+$inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
+$barcodeLabelSource = file_get_contents($src . '/Infrastructure/Barcode/BarcodeLabel.php');
 if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('inventory'))") === false
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('barcode_labels'))") === false
@@ -171,6 +173,15 @@ if (!is_string($bootstrapSource)
     || !is_string($adminAffiliateSource)
     || strpos($adminAffiliateSource, "if (!FeatureManager::getInstance()->isEnabled('affiliate_system'))") === false) {
     throw new \RuntimeException('Affiliate admin registration and pages must enforce the affiliate entitlement.');
+}
+
+
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, "if (FeatureManager::getInstance()->isEnabled('barcode_labels'))") === false
+    || strpos($inventoryHttpSource, "Barcode labels are not available on the current package.") === false
+    || !is_string($barcodeLabelSource)
+    || strpos($barcodeLabelSource, "if (!FeatureManager::getInstance()->isEnabled('barcode_labels')) wp_die") === false) {
+    throw new \RuntimeException('Barcode generation REST and admin handlers must enforce barcode entitlement.');
 }
 
 echo "Smoke tests passed.\n";
