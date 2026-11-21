@@ -46,4 +46,60 @@ final class WpStockRepository implements StockRepositoryInterface {
     public function getMovements(int $productId, int $limit=20): array { return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->tm()} WHERE product_id=%d ORDER BY created_at DESC LIMIT %d",$productId,$limit),ARRAY_A)?:[]; }
     public function getLocationStock(int $locationId): array { return $this->db->get_results($this->db->prepare("SELECT s.*,p.name,p.sku,p.barcode,p.reorder_point FROM {$this->ts()} s INNER JOIN {$this->db->prefix}pkstore_inventory_products p ON s.product_id=p.id WHERE s.location_id=%d ORDER BY p.name",$locationId),ARRAY_A)?:[]; }
     public function getTotalStock(int $productId): int { return (int)$this->db->get_var($this->db->prepare("SELECT COALESCE(SUM(quantity),0) FROM {$this->ts()} WHERE product_id=%d",$productId)); }
+
+    public function enqueueWooCommerceSync(int $productId): void {
+        $table = $this->db->prefix . 'pkstore_wc_stock_sync';
+        $now = current_time('mysql');
+        $result = $this->db->query($this->db->prepare(
+            "INSERT INTO {$table} (product_id, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
+             VALUES (%d, 'pending', 0, %s, NULL, '', %s, %s)
+             ON DUPLICATE KEY UPDATE status='pending', next_attempt_at=VALUES(next_attempt_at),
+             claimed_at=NULL, last_error='', updated_at=VALUES(updated_at)",
+            $productId, $now, $now, $now
+        ));
+        if ($result === false) throw new \\RuntimeException('Unable to queue WooCommerce stock synchronization.');
+    }
+    public function claimWooCommerceSyncBatch(int $limit = 20): array {
+        $table = $this->db->prefix . 'pkstore_wc_stock_sync';
+        $limit = max(1, min(100, $limit));
+        // Recover jobs abandoned by a terminated PHP worker.
+        $this->db->query("UPDATE {$table} SET status='pending', claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB('" . esc_sql(current_time('mysql')) . "', INTERVAL 10 MINUTE)");
+        if ($this->db->query('START TRANSACTION') === false) throw new \\RuntimeException('Unable to start stock sync queue claim.');
+        try {
+            $rows = $this->db->get_results($this->db->prepare(
+                "SELECT id, product_id, attempts, updated_at AS generation FROM {$table}
+                 WHERE status='pending' AND next_attempt_at <= %s ORDER BY next_attempt_at ASC, id ASC LIMIT %d FOR UPDATE",
+                current_time('mysql'), $limit
+            ), ARRAY_A) ?: [];
+            foreach ($rows as &$row) {
+                $updated = $this->db->query($this->db->prepare(
+                    "UPDATE {$table} SET status='processing', claimed_at=%s, attempts=attempts+1 WHERE id=%d AND status='pending'",
+                    current_time('mysql'), (int)$row['id']
+                ));
+                if ($updated === false) throw new \\RuntimeException('Unable to claim stock sync queue item.');
+                $row['attempts'] = (int)$row['attempts'] + 1;
+            }
+            unset($row);
+            if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit stock sync queue claim.');
+            return $rows;
+        } catch (\\Throwable $error) {
+            $this->db->query('ROLLBACK');
+            throw $error;
+        }
+    }
+    public function completeWooCommerceSync(int $id, string $generation): void {
+        $table = $this->db->prefix . 'pkstore_wc_stock_sync';
+        $deleted = $this->db->delete($table, ['id'=>$id, 'updated_at'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
+        if ($deleted === false) throw new \\RuntimeException('Unable to complete stock sync queue item.');
+    }
+    public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
+        $table = $this->db->prefix . 'pkstore_wc_stock_sync';
+        $delay = min(21600, 30 * (2 ** min(10, max(0, $attempts - 1))));
+        $updated = $this->db->query($this->db->prepare(
+            "UPDATE {$table} SET status='pending', claimed_at=NULL, next_attempt_at=DATE_ADD(%s, INTERVAL %d SECOND), last_error=%s
+             WHERE id=%d AND updated_at=%s AND status='processing'",
+            current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
+        ));
+        if ($updated === false) throw new \\RuntimeException('Unable to reschedule stock sync queue item.');
+    }
 }
