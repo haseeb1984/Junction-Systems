@@ -10,15 +10,15 @@ final class AdjustStockUseCase {
         private readonly StockRepositoryInterface $stockRepo,
         private readonly LoggerInterface $log,
     ) {}
-    public function execute(int $productId, int $locationId, int $delta, MovementType $type, string $note = '', string $refType = '', string $refId = ''): void {
+    public function execute(int $productId, int $locationId, int $delta, MovementType $type, string $note = '', string $refType = '', string $refId = '', bool $syncWooCommerce = true): void {
         $stock  = $this->stockRepo->getStock($productId, $locationId);
         $before = $stock->getQuantity();
         $stock->adjust($delta);
         $this->stockRepo->updateStock($stock);
         $movement = StockMovement::create($productId, $locationId, $type, $delta, $before, $refType, $refId, $note, get_current_user_id());
         $this->stockRepo->recordMovement($movement);
-        // Sync to WooCommerce if this is the online location
-        $this->syncToWooCommerce($productId, $locationId);
+        // POS sales defer external WooCommerce side effects until their DB transaction commits.
+        if ($syncWooCommerce) $this->syncProductToWooCommerce($productId, $locationId);
         $this->log->info('Stock adjusted.', ['product_id'=>$productId,'location_id'=>$locationId,'delta'=>$delta,'type'=>$type->value]);
     }
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
@@ -31,7 +31,7 @@ final class AdjustStockUseCase {
         $this->stockRepo->recordMovement($movement);
         $this->syncToWooCommerce($productId, $locationId);
     }
-    private function syncToWooCommerce(int $productId, int $locationId): void {
+    public function syncProductToWooCommerce(int $productId, int $locationId): void {
         $product = $this->productRepo->findById($productId);
         if (!$product || !$product->wcProductId) return;
         $totalStock = $this->stockRepo->getTotalStock($productId);
