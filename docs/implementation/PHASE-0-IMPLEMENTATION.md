@@ -80,3 +80,8 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 
 - POS session persistence: closing cash, cash/JazzCash/EasyPaisa totals, status, and close timestamp are now written back to the session row. Added entity getters required by the repository and rejected negative opening/closing cash, negative sale totals, and repeated close transitions.
 - POS tender accounting: card totals are now tracked separately from cash, and the session repository persists/hydrates card totals along with cash, JazzCash, and EasyPaisa totals. POS payment methods are restricted to the methods currently exposed by the register; unsupported split-tender payloads are rejected instead of being silently counted as cash. Invalid opening/closing cash is rejected at the REST boundary.
+
+
+- POS session entity: tender validation now happens before aggregate sales totals are mutated. An unsupported tender therefore cannot increment total sales before throwing.
+- POS session repository: failed database inserts and failed updates now raise explicit persistence exceptions instead of returning a session ID or reporting success after a failed write.
+- Remaining POS transaction risk: order creation, line-item persistence, stock movements, and session totals are not yet one database transaction. The offline replay path also still needs a durable idempotency key before retry-after-timeout can be considered safe. These are recorded as open implementation work, not claimed fixed.
