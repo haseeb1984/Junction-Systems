@@ -51,11 +51,11 @@ final class WpStockRepository implements StockRepositoryInterface {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $now = current_time('mysql');
         $result = $this->db->query($this->db->prepare(
-            "INSERT INTO {$table} (product_id, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
-             VALUES (%d, 'pending', 0, %s, NULL, '', %s, %s)
-             ON DUPLICATE KEY UPDATE status='pending', next_attempt_at=VALUES(next_attempt_at),
+            "INSERT INTO {$table} (product_id, generation, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
+             VALUES (%d, %s, 'pending', 0, %s, NULL, '', %s, %s)
+             ON DUPLICATE KEY UPDATE generation=VALUES(generation), status='pending', next_attempt_at=VALUES(next_attempt_at),
              claimed_at=NULL, last_error='', updated_at=VALUES(updated_at)",
-            $productId, $now, $now, $now
+            $productId, wp_generate_uuid4(), $now, $now, $now
         ));
         if ($result === false) throw new \\RuntimeException('Unable to queue WooCommerce stock synchronization.');
     }
@@ -67,7 +67,7 @@ final class WpStockRepository implements StockRepositoryInterface {
         if ($this->db->query('START TRANSACTION') === false) throw new \\RuntimeException('Unable to start stock sync queue claim.');
         try {
             $rows = $this->db->get_results($this->db->prepare(
-                "SELECT id, product_id, attempts, updated_at AS generation FROM {$table}
+                "SELECT id, product_id, attempts, generation FROM {$table}
                  WHERE status='pending' AND next_attempt_at <= %s ORDER BY next_attempt_at ASC, id ASC LIMIT %d FOR UPDATE",
                 current_time('mysql'), $limit
             ), ARRAY_A) ?: [];
@@ -89,7 +89,7 @@ final class WpStockRepository implements StockRepositoryInterface {
     }
     public function completeWooCommerceSync(int $id, string $generation): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
-        $deleted = $this->db->delete($table, ['id'=>$id, 'updated_at'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
+        $deleted = $this->db->delete($table, ['id'=>$id, 'generation'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
         if ($deleted === false) throw new \\RuntimeException('Unable to complete stock sync queue item.');
     }
     public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
@@ -97,7 +97,7 @@ final class WpStockRepository implements StockRepositoryInterface {
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempts - 1))));
         $updated = $this->db->query($this->db->prepare(
             "UPDATE {$table} SET status='pending', claimed_at=NULL, next_attempt_at=DATE_ADD(%s, INTERVAL %d SECOND), last_error=%s
-             WHERE id=%d AND updated_at=%s AND status='processing'",
+             WHERE id=%d AND generation=%s AND status='processing'",
             current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
         if ($updated === false) throw new \\RuntimeException('Unable to reschedule stock sync queue item.');
