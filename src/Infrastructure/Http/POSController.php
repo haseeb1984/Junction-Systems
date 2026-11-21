@@ -75,6 +75,18 @@ final class POSController {
         $clientOrderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
         if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) return new \WP_REST_Response(['success'=>false,'message'=>'A valid POS request reference is required.'],422);
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
+        // A retry after a lost response must return the already-committed
+        // order even if the cashier has since closed the session.
+        $existingOrder = $this->c->make(POSOrderRepositoryInterface::class)->findByRef($clientOrderRef);
+        if ($existingOrder) {
+            $existingSession = $this->c->make(POSSessionRepositoryInterface::class)->findById($existingOrder->sessionId);
+            if ($existingOrder->sessionId !== $sessionId || $existingOrder->locationId !== $locationId || !$existingSession
+                || ($existingSession->cashierId !== get_current_user_id() && !current_user_can('manage_options'))) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'POS request reference is already used or access is denied.'],403);
+            }
+            return new \WP_REST_Response(['success'=>true,'order_ref'=>$existingOrder->orderRef,'total'=>$existingOrder->totalPkr,'message'=>'Previously processed sale returned.','idempotent'=>true],200);
+        }
+
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
         if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
             return new \WP_REST_Response(['success'=>false,'message'=>'The POS session is invalid or closed.'],409);
