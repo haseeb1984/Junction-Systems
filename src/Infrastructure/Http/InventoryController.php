@@ -108,10 +108,17 @@ final class InventoryController {
         $locationId = (int) $locationRaw;
         $quantity = (int) $quantityRaw;
         $typeValue = sanitize_key($req->get_param('type') ?? 'adjustment');
-        $allowedTypes = [MovementType::Adjustment, MovementType::PurchaseReceive, MovementType::Damage];
+        $allowedTypes = [MovementType::Adjustment, MovementType::PurchaseReceive, MovementType::Damage, MovementType::Opening];
         $type = MovementType::tryFrom($typeValue);
         if ($productId < 1 || $locationId < 1 || $quantity === 0 || !$type || !in_array($type, $allowedTypes, true)) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Invalid stock adjustment details or movement type.'],422);
+        }
+
+        if (($type === MovementType::PurchaseReceive || $type === MovementType::Opening) && $quantity < 1) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Purchase receipts and opening stock must add a positive quantity.'],422);
+        }
+        if ($type === MovementType::Damage && $quantity > -1) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Damage/loss must reduce stock using a negative quantity.'],422);
         }
 
         $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
