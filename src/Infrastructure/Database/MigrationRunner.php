@@ -21,6 +21,7 @@ final class MigrationRunner {
         '2.0.1' => [InventoryInstaller::class, 'installStockSyncQueue'],
         '2.0.2' => [self::class, 'addPOSRequestFingerprint'],
         '2.0.3' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
+        '2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue'],
     ];
 
 
@@ -131,6 +132,9 @@ final class MigrationRunner {
         // verifying 2.0.0–2.0.2 prevents those earlier steps from completing.
         if (version_compare($version, '2.0.3', '>=')) {
             $required[] = 'pkstore_wc_order_inventory_queue';
+        }
+        if (version_compare($version, '2.0.4', '>=')) {
+            $required[] = 'pkstore_wc_return_inventory_queue';
         }
 
         foreach ($required as $suffix) {
