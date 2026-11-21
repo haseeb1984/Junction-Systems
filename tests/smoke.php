@@ -219,4 +219,21 @@ if (!is_string($inventoryHttpSource)
 }
 
 
+
+$stockAdjustmentSource = file_get_contents($src . '/Application/Inventory/AdjustStockUseCase.php');
+if (!is_string($stockAdjustmentSource)
+    || strpos($stockAdjustmentSource, 'public function executeManualAdjustment(') === false
+    || strpos($stockAdjustmentSource, "START TRANSACTION") === false
+    || strpos($stockAdjustmentSource, "ROLLBACK") === false
+    || strpos($stockAdjustmentSource, "syncProductToWooCommerce(\$productId)") === false) {
+    throw new \RuntimeException('Manual stock adjustments must commit ledger and outbox changes atomically before WooCommerce synchronization.');
+}
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, 'MovementType::tryFrom($typeValue)') === false
+    || strpos($inventoryHttpSource, 'MovementType::PurchaseReceive, MovementType::Damage') === false
+    || strpos($inventoryHttpSource, 'filter_var($raw, FILTER_VALIDATE_INT)') === false
+    || strpos($inventoryHttpSource, 'Stock adjustment could not be completed.') === false) {
+    throw new \\RuntimeException('Manual stock REST endpoint must validate integer inputs, allowed movement types and avoid exposing internal exceptions.');
+}
+
 echo "Smoke tests passed.\n";
