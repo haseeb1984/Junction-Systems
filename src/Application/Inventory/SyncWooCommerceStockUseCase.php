@@ -186,6 +186,96 @@ final class SyncWooCommerceStockUseCase {
         }
     }
 
+    /**
+     * Mirror a refund only when WooCommerce's explicit restock action fires.
+     * The original order item carries cumulative _restock_refunded_items metadata.
+     */
+    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+        if (!($order instanceof \\WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
+            throw new \\InvalidArgumentException('WooCommerce refund restock event is malformed.');
+        }
+        $orderId = (int) $order->get_id();
+        $candidates = [];
+        foreach ($order->get_items('line_item') as $item) {
+            $parentId = (int) $item->get_product_id();
+            $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+            if ($wcProductId !== $parentId && $wcProductId !== $variationId) {
+                continue;
+            }
+            $cumulative = (int) $item->get_meta('_restock_refunded_items', true);
+            if ($cumulative > 0 && $cumulative >= ($newStock - $oldStock)) {
+                $candidates[] = ['item' => $item, 'cumulative' => $cumulative, 'variation_id' => $variationId, 'parent_id' => $parentId];
+            }
+        }
+        if (count($candidates) !== 1) {
+            // The WooCommerce hook omits the original order-item ID. Do not guess
+            // when the same product appears on multiple order lines.
+            throw new \\RuntimeException('Refund restock cannot be mapped unambiguously to one WooCommerce order item.');
+        }
+        $candidate = $candidates[0];
+        $item = $candidate['item'];
+        $productRecord = $candidate['variation_id'] > 0
+            ? $this->productRepo->findByWcProductId($candidate['variation_id'])
+            : null;
+        $productRecord ??= $this->productRepo->findByWcProductId($candidate['parent_id']);
+        if (!$productRecord) {
+            throw new \\RuntimeException('Refund-restocked WooCommerce item is not linked to Junction inventory.');
+        }
+        $onlineLocation = $this->locationRepo->findOnline();
+        if (!$onlineLocation) {
+            throw new \\RuntimeException('Junction online inventory location is not configured.');
+        }
+
+        $itemId = (int) $item->get_id();
+        $referenceId = $orderId . ':' . $itemId . ':' . $candidate['cumulative'];
+        global $wpdb;
+        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \\RuntimeException('Unable to start WooCommerce refund return transaction.');
+        }
+        try {
+            $this->stockRepo->getStock($productRecord->id, $onlineLocation->id);
+            if (!$this->stockRepo->hasMovementReference(
+                $productRecord->id,
+                $onlineLocation->id,
+                'wc_refund_restock',
+                $referenceId,
+                MovementType::OnlineReturn
+            )) {
+                $this->adjustStock->execute(
+                    $productRecord->id,
+                    $onlineLocation->id,
+                    $newStock - $oldStock,
+                    MovementType::OnlineReturn,
+                    "WooCommerce refund restock for order #{$orderId}, item #{$itemId}",
+                    'wc_refund_restock',
+                    $referenceId,
+                    false
+                );
+            }
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \\RuntimeException('Unable to commit WooCommerce refund return transaction.');
+            }
+        } catch (\\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            $this->log->error('WooCommerce refund restock was not applied to Junction inventory.', [
+                'order_id' => $orderId,
+                'order_item_id' => $itemId,
+                'error_class' => get_class($error),
+            ]);
+            throw $error;
+        }
+
+        try {
+            $this->adjustStock->syncProductToWooCommerce($productRecord->id);
+        } catch (\\Throwable $error) {
+            $this->log->error('WooCommerce refund return committed; aggregate stock sync remains queued.', [
+                'order_id' => $orderId,
+                'product_id' => $productRecord->id,
+                'error_class' => get_class($error),
+            ]);
+        }
+    }
+
     public function syncAllToWooCommerce(): int {
         $products = $this->productRepo->findAll(500, 0);
         $synced = 0;
