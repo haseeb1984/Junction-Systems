@@ -16,6 +16,9 @@ final class ProcessPOSSaleUseCase {
         private readonly LoggerInterface $log,
     ) {}
     public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): POSOrder {
+        if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true) || !empty($paymentSplit)) {
+            throw new \\InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
+        }
         $session = $this->sessionRepo->findById($sessionId);
         if (!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
         if ($session->locationId !== $locationId) throw new \RuntimeException('POS session location does not match the sale location.');
@@ -66,8 +69,7 @@ final class ProcessPOSSaleUseCase {
             }
         }
         // Update session totals
-        $effectiveMethod = $paymentSplit ? 'split' : $paymentMethod;
-        $session->recordSale($order->totalPkr, $effectiveMethod);
+        $session->recordSale($order->totalPkr, $paymentMethod);
         $this->sessionRepo->update($session);
         $this->log->info('POS sale processed.', ['order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'method'=>$paymentMethod]);
         return $this->orderRepo->findById($orderId);
