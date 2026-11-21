@@ -272,4 +272,14 @@ if (!is_string($woocommerceStockSyncSource)
     throw new \RuntimeException('WooCommerce variation orders must prefer a mapped variation and fall back to the parent product mapping.');
 }
 
+
+$inventoryProductRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpInventoryProductRepository.php');
+if (!is_string($inventoryProductRepositorySource)
+    || strpos($inventoryProductRepositorySource, 'Unable to save inventory product.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to update inventory product.') === false
+    || strpos($inventoryProductRepositorySource, '$inserted === false') === false
+    || strpos($inventoryProductRepositorySource, '$updated === false') === false) {
+    throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
+}
+
 echo "Smoke tests passed.\n";
