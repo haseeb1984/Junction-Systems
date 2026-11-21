@@ -54,6 +54,16 @@ final class ThemeBootstrapper {
         if ($this->fm->isEnabled('inventory')) {
             (new InventoryController($this->c))->register();
             (new InventoryHooks($this->c))->register();
+            add_filter('cron_schedules', static function(array $schedules): array {
+                $schedules['pkstore_five_minutes'] = ['interval' => 300, 'display' => 'Every five minutes'];
+                return $schedules;
+            });
+            if (!wp_next_scheduled('pkstore_process_wc_stock_sync')) {
+                wp_schedule_event(time() + 60, 'pkstore_five_minutes', 'pkstore_process_wc_stock_sync');
+            }
+            add_action('pkstore_process_wc_stock_sync', function(): void {
+                $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class)->execute();
+            });
         }
         if ($this->fm->isEnabled('pos'))
             (new POSController($this->c))->register();
