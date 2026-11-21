@@ -75,7 +75,7 @@ final class InventoryAdminController {
             $this->redirect('pkstore-inventory','error','Prices, reorder point or WooCommerce product mapping are invalid.'); return;
         }
 
-        $p = \\PkStore\\Domain\\Inventory\\Entity\\InventoryProduct::create(
+        $p = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
             $sku,
             $name,
             $costPrice,
