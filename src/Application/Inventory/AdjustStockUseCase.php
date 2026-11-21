@@ -69,6 +69,7 @@ final class AdjustStockUseCase {
         $wcProduct->set_manage_stock(true);
         $wcProduct->set_stock_quantity($totalStock);
         $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-        $wcProduct->save();
+        $savedId = $wcProduct->save();
+        if (!$savedId) throw new \RuntimeException('WooCommerce product stock save failed.');
     }
 }
