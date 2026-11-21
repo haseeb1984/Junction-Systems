@@ -116,6 +116,12 @@ if (!method_exists(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface
 if (!method_exists(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class, 'onWooCommerceSale')) {
     throw new \RuntimeException('WooCommerce order inventory ingestion use case is unavailable.');
 }
+$inventoryUseCaseSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+if (!is_string($inventoryUseCaseSource)
+    || strpos($inventoryUseCaseSource, 'WooCommerce order is unavailable for inventory ingestion.') === false
+    || strpos($inventoryUseCaseSource, 'Junction online inventory location is not configured.') === false) {
+    throw new \RuntimeException('WooCommerce order inventory ingestion must fail closed when prerequisites are missing.');
+}
 if (!method_exists(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class, 'enqueue')
     || !method_exists(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class, 'execute')) {
     throw new \RuntimeException('WooCommerce order inventory durable queue API is unavailable.');
