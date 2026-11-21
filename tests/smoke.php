@@ -251,4 +251,16 @@ if (!is_string($inventoryHttpSource)
     throw new \\RuntimeException('REST stock adjustments must enforce valid movement direction.');
 }
 
+
+if (!is_string($adminInventorySource)
+    || strpos($adminInventorySource, 'FILTER_VALIDATE_INT') === false
+    || strpos($adminInventorySource, 'wc_get_product($wcProductId)') === false
+    || strpos($adminInventorySource, "isEnabled('barcode_labels')") === false) {
+    throw new \RuntimeException('Admin product creation must validate integer prices and WooCommerce mappings and respect barcode entitlement.');
+}
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, "if (!\$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels'))") === false) {
+    throw new \\RuntimeException('REST product creation must not generate package-restricted barcodes when the entitlement is disabled.');
+}
+
 echo "Smoke tests passed.\n";
