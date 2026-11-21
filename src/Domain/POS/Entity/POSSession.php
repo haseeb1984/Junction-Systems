@@ -25,7 +25,8 @@ final class POSSession {
     public function recordSale(int $total, string $paymentMethod): void {
         if (!$this->isOpen()) throw new \LogicException('Cannot record sale on closed session.');
         if ($total < 0) throw new \InvalidArgumentException('Sale total cannot be negative.');
-        $this->totalSalesPkr += $total;
+        // Validate and apply the tender bucket before changing the aggregate.
+        // An unsupported method must never leave partially-mutated session totals.
         match($paymentMethod) {
             'cash'      => $this->totalCashPkr   += $total,
             'card'      => $this->totalCardPkr   += $total,
@@ -33,6 +34,7 @@ final class POSSession {
             'easypaisa' => $this->totalEasypaisa += $total,
             default => throw new \InvalidArgumentException('Unsupported POS payment method.'),
         };
+        $this->totalSalesPkr += $total;
     }
     public function close(int $closingCash): void {
         if (!$this->isOpen()) throw new \LogicException('POS session is already closed.');
