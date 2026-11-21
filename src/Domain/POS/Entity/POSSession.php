@@ -31,7 +31,7 @@ final class POSSession {
             'card'      => $this->totalCardPkr   += $total,
             'jazzcash'  => $this->totalJazzcash  += $total,
             'easypaisa' => $this->totalEasypaisa += $total,
-            default => throw new \\InvalidArgumentException('Unsupported POS payment method.'),
+            default => throw new \InvalidArgumentException('Unsupported POS payment method.'),
         };
     }
     public function close(int $closingCash): void {
