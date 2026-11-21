@@ -80,7 +80,7 @@ final class ProcessPOSSaleUseCase {
 
             foreach ($enriched as $item) {
                 // Any stock shortage or persistence error aborts the entire sale.
-                $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
+                $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef, false);
             }
 
             $session->recordSale($order->totalPkr, $paymentMethod);
@@ -96,6 +96,20 @@ final class ProcessPOSSaleUseCase {
         } catch (\Throwable $e) {
             $wpdb->query('ROLLBACK');
             throw $e;
+        }
+
+        // WooCommerce hooks/API writes are external side effects: do not run them
+        // until the POS order, stock ledger and session totals have committed.
+        foreach (array_unique(array_column($enriched, 'product_id')) as $productId) {
+            try {
+                $this->adjustStock->syncProductToWooCommerce((int)$productId, $locationId);
+            } catch (\\Throwable $syncError) {
+                $this->log->error('POS sale committed but WooCommerce stock sync failed.', [
+                    'order_ref' => $savedOrder->orderRef,
+                    'product_id' => (int)$productId,
+                    'error_class' => get_class($syncError),
+                ]);
+            }
         }
 
         $this->log->info('POS sale processed.', ['order_ref'=>$savedOrder->orderRef,'total'=>$savedOrder->totalPkr,'method'=>$paymentMethod]);
