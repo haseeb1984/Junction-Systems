@@ -12,6 +12,8 @@ final class InventoryHooks {
         add_action('woocommerce_order_status_processing',    [$this, 'onSale']);
         // This per-line hook fires only after WooCommerce actually restores stock.
         add_action('woocommerce_restore_order_item_stock', [$this, 'onOrderItemRestored'], 10, 4);
+        // This hook fires only when the merchant explicitly restocks a refunded item.
+        add_action('woocommerce_restock_refunded_item', [$this, 'onRefundItemRestocked'], 10, 5);
         // Scheduled full sync every hour
         if (!wp_next_scheduled('pkstore_inventory_hourly_sync'))
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
@@ -32,6 +34,14 @@ final class InventoryHooks {
         } catch (\Throwable $e) {
             // The source event is authoritative, but failures need operator attention.
             error_log('[PKStore Inventory] WooCommerce cancellation restock was not mirrored ('.get_class($e).').');
+        }
+    }
+    public function onRefundItemRestocked(int $productId, $oldStock, $newStock, $order, $product): void {
+        try {
+            $this->c->make(SyncWooCommerceStockUseCase::class)
+                ->onWooCommerceRefundItemRestocked($productId, (int) $newStock, (int) $oldStock, $order, $product);
+        } catch (\\Throwable $e) {
+            error_log('[PKStore Inventory] WooCommerce refund restock was not mirrored ('.get_class($e).').');
         }
     }
     public function hourlySyncAll(): void {
