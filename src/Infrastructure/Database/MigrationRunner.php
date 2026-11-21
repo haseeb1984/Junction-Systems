@@ -18,6 +18,7 @@ final class MigrationRunner {
     /** @var array<string, callable> */
     private const MIGRATIONS = [
         '2.0.0' => [Installer::class, 'installSchema'],
+        '2.0.1' => [InventoryInstaller::class, 'installStockSyncQueue'],
     ];
 
     public static function register(): void {
@@ -99,6 +100,7 @@ final class MigrationRunner {
             'pkstore_affiliate_commissions',
             'pkstore_affiliate_payouts',
             'pkstore_inventory_products',
+            'pkstore_wc_stock_sync',
             'pkstore_inventory_stock',
             'pkstore_inventory_locations',
             'pkstore_inventory_movements',
