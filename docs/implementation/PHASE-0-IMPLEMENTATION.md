@@ -117,6 +117,8 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A SHA-256 request fingerprint is now persisted with each client-referenced POS order; retries with the same reference but a different or unverifiable payload are rejected. Existing pre-migration rows retain a NULL fingerprint and cannot be silently treated as a verified replay. Full runtime retry/concurrency tests remain outstanding.
 
 
+- PSR-4 autoload hardening: MovementType, SessionStatus and SyncStatus now each live in their matching enum file instead of relying on another entity file being loaded first. Smoke coverage asserts all three enums autoload independently.
+
 ### WooCommerce order-to-inventory idempotency
 - WooCommerce sale callbacks can fire through more than one order lifecycle hook. The inventory ledger now groups repeated product lines, locks the product/location stock row, checks for an existing wc_order online-sale movement, and applies the deduction only once per order/product.
 - All mapped product deductions, movement rows and stock-sync outbox intents for one WooCommerce order are committed in one database transaction. Aggregate WooCommerce stock writes occur only after that ledger transaction commits.
