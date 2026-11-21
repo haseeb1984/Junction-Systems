@@ -29,7 +29,7 @@ class Woo_AI_Engine {
     }
 
     private static function decrypt_api_key(string $stored): string {
-        if (!str_starts_with($stored, "enc:v2:")) return $stored;
+        if (!str_starts_with($stored, "enc:v2:")) return "";
 
         $salt = function_exists("wp_salt") ? wp_salt("auth") . wp_salt("secure_auth") : "";
         if ($salt === "") return "";
@@ -61,11 +61,21 @@ class Woo_AI_Engine {
         }
 
         $current = get_option("woo_ai_settings", []);
-        if (is_array($current) && ($current["api_key"] ?? null) === $stored) {
-            $current["api_key"] = $encrypted;
-            update_option("woo_ai_settings", $current, false);
+        if (!is_array($current) || ($current["api_key"] ?? null) !== $stored) {
+            return "";
         }
-        return $stored;
+
+        $current["api_key"] = $encrypted;
+        update_option("woo_ai_settings", $current, false);
+
+        // Confirm persistence before allowing the credential to be used.
+        $saved = get_option("woo_ai_settings", []);
+        if (!is_array($saved) || !isset($saved["api_key"])
+            || !hash_equals($encrypted, (string) $saved["api_key"])) {
+            return "";
+        }
+
+        return self::decrypt_api_key($encrypted);
     }
 
     public static function process(string $user_message): array {
