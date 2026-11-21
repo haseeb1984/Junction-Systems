@@ -56,16 +56,25 @@ body{margin:0;font-family:Arial,sans-serif;background:#fff}
         echo '</div></body></html>';
     }
 
+    /**
+     * Strip ZPL command introducers and control bytes from untrusted catalogue
+     * and branding text before embedding it in printer command streams.
+     */
+    private function safeZplText(string $value): string {
+        $value = str_replace(['^', '~', '\\\\'], '', $value);
+        return trim((string) preg_replace('/[\\x00-\\x1F\\x7F]/', ' ', $value));
+    }
+
     public function renderZPL(array $productIds, int $labelsPerProduct = 1): void {
         $branding   = BrandingManager::getInstance();
-        $storeName  = $branding->getStoreName();
+        $storeName  = $this->safeZplText($branding->getStoreName());
         header('Content-Type: text/plain');
         header('Content-Disposition: attachment; filename="labels.zpl"');
         foreach ($productIds as $productId) {
             $product = $this->productRepo->findById((int)$productId);
             if (!$product) continue;
-            $barcode  = $product->getBarcode() ?: $product->sku;
-            $name     = substr($product->name, 0, 25);
+            $barcode  = $this->safeZplText($product->getBarcode() ?: $product->sku);
+            $name     = substr($this->safeZplText($product->name), 0, 25);
             $price    = 'PKR '.number_format($product->salePricePkr);
             for ($i = 0; $i < max(1, $labelsPerProduct); $i++) {
                 echo "^XA
