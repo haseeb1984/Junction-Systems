@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Admin\Inventory;
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface,StockRepositoryInterface,LocationRepositoryInterface};
 use PkStore\Application\Inventory\{AdjustStockUseCase,GenerateBarcodeUseCase,SyncWooCommerceStockUseCase};
 
