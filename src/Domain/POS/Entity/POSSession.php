@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace PkStore\Domain\POS\Entity;
 use DateTimeImmutable;
-enum SessionStatus: string { case Open='open'; case Closed='closed'; }
 final class POSSession {
     public function __construct(
         public readonly int $id, public readonly int $locationId,
