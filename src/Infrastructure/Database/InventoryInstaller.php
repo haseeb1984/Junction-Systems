@@ -209,6 +209,29 @@ final class InventoryInstaller {
         ) ENGINE=InnoDB {$cs};");
     }
 
+
+    public static function installWooCommerceOrderInventoryQueue(): void {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $cs = $wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_order_inventory_queue (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            wc_order_id BIGINT UNSIGNED NOT NULL,
+            generation CHAR(36) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_at DATETIME NOT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            last_error VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_wc_order (wc_order_id),
+            INDEX idx_due (status, next_attempt_at),
+            INDEX idx_claimed (status, claimed_at)
+        ) ENGINE=InnoDB {$cs};");
+    }
+
     private static function seedLocations(): void {
         global $wpdb;
         $t = $wpdb->prefix . 'pkstore_inventory_locations';
