@@ -16,10 +16,10 @@ final class InventoryHooks {
     }
     public function onSale(int $orderId): void {
         try {
-            $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId);
+            $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
         } catch (\Throwable $e) {
             // Avoid leaking exception details that may contain customer/provider data.
-            error_log('[PKStore Inventory] Stock ingestion failed for order '.$orderId.' ('.get_class($e).').');
+            error_log('[PKStore Inventory] Unable to enqueue order inventory event for '.$orderId.' ('.get_class($e).').');
         }
     }
     public function hourlySyncAll(): void {
