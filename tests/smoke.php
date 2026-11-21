@@ -32,6 +32,23 @@ if (\PkStore\License\LicenseFeatures::forTier('not-a-tier') !== []) {
     throw new \RuntimeException('Unknown license tiers must not receive default entitlements.');
 }
 
+$fingerprint = str_repeat('a', 64);
+$posOrder = \PkStore\Domain\POS\Entity\POSOrder::create(
+    7,
+    3,
+    [['product_id' => 12, 'sku' => 'SKU-12', 'name' => 'Sample', 'quantity' => 2, 'unit_price_pkr' => 100, 'discount_pkr' => 0]],
+    'cash',
+    '',
+    'Walk-in',
+    0,
+    null,
+    'P-0123456789abcdef0123456789',
+    $fingerprint
+);
+if ($posOrder->requestFingerprint !== $fingerprint) {
+    throw new \RuntimeException('POS order request fingerprint was not retained by the domain entity.');
+}
+
 $basic = \PkStore\License\LicenseFeatures::forTier('basic');
 foreach (['junction_pos', 'inventory_management', 'whatsapp_api', 'quickbooks_sync', 'daraz_sync'] as $required) {
     if (!in_array($required, $basic, true)) {
