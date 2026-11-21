@@ -29,7 +29,7 @@ final class InventoryHooks {
         try {
             $this->c->make(SyncWooCommerceStockUseCase::class)
                 ->onWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             // The source event is authoritative, but failures need operator attention.
             error_log('[PKStore Inventory] WooCommerce cancellation restock was not mirrored ('.get_class($e).').');
         }
