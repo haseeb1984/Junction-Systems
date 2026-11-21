@@ -132,7 +132,7 @@ final class SyncWooCommerceStockUseCase {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
         $orderId = (int) $order->get_id();
         $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order): void {
-            $this->applyonWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
+            $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
         });
     }
 
@@ -221,7 +221,7 @@ final class SyncWooCommerceStockUseCase {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         $orderId = (int) $order->get_id();
         $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product): void {
-            $this->applyonWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product);
+            $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product);
         });
     }
 
