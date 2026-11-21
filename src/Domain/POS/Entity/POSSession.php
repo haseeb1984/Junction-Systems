@@ -22,6 +22,7 @@ final class POSSession {
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
     public function recordSale(int $total, string $paymentMethod): void {
         if (!$this->isOpen()) throw new \LogicException('Cannot record sale on closed session.');
+        if ($total < 0) throw new \InvalidArgumentException('Sale total cannot be negative.');
         $this->totalSalesPkr += $total;
         match($paymentMethod) {
             'jazzcash'  => $this->totalJazzcash  += $total,
@@ -30,11 +31,16 @@ final class POSSession {
         };
     }
     public function close(int $closingCash): void {
+        if (!$this->isOpen()) throw new \LogicException('POS session is already closed.');
+        if ($closingCash < 0) throw new \InvalidArgumentException('Closing cash cannot be negative.');
         $this->status = SessionStatus::Closed; $this->closingCash = $closingCash;
         $this->closedAt = new DateTimeImmutable();
     }
     public function getCashVariance(): int { return ($this->closingCash ?? 0) - ($this->openingCash + $this->totalCashPkr); }
     public static function open(int $locationId, int $cashierId, int $openingCash): self {
+        if ($locationId < 1 || $cashierId < 1 || $openingCash < 0) {
+            throw new \InvalidArgumentException('POS location, cashier, and opening cash must be valid non-negative values.');
+        }
         return new self(0, $locationId, $cashierId, $openingCash, null, 0, 0, 0, 0, SessionStatus::Open, new DateTimeImmutable(), null);
     }
 }
