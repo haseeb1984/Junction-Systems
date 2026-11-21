@@ -74,7 +74,9 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
                         'error_class' => get_class($queueError),
                     ]);
                 }
-                $this->log->error('WooCommerce order inventory event will be retried.', [
+                $this->log->error($attempts >= self::MAX_AUTOMATIC_ATTEMPTS
+                    ? 'WooCommerce order inventory event moved to needs_review after exhausting automatic retries.'
+                    : 'WooCommerce order inventory event will be retried.', [
                     'order_id' => $orderId,
                     'attempt' => $attempts,
                     'error_class' => get_class($error),
