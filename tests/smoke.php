@@ -318,11 +318,31 @@ $wcLifecycleSource = file_get_contents($src . '/Application/Inventory/SyncWooCom
 if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($wcLifecycleSource, "SELECT RELEASE_LOCK(%s)") === false
-    || strpos($wcLifecycleSource, "['cancelled', 'failed']") === false
+    || strpos($wcLifecycleSource, "['cancelled', 'failed', 'pending', 'refunded']") === false
     || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
-    || strpos($wcLifecycleSource, '$remainingQuantity = (int) $rawQuantity - $restockedQuantity;') === false
+    || strpos($wcLifecycleSource, 'Always book the original sale quantity') === false
+    || strpos($wcLifecycleSource, 'return false;') === false
     || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
     throw new \RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
+}
+
+
+$returnQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
+$inventoryInstallerSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+if (!is_string($returnQueueSource)
+    || strpos($returnQueueSource, 'enqueueCancellation(') === false
+    || strpos($returnQueueSource, 'enqueueRefund(') === false
+    || strpos($returnQueueSource, 'claimBatch(') === false
+    || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
+    || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
+    || !is_string($inventoryInstallerSource)
+    || strpos($inventoryInstallerSource, 'pkstore_wc_return_inventory_queue') === false
+    || strpos($migrationRunnerSource, "'2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue']") === false
+    || strpos($migrationRunnerSource, "'pkstore_wc_return_inventory_queue'") === false
+    || strpos($returnHooks, 'ProcessWooCommerceReturnInventoryQueueUseCase::class') === false
+    || strpos($returnHooks, 'enqueueCancellation(') === false
+    || strpos($returnHooks, 'enqueueRefund(') === false) {
+    throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
 
 echo "Smoke tests passed.\n";
