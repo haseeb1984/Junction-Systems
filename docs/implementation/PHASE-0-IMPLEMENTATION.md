@@ -117,6 +117,12 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A SHA-256 request fingerprint is now persisted with each client-referenced POS order; retries with the same reference but a different or unverifiable payload are rejected. Existing pre-migration rows retain a NULL fingerprint and cannot be silently treated as a verified replay. Full runtime retry/concurrency tests remain outstanding.
 
 
+### WooCommerce order-to-inventory idempotency
+- WooCommerce sale callbacks can fire through more than one order lifecycle hook. The inventory ledger now groups repeated product lines, locks the product/location stock row, checks for an existing wc_order online-sale movement, and applies the deduction only once per order/product.
+- All mapped product deductions, movement rows and stock-sync outbox intents for one WooCommerce order are committed in one database transaction. Aggregate WooCommerce stock writes occur only after that ledger transaction commits.
+- This protects duplicate/re-entrant sale hooks. WooCommerce refunds/restocks and cancelled-order stock restoration are still separate workflows and require explicit implementation/acceptance testing; this change does not claim refund synchronization.
+- If a ledger transaction fails (including an insufficient Junction location balance), it rolls back and logs the failure. A durable retry queue for failed WooCommerce order-ledger ingestion remains a production hardening item; the stock-sync outbox only retries publishing already-committed inventory state.
+
 ### POS idempotency payload binding
 - Added a nullable SHA-256 request fingerprint to POS orders and a versioned `2.0.2` migration for existing installations.
 - The fingerprint binds the client order reference to session, location, normalized product/quantity lines, tender, customer fields and discount. A retry with the same reference and identical payload returns the committed order; a changed payload or legacy row without a fingerprint is rejected instead of being treated as the same sale.
