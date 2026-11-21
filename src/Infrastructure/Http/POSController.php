@@ -84,7 +84,16 @@ final class POSController {
     }
     public function syncQueue(\WP_REST_Request $req): \WP_REST_Response {
         $result = $this->c->make(SyncPOSQueueUseCase::class)->execute();
-        return new \WP_REST_Response(['success'=>true,'synced'=>$result['synced'],'failed'=>$result['failed'],'errors'=>$result['errors']],200);
+        $available = ($result['failed'] ?? 0) === 0;
+        return new \WP_REST_Response([
+            'success' => $available,
+            'synced' => (int)($result['synced'] ?? 0),
+            'failed' => (int)($result['failed'] ?? 0),
+            'errors' => $result['errors'] ?? [],
+            'message' => $available
+                ? 'No pending POS orders require synchronization.'
+                : 'POS orders are safely retained as pending; WooCommerce synchronization is not yet available.',
+        ], $available ? 200 : 501);
     }
     public function listOrders(\WP_REST_Request $req): \WP_REST_Response {
         $sessionId = (int)($req->get_param('session_id')??0);
