@@ -82,11 +82,11 @@ final class SyncWooCommerceStockUseCase {
             }
         } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
-            $this->log->error('WooCommerce order inventory ledger was rolled back.', [
+            $this->log->error('WooCommerce order inventory ledger was rolled back; event must be retried.', [
                 'order_id' => $orderId,
                 'error_class' => get_class($error),
             ]);
-            return;
+            throw $error;
         }
 
         // Push the aggregate snapshot only after the inventory ledger commits.
