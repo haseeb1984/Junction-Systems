@@ -179,8 +179,33 @@ final class InventoryInstaller {
             INDEX idx_product (product_id)
         ) ENGINE=InnoDB {$cs};");
 
+        self::installStockSyncQueue();
+
         // Seed default locations
         self::seedLocations();
+    }
+
+
+    public static function installStockSyncQueue(): void {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $cs = $wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_stock_sync (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            product_id INT UNSIGNED NOT NULL,
+            generation CHAR(36) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_at DATETIME NOT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            last_error VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_product (product_id),
+            INDEX idx_due (status, next_attempt_at),
+            INDEX idx_claimed (status, claimed_at)
+        ) ENGINE=InnoDB {$cs};");
     }
 
     private static function seedLocations(): void {
