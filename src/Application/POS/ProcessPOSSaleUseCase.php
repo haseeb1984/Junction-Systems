@@ -64,6 +64,13 @@ final class ProcessPOSSaleUseCase {
         }
 
         try {
+            // Refresh and lock the session inside the transaction so concurrent
+            // cashiers/sales cannot overwrite each other's tender aggregates.
+            $session = $this->sessionRepo->findById($sessionId);
+            if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
+                throw new \\RuntimeException('POS session is no longer open for this location.');
+            }
+
             $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
             $orderId = $this->orderRepo->save($order);
             if ($orderId < 1) {
