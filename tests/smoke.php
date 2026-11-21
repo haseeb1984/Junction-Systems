@@ -116,6 +116,11 @@ if (!method_exists(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface
 if (!method_exists(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class, 'onWooCommerceSale')) {
     throw new \RuntimeException('WooCommerce order inventory ingestion use case is unavailable.');
 }
+if (!method_exists(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class, 'enqueue')
+    || !method_exists(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class, 'execute')) {
+    throw new \RuntimeException('WooCommerce order inventory durable queue API is unavailable.');
+}
+
 
 foreach ([
     \PkStore\Domain\Inventory\Entity\MovementType::class,
