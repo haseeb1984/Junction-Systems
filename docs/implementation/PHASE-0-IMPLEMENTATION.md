@@ -95,3 +95,9 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - Stock-level initialization, quantity writes, movement-ledger inserts, POS order inserts, and POS line-item inserts now throw on database persistence failures so the outer sale transaction can roll back.
 - This depends on the relevant WordPress custom tables using InnoDB, as declared by the inventory/POS schema installer. Runtime verification remains outstanding.
 - Durable client-supplied idempotency keys and offline replay de-duplication are still not implemented. A lost HTTP response followed by a retry can still create a second sale; this remains an explicit blocker for claiming offline retry safety.
+
+### POS stock synchronization boundary (QA correction)
+- POS stock-level and movement writes remain inside the POS database transaction.
+- WooCommerce product stock synchronization is now deferred until after the POS transaction commits, avoiding WooCommerce hooks/product saves running before the POS sale is durable.
+- If post-commit WooCommerce synchronization throws, the sale remains committed and the error is logged with the order reference and product ID. This is safer than rolling back the local sale after external side effects, but it is not a durable retry queue; reconciliation/retry handling remains required before production.
+- This change does not solve offline-sale idempotency, concurrent stock reservation for absent stock rows, or proof that every participating legacy table is InnoDB.
