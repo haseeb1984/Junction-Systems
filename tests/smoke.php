@@ -233,7 +233,7 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, 'MovementType::PurchaseReceive, MovementType::Damage') === false
     || strpos($inventoryHttpSource, 'filter_var($raw, FILTER_VALIDATE_INT)') === false
     || strpos($inventoryHttpSource, 'Stock adjustment could not be completed.') === false) {
-    throw new \\RuntimeException('Manual stock REST endpoint must validate integer inputs, allowed movement types and avoid exposing internal exceptions.');
+    throw new \RuntimeException('Manual stock REST endpoint must validate integer inputs, allowed movement types and avoid exposing internal exceptions.');
 }
 
 
