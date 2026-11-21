@@ -41,6 +41,32 @@ final class AdjustStockUseCase {
         ]);
     }
 
+    public function executeManualAdjustment(int $productId, int $locationId, int $delta, MovementType $type, string $note = ''): void {
+        global $wpdb;
+        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \\RuntimeException('Unable to start stock adjustment transaction.');
+        }
+
+        try {
+            $this->execute($productId, $locationId, $delta, $type, $note, 'manual', '', false);
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \\RuntimeException('Unable to commit stock adjustment transaction.');
+            }
+        } catch (\\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            throw $error;
+        }
+
+        try {
+            $this->syncProductToWooCommerce($productId);
+        } catch (\\Throwable $error) {
+            $this->log->error('Stock adjustment committed; WooCommerce sync remains queued for retry.', [
+                'product_id' => $productId,
+                'error_class' => get_class($error),
+            ]);
+        }
+    }
+
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
         global $wpdb;
         if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
