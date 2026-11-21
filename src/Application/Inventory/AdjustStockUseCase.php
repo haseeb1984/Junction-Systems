@@ -42,17 +42,33 @@ final class AdjustStockUseCase {
     }
 
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
-        $stock = $this->stockRepo->getStock($productId, $locationId);
-        $before = $stock->getQuantity();
-        $delta = $quantity - $before;
-        $stock->set($quantity);
-        $this->stockRepo->updateStock($stock);
-        $movement = StockMovement::create($productId, $locationId, MovementType::Adjustment, $delta, $before, 'manual', '', $note, get_current_user_id());
-        $this->stockRepo->recordMovement($movement);
-        $this->stockRepo->enqueueWooCommerceSync($productId);
+        global $wpdb;
+        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \\RuntimeException('Unable to start manual stock count transaction.');
+        }
+
+        try {
+            $stock = $this->stockRepo->getStock($productId, $locationId);
+            $before = $stock->getQuantity();
+            $delta = $quantity - $before;
+            $stock->set($quantity);
+            $this->stockRepo->updateStock($stock);
+            $movement = StockMovement::create($productId, $locationId, MovementType::Adjustment, $delta, $before, 'manual', '', $note, get_current_user_id());
+            $this->stockRepo->recordMovement($movement);
+            $this->stockRepo->enqueueWooCommerceSync($productId);
+
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \\RuntimeException('Unable to commit manual stock count transaction.');
+            }
+        } catch (\\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            throw $error;
+        }
+
+        // External WooCommerce writes only happen after the inventory ledger commits.
         try {
             $this->syncProductToWooCommerce($productId);
-        } catch (\Throwable $error) {
+        } catch (\\Throwable $error) {
             $this->log->error('Manual stock count saved; WooCommerce sync remains queued for retry.', [
                 'product_id' => $productId,
                 'error_class' => get_class($error),
