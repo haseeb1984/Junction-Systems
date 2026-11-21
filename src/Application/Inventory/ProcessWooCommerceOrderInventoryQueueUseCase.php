@@ -13,6 +13,8 @@ use Psr\Log\LoggerInterface;
  * updates; this queue makes failed attempts recoverable.
  */
 final class ProcessWooCommerceOrderInventoryQueueUseCase {
+    private const MAX_AUTOMATIC_ATTEMPTS = 12;
+
     public function __construct(
         private readonly SyncWooCommerceStockUseCase $syncInventory,
         private readonly LoggerInterface $log,
@@ -156,13 +158,17 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
     private function retry(int $id, string $generation, int $attempts, string $errorClass): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        $needsReview = $attempts >= self::MAX_AUTOMATIC_ATTEMPTS;
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempts - 1))));
+        $now = current_time('mysql');
         $updated = $wpdb->query($wpdb->prepare(
             "UPDATE {$table}
-             SET status='pending', claimed_at=NULL,
-                 next_attempt_at=DATE_ADD(%s, INTERVAL %d SECOND), last_error=%s
+             SET status=%s, claimed_at=NULL,
+                 next_attempt_at=%s, last_error=%s
              WHERE id=%d AND generation=%s AND status='processing'",
-            current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
+            $needsReview ? 'needs_review' : 'pending',
+            $needsReview ? $now : gmdate('Y-m-d H:i:s', strtotime($now . ' +' . $delay . ' seconds')),
+            substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule order inventory event.');
         if ($updated === 0) {
