@@ -51,3 +51,22 @@ Upstream references:
 ## Status
 
 This is a verified defect/design contract, not an implementation claim. The current branch still lacks order cancellation/refund restock reversals. Do not declare the integrated Online Store + POS inventory lifecycle complete or production-ready until this contract is implemented and the acceptance suite passes on a real WooCommerce/MySQL staging installation.
+
+## Implementation progress — cancellation restock
+
+The branch now includes a first, narrowly-scoped cancellation restoration path:
+
+- Added the `online_return` inventory movement type.
+- Registered WooCommerce's per-line `woocommerce_restore_order_item_stock` action, which is emitted only after WooCommerce actually restores that line's stock.
+- The handler uses the callback's exact stock delta, resolves a mapped variation before falling back to its parent mapping, locks the Junction online-location stock row, and writes the return movement plus stock-sync outbox intent in one transaction.
+- The idempotency reference is `wc_order_restore:{order_id}:{order_item_id}`; repeated callbacks cannot add the same cancellation restock twice.
+- WooCommerce aggregate stock is synchronized only after the Junction ledger transaction commits.
+- Source smoke guards check that the hook, movement type, and idempotent handler remain wired.
+
+### Remaining limitations — do not treat cancellation/refunds as complete
+
+- The cancellation handler currently logs and surfaces failures but does not yet persist a dedicated retry event. If the DB or mapping is unavailable during the callback, an operator reconciliation is required.
+- The current sale queue remains order-level and asynchronous. A sale/restock race needs dedicated staging tests; the final net quantity must be verified for cancellation before the worker runs.
+- Partial refund restocking is not implemented. It needs per-refund-line/cumulative-restock event identity so multiple partial refunds restore only the quantities WooCommerce actually restocked.
+- Duplicate same-product order lines, variation stock managed by a parent, multiple partial refunds, worker crash/retry, and concurrent event ordering still need runtime acceptance tests.
+- This is not production sign-off. The lifecycle remains incomplete until durable retry/reconciliation and partial refund handling are implemented and tested.
