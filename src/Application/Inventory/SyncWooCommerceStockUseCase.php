@@ -14,9 +14,9 @@ final class SyncWooCommerceStockUseCase {
     ) {}
     public function onWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
-        if (!($order instanceof \WC_Order)) return;
+        if (!($order instanceof \WC_Order)) { throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.'); }
         $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation) { throw new \\RuntimeException('Junction online inventory location is not configured.'); }
+        if (!$onlineLocation) { throw new \RuntimeException('Junction online inventory location is not configured.'); }
 
         // Aggregate repeated product lines so one order creates one auditable
         // online-sale movement per inventory product.
@@ -25,13 +25,13 @@ final class SyncWooCommerceStockUseCase {
             $wcProductId = (int) $item->get_product_id();
             $rawQuantity = (float) $item->get_quantity();
             if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity) {
-                throw new \\RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
+                throw new \RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
             }
             $product = $this->productRepo->findByWcProductId($wcProductId);
             if (!$product) {
                 // Fail before opening the inventory transaction: never deduct only
                 // the mapped subset of an order and leave the order under-counted.
-                throw new \\RuntimeException('WooCommerce order product is not linked to Junction inventory.');
+                throw new \RuntimeException('WooCommerce order product is not linked to Junction inventory.');
             }
             $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int) $rawQuantity;
         }
@@ -46,7 +46,7 @@ final class SyncWooCommerceStockUseCase {
             $this->log->critical('WooCommerce order inventory ledger could not start its transaction.', [
                 'order_id' => $orderId,
             ]);
-            return;
+            throw new \RuntimeException('Unable to start WooCommerce order inventory ledger transaction.');
         }
 
         try {
