@@ -61,9 +61,31 @@ final class InventoryController {
         $sku   = sanitize_text_field($req->get_param('sku') ?? '');
         $name  = sanitize_text_field($req->get_param('name') ?? '');
         if (empty($sku)||empty($name)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU and name required.'],422);
-        $repo  = $this->c->make(InventoryProductRepositoryInterface::class);
-        if ($repo->findBySku($sku)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
-        $p   = \PkStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($req->get_param('cost_price')??0),(int)($req->get_param('sale_price')??0),sanitize_text_field($req->get_param('category')??''),(int)($req->get_param('wc_product_id')??0)?:(int)($req->get_param('wc_product_id')??0)||null,sanitize_text_field($req->get_param('barcode')??''),(sanitize_text_field($req->get_param('unit')??'piece')),(int)($req->get_param('reorder_point')??5));
+        $costPrice = $req->get_param('cost_price') ?? 0;
+        $salePrice = $req->get_param('sale_price') ?? 0;
+        $reorderPoint = $req->get_param('reorder_point') ?? 5;
+        $wcProductId = (int) ($req->get_param('wc_product_id') ?? 0);
+        foreach ([$costPrice, $salePrice, $reorderPoint] as $numericValue) {
+            if (!is_numeric($numericValue) || (float) $numericValue < 0 || floor((float) $numericValue) !== (float) $numericValue) {
+                return new \\WP_REST_Response(['success'=>false,'message'=>'Prices and reorder point must be non-negative whole numbers.'],422);
+            }
+        }
+        if ($wcProductId < 0 || ($wcProductId > 0 && !wc_get_product($wcProductId))) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product does not exist.'],422);
+        }
+        $repo = $this->c->make(InventoryProductRepositoryInterface::class);
+        if ($repo->findBySku($sku)) return new \\WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
+        $p = \\PkStore\\Domain\\Inventory\\Entity\\InventoryProduct::create(
+            $sku,
+            $name,
+            (int) $costPrice,
+            (int) $salePrice,
+            sanitize_text_field($req->get_param('category') ?? ''),
+            $wcProductId > 0 ? $wcProductId : null,
+            sanitize_text_field($req->get_param('barcode') ?? ''),
+            sanitize_text_field($req->get_param('unit') ?? 'piece'),
+            (int) $reorderPoint
+        );
         $id  = $repo->save($p);
         if (!$p->hasBarcode()) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
         return new \WP_REST_Response(['success'=>true,'product_id'=>$id,'message'=>'Product created.'],201);
