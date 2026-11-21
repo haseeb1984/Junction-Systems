@@ -118,7 +118,13 @@ final class ProcessPOSSaleUseCase {
             // while this request was processing. Return that durable result.
             if ($clientOrderRef !== null) {
                 $existing = $this->orderRepo->findByRef($clientOrderRef);
-                if ($existing && $existing->sessionId === $sessionId && $existing->locationId === $locationId) return $existing;
+                if ($existing && $existing->sessionId === $sessionId && $existing->locationId === $locationId) {
+                    if ($existing->requestFingerprint && $requestFingerprint
+                        && hash_equals($existing->requestFingerprint, $requestFingerprint)) {
+                        return $existing;
+                    }
+                    throw new \RuntimeException('POS idempotency reference was concurrently reused with a different or unverifiable sale payload.');
+                }
             }
             throw $e;
         }
