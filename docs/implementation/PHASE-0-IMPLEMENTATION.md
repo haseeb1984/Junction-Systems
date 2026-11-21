@@ -101,3 +101,9 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - WooCommerce product stock synchronization is now deferred until after the POS transaction commits, avoiding WooCommerce hooks/product saves running before the POS sale is durable.
 - If post-commit WooCommerce synchronization throws, the sale remains committed and the error is logged with the order reference and product ID. This is safer than rolling back the local sale after external side effects, but it is not a durable retry queue; reconciliation/retry handling remains required before production.
 - This change does not solve offline-sale idempotency, concurrent stock reservation for absent stock rows, or proof that every participating legacy table is InnoDB.
+
+### Inventory concurrency and POS receipt trust-boundary QA
+- Stock row initialization now uses `INSERT IGNORE` against the unique `(product_id, location_id)` key before `SELECT ... FOR UPDATE`. This closes the first-write race where two transactions could both observe a missing row and attempt competing inserts.
+- POS WhatsApp receipt links now resolve the order by its server-side order reference, verify the caller owns the associated cashier session (or is an administrator), and use the persisted server-side total. Browser-supplied line items and totals are ignored.
+- The WhatsApp endpoint only constructs a `wa.me` link; it does not send a message itself. Phone format is validated before constructing the link.
+- Remaining gaps: offline-sale idempotency, durable retries for post-commit WooCommerce stock synchronization, and runtime verification of transaction/table-engine behavior.
