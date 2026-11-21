@@ -313,4 +313,16 @@ if (!is_string($migrationRunnerSource)
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
 
+
+$wcLifecycleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+if (!is_string($wcLifecycleSource)
+    || strpos($wcLifecycleSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($wcLifecycleSource, "SELECT RELEASE_LOCK(%s)") === false
+    || strpos($wcLifecycleSource, "['cancelled', 'failed']") === false
+    || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
+    || strpos($wcLifecycleSource, '$remainingQuantity = (int) $rawQuantity - $restockedQuantity;') === false
+    || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
+    throw new \\RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
+}
+
 echo "Smoke tests passed.\n";
