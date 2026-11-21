@@ -15,7 +15,7 @@ final class SyncWooCommerceStockUseCase {
     public function onWooCommerceSale(int $orderId): void {
         if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
         $this->withOrderLock($orderId, function () use ($orderId): void {
-            $this->applyonWooCommerceSale($orderId);
+            $this->applyWooCommerceSale($orderId);
         });
     }
 
