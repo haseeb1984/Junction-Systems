@@ -63,7 +63,7 @@ Before production rollout, run the workflow successfully, install this branch on
 
 ## Explicitly out of scope for this Phase 0 branch
 
-The later POS/inventory transaction redesign, FBR integration, central billing portal, Groq multi-key pool, courier remittance reconciliation, full support ticketing/human handoff, and marketing/ERP integrations remain in their own implementation phases. This branch does not claim those features are complete.
+Remaining POS/inventory redesign beyond the specific transaction, concurrency, idempotency and stock-sync fixes documented below; FBR integration, central billing portal, Groq multi-key pool, courier remittance reconciliation, full support ticketing/human handoff, and marketing/ERP integrations remain in their own implementation phases. This branch does not claim those features are complete.
 
 ## Additional source QA — 21 November 2026 (continued)
 
