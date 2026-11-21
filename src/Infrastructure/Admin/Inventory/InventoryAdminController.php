@@ -80,6 +80,12 @@ final class InventoryAdminController {
         if ($productId === false || $locationId === false || $quantity === false || $productId < 1 || $locationId < 1 || $quantity === 0 || !$type || !in_array($type, $allowedTypes, true)) {
             $this->redirect('pkstore-inventory','error','Invalid stock adjustment details.'); return;
         }
+        if (($type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::PurchaseReceive || $type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Opening) && $quantity < 1) {
+            $this->redirect('pkstore-inventory','error','Purchase receipts and opening stock must add a positive quantity.'); return;
+        }
+        if ($type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Damage && $quantity > -1) {
+            $this->redirect('pkstore-inventory','error','Damage/loss must reduce stock using a negative quantity.'); return;
+        }
         $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
         $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
         if (!$product || !$product->isActive || !$location || !$location->isActive) {
