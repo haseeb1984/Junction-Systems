@@ -232,6 +232,33 @@ final class InventoryInstaller {
         ) ENGINE=InnoDB {$cs};");
     }
 
+    public static function installWooCommerceReturnInventoryQueue(): void {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $cs = $wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_return_inventory_queue (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            event_key VARCHAR(191) NOT NULL,
+            event_kind VARCHAR(24) NOT NULL,
+            wc_order_id BIGINT UNSIGNED NOT NULL,
+            wc_order_item_id BIGINT UNSIGNED DEFAULT NULL,
+            wc_product_id BIGINT UNSIGNED NOT NULL,
+            quantity INT UNSIGNED NOT NULL,
+            cumulative_quantity INT UNSIGNED NOT NULL DEFAULT 0,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_at DATETIME NOT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            last_error VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_event_key (event_key),
+            INDEX idx_due (status, next_attempt_at),
+            INDEX idx_order_item (wc_order_id, wc_order_item_id)
+        ) ENGINE=InnoDB {$cs};");
+    }
+
     private static function seedLocations(): void {
         global $wpdb;
         $t = $wpdb->prefix . 'pkstore_inventory_locations';
