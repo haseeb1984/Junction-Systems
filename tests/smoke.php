@@ -282,4 +282,17 @@ if (!is_string($inventoryProductRepositorySource)
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
 }
 
+$returnSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+$returnHooks = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
+if (!is_string($returnSource)
+    || strpos($returnSource, 'onWooCommerceOrderItemRestored(') === false
+    || strpos($returnSource, "'wc_order_restore'") === false
+    || strpos($returnSource, 'MovementType::OnlineReturn') === false
+    || !is_string($returnHooks)
+    || strpos($returnHooks, "woocommerce_restore_order_item_stock") === false
+    || strpos($returnHooks, "onOrderItemRestored") === false
+    || !in_array(\\PkStore\\Domain\\Inventory\\Entity\\MovementType::OnlineReturn, \\PkStore\\Domain\\Inventory\\Entity\\MovementType::cases(), true)) {
+    throw new \\RuntimeException('Actual WooCommerce cancellation restocks must be mirrored idempotently into the Junction ledger.');
+}
+
 echo "Smoke tests passed.\n";
