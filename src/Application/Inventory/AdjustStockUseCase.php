@@ -77,15 +77,32 @@ final class AdjustStockUseCase {
     }
 
     public function syncProductToWooCommerce(int $productId): void {
-        $product = $this->productRepo->findById($productId);
-        if (!$product || !$product->wcProductId) return;
-        $totalStock = $this->stockRepo->getTotalStock($productId);
-        $wcProduct = wc_get_product($product->wcProductId);
-        if (!$wcProduct) return;
-        $wcProduct->set_manage_stock(true);
-        $wcProduct->set_stock_quantity($totalStock);
-        $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-        $savedId = $wcProduct->save();
-        if (!$savedId) throw new \RuntimeException('WooCommerce product stock save failed.');
+        global $wpdb;
+        if (!$wpdb instanceof \\wpdb) {
+            throw new \\RuntimeException('WordPress database is unavailable for stock synchronization.');
+        }
+
+        // Serialize every writer for this product, including immediate sync and
+        // queue retries, so an older snapshot cannot overwrite a newer one.
+        $lockName = 'pkstore_wc_stock_' . $productId;
+        $lockAcquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ((int)$lockAcquired !== 1) {
+            throw new \\RuntimeException('Unable to acquire WooCommerce stock synchronization lock.');
+        }
+
+        try {
+            $product = $this->productRepo->findById($productId);
+            if (!$product || !$product->wcProductId) return;
+            $totalStock = $this->stockRepo->getTotalStock($productId);
+            $wcProduct = wc_get_product($product->wcProductId);
+            if (!$wcProduct) return;
+            $wcProduct->set_manage_stock(true);
+            $wcProduct->set_stock_quantity($totalStock);
+            $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
+            $savedId = $wcProduct->save();
+            if (!$savedId) throw new \\RuntimeException('WooCommerce product stock save failed.');
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+        }
     }
 }
