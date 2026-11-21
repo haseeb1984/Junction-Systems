@@ -164,11 +164,12 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         $updated = $wpdb->query($wpdb->prepare(
             "UPDATE {$table}
              SET status=%s, claimed_at=NULL,
-                 next_attempt_at=%s, last_error=%s
+                 next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s, INTERVAL %d SECOND)),
+                 last_error=%s
              WHERE id=%d AND generation=%s AND status='processing'",
             $needsReview ? 'needs_review' : 'pending',
-            $needsReview ? $now : gmdate('Y-m-d H:i:s', strtotime($now . ' +' . $delay . ' seconds')),
-            substr(sanitize_key($errorClass), 0, 100), $id, $generation
+            $needsReview ? 'needs_review' : 'pending',
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule order inventory event.');
         if ($updated === 0) {
