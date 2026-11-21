@@ -16,7 +16,7 @@ final class SyncWooCommerceStockUseCase {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) return;
         $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation) return;
+        if (!$onlineLocation) { throw new \\RuntimeException('Junction online inventory location is not configured.'); }
 
         // Aggregate repeated product lines so one order creates one auditable
         // online-sale movement per inventory product.
