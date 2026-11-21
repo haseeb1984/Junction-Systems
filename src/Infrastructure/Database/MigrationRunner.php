@@ -31,7 +31,7 @@ final class MigrationRunner {
 
         $result = $wpdb->query("ALTER TABLE {$table} ADD COLUMN request_fingerprint CHAR(64) DEFAULT NULL AFTER order_ref");
         if ($result === false) {
-            throw new \\RuntimeException('Unable to add POS request fingerprint column.');
+            throw new \RuntimeException('Unable to add POS request fingerprint column.');
         }
     }
 
