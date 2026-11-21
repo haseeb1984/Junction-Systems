@@ -191,6 +191,13 @@ if (!is_string($inventoryHttpSource)
 }
 
 
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, "\$auth = fn()=>current_user_can('manage_woocommerce') && FeatureManager::getInstance()->isEnabled('inventory')") === false
+    || strpos($inventoryHttpSource, "\$barcodeAuth = fn()=>\$auth() && FeatureManager::getInstance()->isEnabled('barcode_labels')") === false) {
+    throw new \\RuntimeException('Inventory REST endpoints must enforce inventory entitlement, with barcode generation requiring its separate entitlement.');
+}
+
+
 if (!is_string($posHttpSource)
     || strpos($posHttpSource, "Receipt destination must match the phone number saved with this order.") === false
     || strpos($posHttpSource, "hash_equals(\$storedPhone, \$clean)") === false) {
