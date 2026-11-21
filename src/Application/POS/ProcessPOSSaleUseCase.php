@@ -19,11 +19,21 @@ final class ProcessPOSSaleUseCase {
         if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true) || !empty($paymentSplit)) {
             throw new \InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
         }
+        $requestFingerprint = null;
         if ($clientOrderRef !== null) {
-            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \InvalidArgumentException('POS client order reference is invalid.');
+            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \\InvalidArgumentException('POS client order reference is invalid.');
+            $requestFingerprint = self::requestFingerprint(
+                $sessionId, $locationId, $items, $paymentMethod, $customerPhone,
+                $customerName, $discountPkr, $paymentSplit
+            );
             $existing = $this->orderRepo->findByRef($clientOrderRef);
             if ($existing) {
-                if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) throw new \RuntimeException('POS idempotency reference is already used by another session.');
+                if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) {
+                    throw new \\RuntimeException('POS idempotency reference is already used by another session.');
+                }
+                if (!$existing->requestFingerprint || !hash_equals($existing->requestFingerprint, $requestFingerprint)) {
+                    throw new \\RuntimeException('POS idempotency reference was reused with a different or unverifiable sale payload.');
+                }
                 return $existing;
             }
         }
@@ -80,7 +90,7 @@ final class ProcessPOSSaleUseCase {
                 throw new \RuntimeException('POS session is no longer open for this location.');
             }
 
-            $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit, $clientOrderRef);
+            $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit, $clientOrderRef, $requestFingerprint);
             $orderId = $this->orderRepo->save($order);
             if ($orderId < 1) {
                 throw new \RuntimeException('Unable to save POS order.');
@@ -129,5 +139,45 @@ final class ProcessPOSSaleUseCase {
 
         $this->log->info('POS sale processed.', ['order_ref'=>$savedOrder->orderRef,'total'=>$savedOrder->totalPkr,'method'=>$paymentMethod]);
         return $savedOrder;
+    }
+
+    private static function requestFingerprint(
+        int $sessionId,
+        int $locationId,
+        array $items,
+        string $paymentMethod,
+        string $customerPhone,
+        string $customerName,
+        int $discountPkr,
+        ?array $paymentSplit
+    ): string {
+        $normalizedItems = [];
+        foreach ($items as $item) {
+            if (!is_array($item) || !isset($item['product_id'], $item['quantity'])) {
+                throw new \\InvalidArgumentException('Each POS item must include a product and quantity.');
+            }
+            $productId = filter_var($item['product_id'], FILTER_VALIDATE_INT);
+            $quantity = filter_var($item['quantity'], FILTER_VALIDATE_INT);
+            if (!$productId || !$quantity || $quantity < 1) {
+                throw new \\InvalidArgumentException('POS item product and quantity are invalid.');
+            }
+            $normalizedItems[] = ['product_id' => (int)$productId, 'quantity' => (int)$quantity];
+        }
+        usort($normalizedItems, static function (array $a, array $b): int {
+            return ($a['product_id'] <=> $b['product_id']) ?: ($a['quantity'] <=> $b['quantity']);
+        });
+
+        $payload = [
+            'session_id' => $sessionId,
+            'location_id' => $locationId,
+            'items' => $normalizedItems,
+            'payment_method' => $paymentMethod,
+            'customer_phone' => $customerPhone,
+            'customer_name' => $customerName,
+            'discount_pkr' => $discountPkr,
+            'payment_split' => $paymentSplit ?: null,
+        ];
+
+        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 }
