@@ -147,7 +147,7 @@ final class ProcessPOSSaleUseCase {
         return $savedOrder;
     }
 
-    private static function requestFingerprint(
+    public static function requestFingerprint(
         int $sessionId,
         int $locationId,
         array $items,
