@@ -49,6 +49,34 @@ if ($posOrder->requestFingerprint !== $fingerprint) {
     throw new \RuntimeException('POS order request fingerprint was not retained by the domain entity.');
 }
 
+$fingerprintA = \PkStore\Application\POS\ProcessPOSSaleUseCase::requestFingerprint(
+    7, 3,
+    [
+        ['product_id' => 12, 'quantity' => 2],
+        ['product_id' => 4, 'quantity' => 1],
+    ],
+    'cash', '', 'Walk-in', 0, null
+);
+$fingerprintB = \PkStore\Application\POS\ProcessPOSSaleUseCase::requestFingerprint(
+    7, 3,
+    [
+        ['product_id' => 4, 'quantity' => 1],
+        ['product_id' => 12, 'quantity' => 2],
+    ],
+    'cash', '', 'Walk-in', 0, null
+);
+if (!hash_equals($fingerprintA, $fingerprintB)) {
+    throw new \RuntimeException('POS request fingerprint must be stable when line item order changes.');
+}
+$fingerprintChanged = \PkStore\Application\POS\ProcessPOSSaleUseCase::requestFingerprint(
+    7, 3,
+    [['product_id' => 12, 'quantity' => 3]],
+    'cash', '', 'Walk-in', 0, null
+);
+if (hash_equals($fingerprintA, $fingerprintChanged)) {
+    throw new \RuntimeException('POS request fingerprint must change when sale quantities change.');
+}
+
 $basic = \PkStore\License\LicenseFeatures::forTier('basic');
 foreach (['junction_pos', 'inventory_management', 'whatsapp_api', 'quickbooks_sync', 'daraz_sync'] as $required) {
     if (!in_array($required, $basic, true)) {
