@@ -40,7 +40,7 @@ final class SyncWooCommerceStockUseCase {
             try {
                 $this->adjustStock->syncProductToWooCommerce($product->id);
                 $synced++;
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $this->log->error('Hourly WooCommerce stock reconciliation remains queued.', [
                     'product_id' => $product->id,
                     'error_class' => get_class($error),
@@ -49,4 +49,4 @@ final class SyncWooCommerceStockUseCase {
         }
         return $synced;
     }
-}}
+}
