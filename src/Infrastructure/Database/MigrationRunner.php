@@ -47,10 +47,14 @@ final class MigrationRunner {
                 $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
                 if (version_compare($current, $version, '>=')) continue;
 
-                // Upgrades must not run until the hosting backup integration
-                // confirms a recent full database + files backup. Fresh installs
-                // have no customer data to protect and do not need this gate.
-                if ($current !== '0.0.0'
+                // Existing installations may not have a version option yet.
+                // Detect their existing PK Store tables instead of treating every
+                // unversioned database as a fresh install.
+                $isExistingInstall = self::hasExistingTables();
+
+                // Never alter an existing store until hosting confirms a recent
+                // full database + website-files backup.
+                if ($isExistingInstall
                     && !apply_filters('pkstore_migration_backup_confirmed', false, $version)) {
                     throw new \RuntimeException('Upgrade migration paused: a recent pre-migration hosting backup has not been confirmed.');
                 }
@@ -68,6 +72,18 @@ final class MigrationRunner {
         } finally {
             delete_option(self::LOCK_OPTION);
         }
+    }
+
+    private static function hasExistingTables(): bool {
+        global $wpdb;
+
+        foreach (['pkstore_city_mappings', 'pkstore_pos_sessions', 'pkstore_inventory_products'] as $suffix) {
+            $table = $wpdb->prefix . $suffix;
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+            if ($found === $table) return true;
+        }
+
+        return false;
     }
 
     private static function verifyRequiredTables(): void {
