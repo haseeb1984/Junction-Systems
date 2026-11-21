@@ -4,6 +4,7 @@ namespace PkStore\Infrastructure\Barcode;
 use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
 use PkStore\Domain\Inventory\Repository\StockRepositoryInterface;
 use PkStore\Core\Branding\BrandingManager;
+use PkStore\Core\Feature\FeatureManager;
 
 final class BarcodeLabel {
     public function __construct(
@@ -85,6 +86,7 @@ body{margin:0;font-family:Arial,sans-serif;background:#fff}
 
     public function adminPage(): void {
         if (!current_user_can('manage_woocommerce')) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('barcode_labels')) wp_die('Barcode labels are not available on the current package.');
         if (isset($_POST['pkstore_print_labels'])) {
             check_admin_referer('pkstore_print_labels');
             $ids    = array_map('intval', $_POST['product_ids'] ?? []);
