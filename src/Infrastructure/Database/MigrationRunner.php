@@ -58,12 +58,12 @@ final class MigrationRunner {
         // from running the same DDL migration concurrently.
         if (!add_option(self::LOCK_OPTION, time(), '', false)) return;
 
-        // Determine whether this is an upgrade before the first migration creates
-        // tables. Re-checking inside the loop misclassifies a fresh install as an
-        // existing store on migration 2.0.1 and blocks setup behind the backup gate.
-        $isExistingInstall = self::hasExistingTables();
-
         try {
+            // Determine whether this is an upgrade before the first migration creates
+            // tables. Re-checking inside the loop misclassifies a fresh install as an
+            // existing store on migration 2.0.1 and blocks setup behind the backup gate.
+            $isExistingInstall = self::hasExistingTables();
+
             foreach (self::MIGRATIONS as $version => $migration) {
                 $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
                 if (version_compare($current, $version, '>=')) continue;
