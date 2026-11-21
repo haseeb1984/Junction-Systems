@@ -10,15 +10,47 @@ final class SettingsManager{
         if(isset($this->cache[$k]))return $this->cache[$k];
         $env=getenv($k);if($env!==false&&$env!==''){$this->cache[$k]=$env;return $env;}
         $enc=get_option(self::ENC.strtolower($k),'');
-        if($enc!==''){$d=$this->decrypt($enc);if($d!==false){$this->cache[$k]=$d;return $d;}}
-        $v=(string)get_option(self::PLAIN.strtolower($k),$default);$this->cache[$k]=$v;return $v;
+        if($enc!==''){
+            $d=$this->decrypt($enc);
+            if($d===false){
+                // A present but unauthentic encrypted value must fail closed;
+                // never fall back to a legacy plaintext copy.
+                $this->cache[$k]=$default;
+                return $default;
+            }
+            $this->cache[$k]=$d;
+            return $d;
+        }
+
+        $plainOption=self::PLAIN.strtolower($k);
+        $v=(string)get_option($plainOption,$default);
+        if($v!==$default && self::isSensitiveKey($k)){
+            try {
+                $migrated=$this->encrypt($v);
+                if($migrated!=='' && update_option(self::ENC.strtolower($k),$migrated,false)){
+                    delete_option($plainOption);
+                } else {
+                    error_log('[PK Store] Could not migrate a legacy integration secret; refusing plaintext use.');
+                    $this->cache[$k]=$default;
+                    return $default;
+                }
+            } catch (\\Throwable) {
+                error_log('[PK Store] Could not encrypt a legacy integration secret; refusing plaintext use.');
+                $this->cache[$k]=$default;
+                return $default;
+            }
+        }
+        $this->cache[$k]=$v;
+        return $v;
     }
     public function setSecret(string $k,string $v):bool{
         unset($this->cache[$k]);
         try { $encrypted = $this->encrypt($v); }
         catch (\Throwable) { return false; }
         if ($encrypted === '') return false;
-        return update_option(self::ENC.strtolower($k),$encrypted,false);
+        $saved=update_option(self::ENC.strtolower($k),$encrypted,false);
+        if($saved) delete_option(self::PLAIN.strtolower($k));
+        return $saved;
     }
     public function set(string $k,string $v):bool{unset($this->cache[$k]);return update_option(self::PLAIN.strtolower($k),$v,false);}
     public function isConfigured(string $k):bool{return $this->get($k)!=='';}
@@ -47,6 +79,17 @@ final class SettingsManager{
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
+    private static function isSensitiveKey(string $key): bool {
+        static $keys = [
+            'JAZZCASH_PASSWORD','JAZZCASH_INTEGRITY_KEY',
+            'EASYPAISA_HASH_KEY','TCS_API_KEY','TCS_WEBHOOK_SECRET',
+            'LEOPARDS_API_KEY','LEOPARDS_API_PASSWORD','TRAX_API_TOKEN',
+            'TRAX_WEBHOOK_SECRET','TWILIO_AUTH_TOKEN','LOCAL_SMS_API_KEY',
+            'GEMINI_API_KEY',
+        ];
+        return in_array($key,$keys,true);
+    }
+
     private function legacyKey(): string {
         return substr(hash('sha256', (defined('AUTH_KEY') ? AUTH_KEY : 'pkstore') . get_site_url()), 0, 32);
     }
