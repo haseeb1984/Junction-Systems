@@ -8,11 +8,17 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
     private function t(): string { return $this->db->prefix . 'pkstore_inventory_products'; }
     public function save(InventoryProduct $p): int {
         $now = current_time('mysql');
-        $this->db->insert($this->t(), ['wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,'created_at'=>$now,'updated_at'=>$now]);
-        return (int)$this->db->insert_id;
+        $inserted = $this->db->insert($this->t(), ['wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,'created_at'=>$now,'updated_at'=>$now]);
+        if ($inserted === false || (int) $this->db->insert_id < 1) {
+            throw new \\RuntimeException('Unable to save inventory product.');
+        }
+        return (int) $this->db->insert_id;
     }
     public function update(InventoryProduct $p): void {
-        $this->db->update($this->t(), ['barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'updated_at'=>current_time('mysql')], ['id'=>$p->id]);
+        $updated = $this->db->update($this->t(), ['barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'updated_at'=>current_time('mysql')], ['id'=>$p->id]);
+        if ($updated === false) {
+            throw new \\RuntimeException('Unable to update inventory product.');
+        }
     }
     public function findById(int $id): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A)); }
     public function findBySku(string $sku): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE sku=%s",$sku),ARRAY_A)); }
