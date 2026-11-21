@@ -9,4 +9,8 @@ interface StockRepositoryInterface {
     public function getMovements(int $productId, int $limit=20): array;
     public function getLocationStock(int $locationId): array;
     public function getTotalStock(int $productId): int;
+    public function enqueueWooCommerceSync(int $productId): void;
+    public function claimWooCommerceSyncBatch(int $limit = 20): array;
+    public function completeWooCommerceSync(int $id, string $generation): void;
+    public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void;
 }
