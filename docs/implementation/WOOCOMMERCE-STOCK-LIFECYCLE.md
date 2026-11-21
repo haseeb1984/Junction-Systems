@@ -122,11 +122,12 @@ The current branch now adds a dedicated `pkstore_wc_return_inventory_queue` tabl
 - Cancellation event identity includes order ID, order-item ID, and restored quantity.
 - Refund event identity includes order ID, product ID, optional uniquely resolved order-item ID, and cumulative restocked quantity. Ambiguous same-product order lines remain queued and fail closed rather than guessing.
 - Queue jobs have claim/recovery state, attempts, capped exponential retry, and stale-claim recovery. A worker crash after ledger commit is safe because the ledger movement references remain idempotent; the queue retries and then acknowledges.
-- The worker calls the same order-locked inventory use case. If the matching sale movement is not committed yet, the return event stays pending and retries; it is not discarded. A cancelled/failed/pending order with no sale movement is terminal for a cancellation return. A fully refunded order with no sale movement is terminal for a refund return.
+- The worker calls the same order-locked inventory use case. If the matching sale movement is not committed yet, the return event stays pending and retries; it is not discarded. A cancelled/failed/pending order with no sale movement is terminal for a cancellation return. A refunded payment is **not** proof that stock was restored: WooCommerce allows refunds without selecting “Restock refunded items”. Therefore sale ingestion still records the original sale for refunded orders, and a refund-return event cannot be acknowledged until that sale movement exists. A refund with no stock-restock callback creates no return movement.
 - Sale ingestion records the original sale quantity; actual cancellation/refund stock restoration is represented by separate durable return movements. This prevents the same partial refund from being deducted from the sale quantity and then added again as a return.
 
 ### Remaining blockers
 
+- A refund event whose corresponding sale movement never arrives remains queued and requires reconciliation; payment status alone cannot safely resolve it.
 - Ambiguous refund lines currently retry indefinitely; a Junction admin reconciliation screen/dead-letter workflow is still required.
 - If WordPress/MySQL is unavailable at the exact moment the WooCommerce callback fires, the callback cannot persist the event; monitoring and source-event reconciliation are still required.
 - Re-payment/reopening of a previously reduced and restored order may represent a new stock-reduction cycle; sale movement identity currently remains order-level and needs an explicit lifecycle-cycle design before that scenario is certified.
