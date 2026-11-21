@@ -100,6 +100,7 @@ final class InventoryInstaller {
             session_id      INT UNSIGNED NOT NULL,
             location_id     INT UNSIGNED NOT NULL,
             order_ref       VARCHAR(30)  NOT NULL,
+            request_fingerprint CHAR(64) DEFAULT NULL,
             subtotal_pkr    INT NOT NULL DEFAULT 0,
             discount_pkr    INT NOT NULL DEFAULT 0,
             total_pkr       INT NOT NULL DEFAULT 0,
