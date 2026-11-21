@@ -61,7 +61,7 @@ body{margin:0;font-family:Arial,sans-serif;background:#fff}
      * and branding text before embedding it in printer command streams.
      */
     private function safeZplText(string $value): string {
-        $value = str_replace(['^', '~', '\\\\'], '', $value);
+        $value = str_replace(['^', '~', '\\'], '', $value);
         return trim((string) preg_replace('/[\\x00-\\x1F\\x7F]/', ' ', $value));
     }
 
