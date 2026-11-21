@@ -50,7 +50,7 @@ Upstream references:
 
 ## Status
 
-This is a verified defect/design contract, not an implementation claim. The current branch still lacks order cancellation/refund restock reversals. Do not declare the integrated Online Store + POS inventory lifecycle complete or production-ready until this contract is implemented and the acceptance suite passes on a real WooCommerce/MySQL staging installation.
+This section records the original defect and acceptance contract before the return handlers and durable retry queue were implemented. The current implementation status and remaining blockers are recorded in the later progress sections below.
 
 ## Implementation progress — cancellation restock
 
@@ -77,7 +77,7 @@ The branch now listens to `woocommerce_restock_refunded_item`, not generic refun
 
 WooCommerce does not include the original order-item ID in this hook's arguments. If more than one matching order line exists, the implementation deliberately refuses to guess. That event is logged for reconciliation; it is not silently applied to the wrong Junction product.
 
-The cancellation and refund hooks currently perform the ledger write synchronously. They do not yet persist their own dedicated retry queue when mapping/database operations fail. A robust retry queue and administrative reconciliation workflow remain required before production readiness.
+At the time of this initial refund-handler implementation, cancellation and refund hooks wrote synchronously. This was superseded by the durable return-event queue documented below; administrative reconciliation remains outstanding.
 
 
 ## Additional implementation finding — sale/return ordering is a production blocker
