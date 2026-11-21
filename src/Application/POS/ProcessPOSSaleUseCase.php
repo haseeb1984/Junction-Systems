@@ -15,10 +15,19 @@ final class ProcessPOSSaleUseCase {
         private readonly AdjustStockUseCase $adjustStock,
         private readonly LoggerInterface $log,
     ) {}
-    public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): POSOrder {
+    public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $clientOrderRef = null): POSOrder {
         if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true) || !empty($paymentSplit)) {
             throw new \InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
         }
+        if ($clientOrderRef !== null) {
+            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \\InvalidArgumentException('POS client order reference is invalid.');
+            $existing = $this->orderRepo->findByRef($clientOrderRef);
+            if ($existing) {
+                if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) throw new \\RuntimeException('POS idempotency reference is already used by another session.');
+                return $existing;
+            }
+        }
+
         $session = $this->sessionRepo->findById($sessionId);
         if (!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
         if ($session->locationId !== $locationId) throw new \RuntimeException('POS session location does not match the sale location.');
@@ -71,7 +80,7 @@ final class ProcessPOSSaleUseCase {
                 throw new \RuntimeException('POS session is no longer open for this location.');
             }
 
-            $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
+            $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit, $clientOrderRef);
             $orderId = $this->orderRepo->save($order);
             if ($orderId < 1) {
                 throw new \RuntimeException('Unable to save POS order.');
@@ -95,6 +104,12 @@ final class ProcessPOSSaleUseCase {
             }
         } catch (\Throwable $e) {
             $wpdb->query('ROLLBACK');
+            // A concurrent retry may have committed the same unique order_ref
+            // while this request was processing. Return that durable result.
+            if ($clientOrderRef !== null) {
+                $existing = $this->orderRepo->findByRef($clientOrderRef);
+                if ($existing && $existing->sessionId === $sessionId && $existing->locationId === $locationId) return $existing;
+            }
             throw $e;
         }
 
