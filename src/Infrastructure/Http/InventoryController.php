@@ -67,15 +67,15 @@ final class InventoryController {
         $wcProductId = (int) ($req->get_param('wc_product_id') ?? 0);
         foreach ([$costPrice, $salePrice, $reorderPoint] as $numericValue) {
             if (!is_numeric($numericValue) || (float) $numericValue < 0 || floor((float) $numericValue) !== (float) $numericValue) {
-                return new \\WP_REST_Response(['success'=>false,'message'=>'Prices and reorder point must be non-negative whole numbers.'],422);
+                return new \WP_REST_Response(['success'=>false,'message'=>'Prices and reorder point must be non-negative whole numbers.'],422);
             }
         }
         if ($wcProductId < 0 || ($wcProductId > 0 && !wc_get_product($wcProductId))) {
-            return new \\WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product does not exist.'],422);
+            return new \WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product does not exist.'],422);
         }
         $repo = $this->c->make(InventoryProductRepositoryInterface::class);
-        if ($repo->findBySku($sku)) return new \\WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
-        $p = \\PkStore\\Domain\\Inventory\\Entity\\InventoryProduct::create(
+        if ($repo->findBySku($sku)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
+        $p = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
             $sku,
             $name,
             (int) $costPrice,
