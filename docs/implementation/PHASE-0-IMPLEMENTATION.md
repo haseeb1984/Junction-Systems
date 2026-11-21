@@ -157,3 +157,12 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Product mapping is validated before the inventory transaction starts. An order with mixed mapped/unmapped stock products therefore cannot partially deduct only the mapped subset.
 - The lifecycle hook logs the order ID and exception class only; it no longer writes raw exception messages that may contain customer or provider data.
 - This is fail-closed detection, not durable order-ledger retry: the hook records the failure in the PHP error log, but a dedicated durable retry/dead-letter queue for failed order ingestion remains outstanding. Operators must reconcile affected order IDs until that queue is implemented.
+
+
+### Durable WooCommerce order-to-inventory event retries — 21 November 2026
+- Added a separate InnoDB `pkstore_wc_order_inventory_queue` keyed uniquely by WooCommerce order ID. Payment-complete, processing and completed lifecycle hooks now persist the order event instead of relying on one in-request attempt.
+- The existing five-minute worker now processes both the stock-sync outbox and order-ledger event queue. Order events are claimed transactionally, stale processing claims are recovered after ten minutes, and failures are rescheduled with exponential backoff capped at six hours.
+- Duplicate lifecycle hooks coalesce into one order row. A generation token ensures a duplicate event arriving during processing is not lost; if refreshed, the event is released for another pass. The underlying inventory movement reference remains the final exactly-once guard against duplicate deductions.
+- Ledger transaction failures are now rethrown to the queue worker after rollback; they can no longer be swallowed and incorrectly acknowledged as completed. The queue stores only the WooCommerce order ID and operational metadata, not customer/order payloads.
+- Added versioned migration `2.0.3`; existing installations remain subject to the existing pre-migration full-backup confirmation gate.
+- Remaining operational work: a dead-letter/terminal status, admin reconciliation screen, alerting/monitoring and a manual replay action are not yet implemented. Retries currently continue indefinitely with capped backoff. A real system cron should invoke WP-Cron reliably; the WordPress scheduler is otherwise traffic-driven. Runtime tests for duplicate hooks, worker crash recovery, transaction rollback, retry timing and concurrent enqueue/claim are still required.
