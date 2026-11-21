@@ -211,4 +211,12 @@ if (!is_string($barcodeLabelSource)
     throw new \RuntimeException('ZPL output must strip command introducers from catalogue and branding text.');
 }
 
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, 'Prices and reorder point must be non-negative whole numbers.') === false
+    || strpos($inventoryHttpSource, 'Linked WooCommerce product does not exist.') === false
+    || strpos($inventoryHttpSource, '$wcProductId > 0 ? $wcProductId : null') === false) {
+    throw new \RuntimeException('Inventory product creation must validate monetary values and WooCommerce product mappings.');
+}
+
+
 echo "Smoke tests passed.\n";
