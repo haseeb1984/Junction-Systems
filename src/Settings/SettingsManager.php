@@ -34,7 +34,7 @@ final class SettingsManager{
                     $this->cache[$k]=$default;
                     return $default;
                 }
-            } catch (\\Throwable) {
+            } catch (\Throwable) {
                 error_log('[PK Store] Could not encrypt a legacy integration secret; refusing plaintext use.');
                 $this->cache[$k]=$default;
                 return $default;
