@@ -20,10 +20,10 @@ final class ProcessPOSSaleUseCase {
             throw new \InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
         }
         if ($clientOrderRef !== null) {
-            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \\InvalidArgumentException('POS client order reference is invalid.');
+            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \InvalidArgumentException('POS client order reference is invalid.');
             $existing = $this->orderRepo->findByRef($clientOrderRef);
             if ($existing) {
-                if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) throw new \\RuntimeException('POS idempotency reference is already used by another session.');
+                if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) throw new \RuntimeException('POS idempotency reference is already used by another session.');
                 return $existing;
             }
         }
