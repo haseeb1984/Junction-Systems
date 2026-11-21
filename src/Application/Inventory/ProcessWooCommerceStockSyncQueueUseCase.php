@@ -33,7 +33,7 @@ final class ProcessWooCommerceStockSyncQueueUseCase {
             try {
                 // This recalculates aggregate stock and writes an idempotent snapshot.
                 // A newer enqueue changes generation, so completion cannot erase it.
-                $this->adjustStock->syncProductToWooCommerce($productId, 0);
+                $this->adjustStock->syncProductToWooCommerce($productId);
                 $this->stockRepo->completeWooCommerceSync($id, $generation);
                 $completed++;
             } catch (\Throwable $error) {
