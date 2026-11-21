@@ -194,7 +194,7 @@ if (!is_string($inventoryHttpSource)
 if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, "\$auth = fn()=>current_user_can('manage_woocommerce') && FeatureManager::getInstance()->isEnabled('inventory')") === false
     || strpos($inventoryHttpSource, "\$barcodeAuth = fn()=>\$auth() && FeatureManager::getInstance()->isEnabled('barcode_labels')") === false) {
-    throw new \\RuntimeException('Inventory REST endpoints must enforce inventory entitlement, with barcode generation requiring its separate entitlement.');
+    throw new \RuntimeException('Inventory REST endpoints must enforce inventory entitlement, with barcode generation requiring its separate entitlement.');
 }
 
 
