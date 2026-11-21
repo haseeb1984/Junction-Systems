@@ -18,7 +18,8 @@ final class InventoryHooks {
         try {
             $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId);
         } catch (\Throwable $e) {
-            error_log('[PKStore Inventory] Stock sync failed for order '.$orderId.': '.$e->getMessage());
+            // Avoid leaking exception details that may contain customer/provider data.
+            error_log('[PKStore Inventory] Stock ingestion failed for order '.$orderId.' ('.get_class($e).').');
         }
     }
     public function hourlySyncAll(): void {
