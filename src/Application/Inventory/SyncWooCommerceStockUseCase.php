@@ -168,7 +168,7 @@ final class SyncWooCommerceStockUseCase {
         try {
             $this->stockRepo->getStock($product->id, $onlineLocation->id);
             if (!$this->stockRepo->hasMovementReference($product->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
-                if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit deferred cancellation restock.');
+                if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit deferred cancellation restock.');
                 return;
             }
             if (!$this->stockRepo->hasMovementReference(
@@ -272,7 +272,7 @@ final class SyncWooCommerceStockUseCase {
         try {
             $this->stockRepo->getStock($productRecord->id, $onlineLocation->id);
             if (!$this->stockRepo->hasMovementReference($productRecord->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
-                if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit deferred refund restock.');
+                if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit deferred refund restock.');
                 return;
             }
             if (!$this->stockRepo->hasMovementReference(
