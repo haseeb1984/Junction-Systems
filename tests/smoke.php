@@ -118,6 +118,16 @@ if (!method_exists(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::c
 }
 
 foreach ([
+    \PkStore\Domain\Inventory\Entity\MovementType::class,
+    \PkStore\Domain\POS\Entity\SessionStatus::class,
+    \PkStore\Domain\POS\Entity\SyncStatus::class,
+] as $enum) {
+    if (!enum_exists($enum)) {
+        throw new \RuntimeException('Domain enum failed PSR-4 autoload: ' . $enum);
+    }
+}
+
+foreach ([
     \PkStore\Infrastructure\Inventory\WpStockRepository::class,
     \PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class,
     \PkStore\Application\Inventory\AdjustStockUseCase::class,
