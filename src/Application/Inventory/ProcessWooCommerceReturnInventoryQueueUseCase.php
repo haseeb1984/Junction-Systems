@@ -54,13 +54,19 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 if ($kind === 'cancellation') {
                     $item = $order->get_item((int) $job['wc_order_item_id']);
                     if (!$item) throw new \RuntimeException('WooCommerce order item is unavailable.');
-                    $this->syncInventory->onWooCommerceOrderItemRestored($item, $quantity, 0, $order);
+                    $applied = $this->syncInventory->onWooCommerceOrderItemRestored($item, $quantity, 0, $order);
+                    if (!$applied && !in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending'], true)) {
+                        throw new \RuntimeException('Cancellation return is waiting for its matching sale movement.');
+                    }
                 } elseif ($kind === 'refund') {
                     $product = wc_get_product($productId);
                     if (!$product) throw new \RuntimeException('WooCommerce refund product is unavailable.');
-                    $this->syncInventory->onWooCommerceRefundItemRestocked(
+                    $applied = $this->syncInventory->onWooCommerceRefundItemRestocked(
                         $productId, $quantity, 0, $order, $product, $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : null, (int) $job['cumulative_quantity']
                     );
+                    if (!$applied && (string) $order->get_status() !== 'refunded') {
+                        throw new \RuntimeException('Refund return is waiting for its matching sale movement.');
+                    }
                 } else {
                     throw new \RuntimeException('Unknown WooCommerce return event kind.');
                 }
