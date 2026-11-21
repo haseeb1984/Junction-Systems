@@ -70,3 +70,10 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - Corrected the bundled Groq assistant's legacy-key migration path: it now confirms the encrypted option was persisted before use, decrypts only the stored ciphertext for the outbound request, and refreshes the settings array after migration so the same request does not reuse a stale plaintext option.
 - The latest workflow run for commit `247b85960d315d43d96af969a237f48c1b885476` (run `44866110191`) still terminates in approximately two seconds with `runner_id: 0`, no runner name, and an empty `steps` array. This confirms the job never reached checkout or PHP/Node execution. The repository connector cannot inspect or change the account's Actions/billing/runner policy settings, so the exact account-side cause remains unverified.
 - No code-level test result is being represented as passing. The workflow must execute on a runner before PHP lint, smoke tests, and JavaScript syntax checks can be accepted.
+
+### Continued Phase 0 corrections — 21 November 2026
+
+- Groq assistant: legacy plaintext key migration now verifies encrypted persistence, returns only the decrypted ciphertext value for the current request, and refreshes settings after migration so a stale plaintext options array is not reused.
+- POS queue: removed the false-success behavior that marked records as WooCommerce-synced without creating WooCommerce orders. Pending records now remain pending and the REST endpoint reports HTTP 501 until a real WooCommerce order adapter exists.
+- POS sale: server-side inventory product price is now authoritative; browser-supplied unit prices are ignored. Product IDs and quantities are validated, quantities must be positive integers, inactive/missing products are rejected, discounts must be non-negative and cannot exceed subtotal, and the session location must match the sale location.
+- These are source-level corrections only. They have not been runtime-tested because the GitHub Actions job is still failing before runner allocation. Do not treat Phase 0 as production-ready until the workflow executes and staging tests pass.
