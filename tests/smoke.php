@@ -154,6 +154,7 @@ $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventor
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 $inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
 $barcodeLabelSource = file_get_contents($src . '/Infrastructure/Barcode/BarcodeLabel.php');
+$posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('inventory'))") === false
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('barcode_labels'))") === false
@@ -187,6 +188,13 @@ if (!is_string($inventoryHttpSource)
     || !is_string($barcodeLabelSource)
     || strpos($barcodeLabelSource, "if (!FeatureManager::getInstance()->isEnabled('barcode_labels')) wp_die") === false) {
     throw new \RuntimeException('Barcode generation REST and admin handlers must enforce barcode entitlement.');
+}
+
+
+if (!is_string($posHttpSource)
+    || strpos($posHttpSource, "Receipt destination must match the phone number saved with this order.") === false
+    || strpos($posHttpSource, "hash_equals(\$storedPhone, \$clean)") === false) {
+    throw new \RuntimeException('POS WhatsApp receipts must be restricted to the customer phone stored on the order.');
 }
 
 echo "Smoke tests passed.\n";
