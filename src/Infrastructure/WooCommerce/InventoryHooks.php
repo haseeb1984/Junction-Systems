@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace PkStore\Infrastructure\WooCommerce;
 use PkStore\Application\Inventory\SyncWooCommerceStockUseCase;
 use PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase;
+use PkStore\Application\Inventory\ProcessWooCommerceReturnInventoryQueueUseCase;
 use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
     public function __construct(private readonly ServiceContainer $c) {}
@@ -29,19 +30,38 @@ final class InventoryHooks {
     }
     public function onOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
         try {
-            $this->c->make(SyncWooCommerceStockUseCase::class)
-                ->onWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
+            if (!($order instanceof \WC_Order) || !is_object($item) || !method_exists($item, 'get_id')) {
+                throw new \InvalidArgumentException('Malformed WooCommerce cancellation restock event.');
+            }
+            $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+            if ($productId < 1) $productId = (int) $item->get_product_id();
+            $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
+                (int) $order->get_id(), (int) $item->get_id(), $productId, $newStock - $oldStock
+            );
         } catch (\Throwable $e) {
-            // The source event is authoritative, but failures need operator attention.
-            error_log('[PKStore Inventory] WooCommerce cancellation restock was not mirrored ('.get_class($e).').');
+            error_log('[PKStore Inventory] Unable to persist cancellation restock event ('.get_class($e).').');
         }
     }
     public function onRefundItemRestocked(int $productId, $oldStock, $newStock, $order, $product): void {
         try {
-            $this->c->make(SyncWooCommerceStockUseCase::class)
-                ->onWooCommerceRefundItemRestocked($productId, (int) $newStock, (int) $oldStock, $order, $product);
+            if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('Malformed WooCommerce refund event.');
+            $delta = (int) $newStock - (int) $oldStock;
+            $itemId = null;
+            $cumulative = 0;
+            foreach ($order->get_items('line_item') as $item) {
+                $parentId = (int) $item->get_product_id();
+                $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+                if ($productId !== $parentId && $productId !== $variationId) continue;
+                $cumulative += (int) $item->get_meta('_restock_refunded_items', true);
+                if ($itemId === null) $itemId = (int) $item->get_id();
+                else $itemId = 0;
+            }
+            if ($itemId === 0) $itemId = null; // ambiguous duplicate product lines remain queued for reconciliation
+            $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueRefund(
+                (int) $order->get_id(), $productId, $delta, $cumulative, $itemId
+            );
         } catch (\Throwable $e) {
-            error_log('[PKStore Inventory] WooCommerce refund restock was not mirrored ('.get_class($e).').');
+            error_log('[PKStore Inventory] Unable to persist refund restock event ('.get_class($e).').');
         }
     }
     public function hourlySyncAll(): void {
