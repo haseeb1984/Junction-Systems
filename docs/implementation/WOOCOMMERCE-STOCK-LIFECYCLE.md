@@ -67,6 +67,14 @@ The branch now includes a first, narrowly-scoped cancellation restoration path:
 
 - The cancellation handler currently logs and surfaces failures but does not yet persist a dedicated retry event. If the DB or mapping is unavailable during the callback, an operator reconciliation is required.
 - The current sale queue remains order-level and asynchronous. A sale/restock race needs dedicated staging tests; the final net quantity must be verified for cancellation before the worker runs.
-- Partial refund restocking is not implemented. It needs per-refund-line/cumulative-restock event identity so multiple partial refunds restore only the quantities WooCommerce actually restocked.
-- Duplicate same-product order lines, variation stock managed by a parent, multiple partial refunds, worker crash/retry, and concurrent event ordering still need runtime acceptance tests.
+- Explicit refund restocking now has a handler for WooCommerce's `woocommerce_restock_refunded_item` hook. It uses the callback stock delta and the original line's cumulative `_restock_refunded_items` metadata in its idempotency key, so successive partial restocks on a uniquely identifiable line can be recorded separately. The hook omits the original order-item ID; if multiple matching same-product lines make the source ambiguous, the handler fails closed and requires reconciliation.
+- Multiple same-product order lines intentionally fail closed when a refund callback cannot be assigned to one original line. Variation stock managed by a parent, successive partial refunds, worker crash/retry, and concurrent event ordering still need runtime acceptance tests.
 - This is not production sign-off. The lifecycle remains incomplete until durable retry/reconciliation and partial refund handling are implemented and tested.
+
+## Refund restock implementation
+
+The branch now listens to `woocommerce_restock_refunded_item`, not generic refund/payment events. It records a positive `online_return` movement only after WooCommerce's explicit restock action, using the exact callback stock delta. It resolves the original order line by product/variation identity and cumulative `_restock_refunded_items` metadata. The idempotency key includes order ID, order-item ID, and cumulative restored quantity, so repeated delivery of the same callback is ignored while later partial restocks on that same unique line can be applied.
+
+WooCommerce does not include the original order-item ID in this hook's arguments. If more than one matching order line exists, the implementation deliberately refuses to guess. That event is logged for reconciliation; it is not silently applied to the wrong Junction product.
+
+The cancellation and refund hooks currently perform the ledger write synchronously. They do not yet persist their own dedicated retry queue when mapping/database operations fail. A robust retry queue and administrative reconciliation workflow remain required before production readiness.
