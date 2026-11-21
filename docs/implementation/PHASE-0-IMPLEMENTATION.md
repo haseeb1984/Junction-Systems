@@ -85,3 +85,13 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - POS session entity: tender validation now happens before aggregate sales totals are mutated. An unsupported tender therefore cannot increment total sales before throwing.
 - POS session repository: failed database inserts and failed updates now raise explicit persistence exceptions instead of returning a session ID or reporting success after a failed write.
 - Remaining POS transaction risk: order creation, line-item persistence, stock movements, and session totals are not yet one database transaction. The offline replay path also still needs a durable idempotency key before retry-after-timeout can be considered safe. These are recorded as open implementation work, not claimed fixed.
+
+
+### POS transaction integrity corrections — 21 November 2026
+
+- POS sale writes now run inside a database transaction covering the POS order, line items, stock quantity/movement updates, and session tender totals. Stock shortages and persistence exceptions abort the sale and trigger rollback; the previous behavior that logged a stock shortage but still completed the sale has been removed.
+- The POS session is reloaded with a row lock inside the transaction before tender totals are changed, preventing concurrent sales from overwriting each other's session aggregates.
+- Inventory stock rows are selected with `FOR UPDATE` during transactional adjustments, serializing competing deductions for an existing product/location stock row.
+- Stock-level initialization, quantity writes, movement-ledger inserts, POS order inserts, and POS line-item inserts now throw on database persistence failures so the outer sale transaction can roll back.
+- This depends on the relevant WordPress custom tables using InnoDB, as declared by the inventory/POS schema installer. Runtime verification remains outstanding.
+- Durable client-supplied idempotency keys and offline replay de-duplication are still not implemented. A lost HTTP response followed by a retry can still create a second sale; this remains an explicit blocker for claiming offline retry safety.
