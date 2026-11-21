@@ -21,6 +21,16 @@ This is an implementation branch only. No changes have been merged to `main`, an
 - Added a lock-protected, versioned migration runner with required-table verification. Upgrade migrations are held unless a hosting integration confirms a recent full backup through the `pkstore_migration_backup_confirmed` filter.
 - Added a GitHub Actions workflow for PHP lint, dependency-free smoke tests, and JavaScript syntax checks.
 
+## Additional source QA fixes — 21 November 2026
+
+A second source review found and corrected these issues before considering the branch ready:
+
+- Offline license grace now re-checks the cached license expiry and bound domain. Definitive invalid, revoked, expired, and domain-mismatch responses clear stale cached entitlements so later feature checks in the same PHP request cannot reuse them.
+- HTTP 401 and 410 license responses are treated as definitive invalid/revoked states rather than service outages eligible for grace.
+- Existing, unversioned installations are now detected by their existing PK Store tables. They cannot be mistaken for fresh installs to bypass the pre-migration backup confirmation gate.
+- Legacy plaintext integration secrets are migrated to authenticated AES-256-GCM storage on read, and the plaintext option is deleted only after the encrypted value is saved. A present but unauthentic encrypted value fails closed rather than falling back to plaintext.
+- Package smoke coverage now checks Basic, Standard, and Enterprise entitlements and prevents higher-tier extras leaking into lower tiers.
+
 ## Validation status
 
 - Source changes are committed on this branch.
