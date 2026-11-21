@@ -94,15 +94,39 @@ final class InventoryController {
         if (!$p->hasBarcode()) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
         return new \WP_REST_Response(['success'=>true,'product_id'=>$id,'message'=>'Product created.'],201);
     }
-    public function adjustStock(\WP_REST_Request $req): \WP_REST_Response {
-        $productId  = (int)($req->get_param('product_id')??0);
-        $locationId = (int)($req->get_param('location_id')??0);
-        $quantity   = (int)($req->get_param('quantity')??0);
-        $type       = sanitize_key($req->get_param('type')??'adjustment');
-        $note       = sanitize_text_field($req->get_param('note')??'Manual adjustment');
-        if (!$productId||!$locationId) return new \WP_REST_Response(['success'=>false,'message'=>'product_id and location_id required.'],422);
-        try { $this->c->make(AdjustStockUseCase::class)->execute($productId,$locationId,$quantity,MovementType::from($type),$note); return new \WP_REST_Response(['success'=>true,'message'=>'Stock adjusted.'],200);
-        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+    public function adjustStock(\\WP_REST_Request $req): \\WP_REST_Response {
+        $productRaw = $req->get_param('product_id');
+        $locationRaw = $req->get_param('location_id');
+        $quantityRaw = $req->get_param('quantity');
+        foreach ([$productRaw, $locationRaw, $quantityRaw] as $raw) {
+            if ($raw === null || $raw === '' || filter_var($raw, FILTER_VALIDATE_INT) === false) {
+                return new \\WP_REST_Response(['success'=>false,'message'=>'Product, location and quantity must be whole numbers.'],422);
+            }
+        }
+
+        $productId = (int) $productRaw;
+        $locationId = (int) $locationRaw;
+        $quantity = (int) $quantityRaw;
+        $typeValue = sanitize_key($req->get_param('type') ?? 'adjustment');
+        $allowedTypes = [MovementType::Adjustment, MovementType::PurchaseReceive, MovementType::Damage];
+        $type = MovementType::tryFrom($typeValue);
+        if ($productId < 1 || $locationId < 1 || $quantity === 0 || !$type || !in_array($type, $allowedTypes, true)) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Invalid stock adjustment details or movement type.'],422);
+        }
+
+        $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
+        $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
+        if (!$product || !$product->isActive || !$location || !$location->isActive) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Active product and location are required.'],422);
+        }
+
+        $note = sanitize_text_field($req->get_param('note') ?? 'Manual adjustment');
+        try {
+            $this->c->make(AdjustStockUseCase::class)->executeManualAdjustment($productId, $locationId, $quantity, $type, $note);
+            return new \\WP_REST_Response(['success'=>true,'message'=>'Stock adjusted.'],200);
+        } catch (\\Throwable $e) {
+            return new \\WP_REST_Response(['success'=>false,'message'=>'Stock adjustment could not be completed. Verify the available stock and try again.'],422);
+        }
     }
     public function locationStock(\WP_REST_Request $req): \WP_REST_Response {
         $locationId = (int)$req->get_param('id');
