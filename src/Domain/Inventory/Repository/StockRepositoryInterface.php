@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace PkStore\Domain\Inventory\Repository;
-use PkStore\Domain\Inventory\Entity\{StockLevel, StockMovement};
+use PkStore\Domain\Inventory\Entity\{StockLevel, StockMovement, MovementType};
 interface StockRepositoryInterface {
     public function getStock(int $productId, int $locationId): StockLevel;
     public function updateStock(StockLevel $stock): void;
