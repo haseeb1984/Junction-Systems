@@ -5,6 +5,7 @@ namespace PkStore\Domain\Inventory\Entity;
 enum MovementType: string {
     case Sale = 'sale';
     case OnlineSale = 'online_sale';
+    case OnlineReturn = 'online_return';
     case POSReturn = 'pos_return';
     case PurchaseReceive = 'purchase_receive';
     case Adjustment = 'adjustment';
