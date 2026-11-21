@@ -154,14 +154,24 @@ final class LicenseManager {
             $this->assertValid($data);
             return $data;
         } catch (LicenseDomainMismatch $e) {
-            // Hard fail — domain mismatch cannot be graced
+            // Definitive server responses invalidate the stale in-memory and
+            // persisted cache; later checks in this same request must not reuse it.
+            $this->cache = null;
+            delete_option(self::OPT_LICENSE_CACHE);
+            delete_option(self::OPT_LICENSE_GRACE);
             $this->lockout('domain_mismatch');
             throw $e;
         } catch (LicenseExpiredException $e) {
+            $this->cache = null;
+            delete_option(self::OPT_LICENSE_CACHE);
+            delete_option(self::OPT_LICENSE_GRACE);
             throw $e;
         } catch (LicenseInvalidException $e) {
             // A definitive invalid/revoked response is not an outage and must
             // never be converted into an offline grace-period entitlement.
+            $this->cache = null;
+            delete_option(self::OPT_LICENSE_CACHE);
+            delete_option(self::OPT_LICENSE_GRACE);
             throw $e;
         } catch (LicenseException $e) {
             // Transport/service outage only: use the last known-good cache.
