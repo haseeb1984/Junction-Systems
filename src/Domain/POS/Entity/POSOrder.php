@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace PkStore\Domain\POS\Entity;
 use DateTimeImmutable;
-enum SyncStatus: string { case Pending='pending'; case Synced='synced'; case Failed='failed'; }
 final class POSOrder {
     private array $items = [];
     public function __construct(
