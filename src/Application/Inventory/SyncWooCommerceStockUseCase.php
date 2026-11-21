@@ -191,8 +191,8 @@ final class SyncWooCommerceStockUseCase {
      * The original order item carries cumulative _restock_refunded_items metadata.
      */
     public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
-        if (!($order instanceof \\WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
-            throw new \\InvalidArgumentException('WooCommerce refund restock event is malformed.');
+        if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
+            throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         }
         $orderId = (int) $order->get_id();
         $candidates = [];
@@ -210,7 +210,7 @@ final class SyncWooCommerceStockUseCase {
         if (count($candidates) !== 1) {
             // The WooCommerce hook omits the original order-item ID. Do not guess
             // when the same product appears on multiple order lines.
-            throw new \\RuntimeException('Refund restock cannot be mapped unambiguously to one WooCommerce order item.');
+            throw new \RuntimeException('Refund restock cannot be mapped unambiguously to one WooCommerce order item.');
         }
         $candidate = $candidates[0];
         $item = $candidate['item'];
@@ -219,18 +219,18 @@ final class SyncWooCommerceStockUseCase {
             : null;
         $productRecord ??= $this->productRepo->findByWcProductId($candidate['parent_id']);
         if (!$productRecord) {
-            throw new \\RuntimeException('Refund-restocked WooCommerce item is not linked to Junction inventory.');
+            throw new \RuntimeException('Refund-restocked WooCommerce item is not linked to Junction inventory.');
         }
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) {
-            throw new \\RuntimeException('Junction online inventory location is not configured.');
+            throw new \RuntimeException('Junction online inventory location is not configured.');
         }
 
         $itemId = (int) $item->get_id();
         $referenceId = $orderId . ':' . $itemId . ':' . $candidate['cumulative'];
         global $wpdb;
-        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
-            throw new \\RuntimeException('Unable to start WooCommerce refund return transaction.');
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start WooCommerce refund return transaction.');
         }
         try {
             $this->stockRepo->getStock($productRecord->id, $onlineLocation->id);
@@ -253,9 +253,9 @@ final class SyncWooCommerceStockUseCase {
                 );
             }
             if ($wpdb->query('COMMIT') === false) {
-                throw new \\RuntimeException('Unable to commit WooCommerce refund return transaction.');
+                throw new \RuntimeException('Unable to commit WooCommerce refund return transaction.');
             }
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
             $this->log->error('WooCommerce refund restock was not applied to Junction inventory.', [
                 'order_id' => $orderId,
@@ -267,7 +267,7 @@ final class SyncWooCommerceStockUseCase {
 
         try {
             $this->adjustStock->syncProductToWooCommerce($productRecord->id);
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $this->log->error('WooCommerce refund return committed; aggregate stock sync remains queued.', [
                 'order_id' => $orderId,
                 'product_id' => $productRecord->id,
