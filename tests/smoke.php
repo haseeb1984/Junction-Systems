@@ -371,4 +371,21 @@ if (!is_string($inventoryEventsSource)
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
 }
 
+
+$orderQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
+$returnQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
+$stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
+if (!is_string($orderQueueRetrySource)
+    || strpos($orderQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
+    || strpos($orderQueueRetrySource, "'needs_review' : 'pending'") === false
+    || strpos($orderQueueRetrySource, "DATE_ADD(%s, INTERVAL %d SECOND)") === false
+    || !is_string($returnQueueRetrySource)
+    || strpos($returnQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
+    || strpos($returnQueueRetrySource, "'needs_review' : 'pending'") === false
+    || !is_string($stockQueueRetrySource)
+    || strpos($stockQueueRetrySource, 'MAX_AUTOMATIC_SYNC_ATTEMPTS = 12') === false
+    || strpos($stockQueueRetrySource, "'needs_review' : 'pending'") === false) {
+    throw new \RuntimeException('WooCommerce inventory queues must stop automatic retries after 12 attempts and expose needs_review.');
+}
+
 echo "Smoke tests passed.\n";
