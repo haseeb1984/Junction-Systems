@@ -91,7 +91,7 @@ final class InventoryController {
             (int) $reorderPoint
         );
         $id  = $repo->save($p);
-        if (!$p->hasBarcode()) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
+        if (!$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
         return new \WP_REST_Response(['success'=>true,'product_id'=>$id,'message'=>'Product created.'],201);
     }
     public function adjustStock(\WP_REST_Request $req): \WP_REST_Response {
