@@ -14,7 +14,7 @@ final class SyncWooCommerceStockUseCase {
     ) {}
     public function onWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
-        if (!($order instanceof \\WC_Order)) return;
+        if (!($order instanceof \WC_Order)) return;
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) return;
 
@@ -32,7 +32,7 @@ final class SyncWooCommerceStockUseCase {
         if (!$quantities) return;
 
         global $wpdb;
-        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
             $this->log->critical('WooCommerce order inventory ledger could not start its transaction.', [
                 'order_id' => $orderId,
             ]);
@@ -68,9 +68,9 @@ final class SyncWooCommerceStockUseCase {
             }
 
             if ($wpdb->query('COMMIT') === false) {
-                throw new \\RuntimeException('Unable to commit WooCommerce order inventory ledger.');
+                throw new \RuntimeException('Unable to commit WooCommerce order inventory ledger.');
             }
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
             $this->log->error('WooCommerce order inventory ledger was rolled back.', [
                 'order_id' => $orderId,
@@ -83,7 +83,7 @@ final class SyncWooCommerceStockUseCase {
         foreach (array_keys($quantities) as $productId) {
             try {
                 $this->adjustStock->syncProductToWooCommerce((int) $productId);
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $this->log->error('WooCommerce order committed; aggregate stock sync remains queued.', [
                     'order_id' => $orderId,
                     'product_id' => (int) $productId,
