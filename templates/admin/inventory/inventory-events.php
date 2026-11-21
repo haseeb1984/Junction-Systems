@@ -11,6 +11,30 @@
     <?php endif; ?>
 
     <?php
+    $queueLabels = [
+        'sales' => 'Online sales',
+        'returns' => 'Returns',
+        'stock' => 'Stock sync',
+    ];
+    ?>
+    <div class="notice notice-info" style="padding:10px 14px;">
+        <strong>Queue status totals</strong>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:8px;">
+            <?php foreach ($queueLabels as $queueKey => $queueLabel): ?>
+                <div>
+                    <strong><?= esc_html($queueLabel) ?></strong><br>
+                    <?php foreach (['pending', 'processing', 'needs_review'] as $queueStatus): ?>
+                        <span style="margin-right:10px;"><?= esc_html(ucfirst($queueStatus)) ?>:
+                            <?= esc_html((string) ($queueCounts[$queueKey][$queueStatus] ?? 0)) ?>
+                        </span>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="description">Totals include all retained queue rows. Completed events are removed by the current workers and are not counted here.</p>
+    </div>
+
+    <?php
     $renderQueue = static function (string $heading, array $events): void {
         ?>
         <h2><?= esc_html($heading) ?></h2>
