@@ -43,10 +43,10 @@ final class WpStockRepository implements StockRepositoryInterface {
         if ($inserted === false || (int)$this->db->insert_id < 1) throw new \RuntimeException('Unable to record stock movement.');
         return (int)$this->db->insert_id;
     }
-    public function hasMovementReference(int $productId, int $locationId, string $referenceType, string $referenceId): bool {
+    public function hasMovementReference(int $productId, int $locationId, string $referenceType, string $referenceId, MovementType $movementType): bool {
         $found = $this->db->get_var($this->db->prepare(
             "SELECT id FROM {$this->tm()} WHERE product_id=%d AND location_id=%d AND reference_type=%s AND reference_id=%s AND movement_type=%s LIMIT 1",
-            $productId, $locationId, $referenceType, $referenceId, MovementType::OnlineSale->value
+            $productId, $locationId, $referenceType, $referenceId, $movementType->value
         ));
         return $found !== null;
     }
