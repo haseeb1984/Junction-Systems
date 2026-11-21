@@ -112,17 +112,33 @@ final class POSController {
         return new \WP_REST_Response(['success'=>true,'orders'=>array_map(fn($o)=>['id'=>$o->id,'ref'=>$o->orderRef,'total'=>$o->totalPkr,'method'=>$o->paymentMethod,'customer'=>$o->customerName,'sync'=>$o->getSyncStatus()->value,'created_at'=>$o->createdAt->format('H:i:s')],$orders)],200);
     }
     public function sendWhatsApp(\WP_REST_Request $req): \WP_REST_Response {
-        $phone    = sanitize_text_field($req->get_param('phone')??''  );
-        $orderRef = sanitize_text_field($req->get_param('order_ref')??''  );
-        $total    = (int)($req->get_param('total')??0);
-        $items    = $req->get_param('items')??[];
-        if (!$phone) return new \WP_REST_Response(['success'=>false,'message'=>'Phone required.'],422);
-        $msg = get_bloginfo('name').PHP_EOL."Order: {$orderRef}".PHP_EOL;
-        foreach($items as $item) $msg .= "- {$item['name']} x{$item['quantity']} = PKR ".number_format($item['total_pkr']).PHP_EOL;
-        $msg .= "Total: PKR ".number_format($total).PHP_EOL."Shukriya!";
-        $clean  = preg_replace('/[^\d]/','',$phone);
-        if (str_starts_with($clean,'0')) $clean = '92'.substr($clean,1);
-        $waUrl  = 'https://wa.me/'.$clean.'?text='.rawurlencode($msg);
+        $phone = sanitize_text_field($req->get_param('phone') ?? '');
+        $orderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
+        if ($phone === '' || $orderRef === '') {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Phone and order reference are required.'],422);
+        }
+
+        // Never trust browser-supplied order totals or line items for a receipt.
+        $order = $this->c->make(POSOrderRepositoryInterface::class)->findByRef($orderRef);
+        if (!$order) return new \WP_REST_Response(['success'=>false,'message'=>'POS order not found.'],404);
+
+        $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($order->sessionId);
+        if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'POS session not found.'],404);
+        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        }
+
+        $clean = preg_replace('/[^\\d]/', '', $phone);
+        if (str_starts_with($clean, '0')) $clean = '92' . substr($clean, 1);
+        if (strlen($clean) < 10 || strlen($clean) > 15) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Phone number is invalid.'],422);
+        }
+
+        $msg = get_bloginfo('name') . PHP_EOL
+            . "Order: {$order->orderRef}" . PHP_EOL
+            . "Total: PKR " . number_format($order->totalPkr) . PHP_EOL
+            . "Shukriya!";
+        $waUrl = 'https://wa.me/' . $clean . '?text=' . rawurlencode($msg);
         return new \WP_REST_Response(['success'=>true,'whatsapp_url'=>$waUrl,'message'=>$msg],200);
     }
 }
