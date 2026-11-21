@@ -92,10 +92,18 @@ final class AdjustStockUseCase {
 
         try {
             $product = $this->productRepo->findById($productId);
-            if (!$product || !$product->wcProductId) return;
+            if (!$product) {
+                throw new \\RuntimeException('Inventory product no longer exists; stock sync requires reconciliation.');
+            }
+            if (!$product->wcProductId) {
+                throw new \\RuntimeException('Inventory product is not linked to a WooCommerce product.');
+            }
+
             $totalStock = $this->stockRepo->getTotalStock($productId);
             $wcProduct = wc_get_product($product->wcProductId);
-            if (!$wcProduct) return;
+            if (!$wcProduct) {
+                throw new \\RuntimeException('Linked WooCommerce product is unavailable; stock sync requires reconciliation.');
+            }
             $wcProduct->set_manage_stock(true);
             $wcProduct->set_stock_quantity($totalStock);
             $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
