@@ -68,7 +68,7 @@ final class ProcessPOSSaleUseCase {
             // cashiers/sales cannot overwrite each other's tender aggregates.
             $session = $this->sessionRepo->findById($sessionId);
             if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
-                throw new \\RuntimeException('POS session is no longer open for this location.');
+                throw new \RuntimeException('POS session is no longer open for this location.');
             }
 
             $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
