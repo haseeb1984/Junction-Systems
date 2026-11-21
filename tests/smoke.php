@@ -248,7 +248,7 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, 'MovementType::Opening') === false
     || strpos($inventoryHttpSource, 'Purchase receipts and opening stock must add a positive quantity.') === false
     || strpos($inventoryHttpSource, 'Damage/loss must reduce stock using a negative quantity.') === false) {
-    throw new \\RuntimeException('REST stock adjustments must enforce valid movement direction.');
+    throw new \RuntimeException('REST stock adjustments must enforce valid movement direction.');
 }
 
 
@@ -260,7 +260,7 @@ if (!is_string($adminInventorySource)
 }
 if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, "if (!\$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels'))") === false) {
-    throw new \\RuntimeException('REST product creation must not generate package-restricted barcodes when the entitlement is disabled.');
+    throw new \RuntimeException('REST product creation must not generate package-restricted barcodes when the entitlement is disabled.');
 }
 
 echo "Smoke tests passed.\n";
