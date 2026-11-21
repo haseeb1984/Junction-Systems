@@ -23,11 +23,18 @@ final class SyncWooCommerceStockUseCase {
         $quantities = [];
         foreach ($order->get_items() as $item) {
             $wcProductId = (int) $item->get_product_id();
+            $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             $rawQuantity = (float) $item->get_quantity();
             if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity) {
                 throw new \RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
             }
-            $product = $this->productRepo->findByWcProductId($wcProductId);
+            // Prefer an explicitly mapped variation so separately stocked
+            // variants deduct from their own Junction inventory record. If no
+            // variation mapping exists, fall back to the parent product mapping.
+            $product = $variationId > 0
+                ? $this->productRepo->findByWcProductId($variationId)
+                : null;
+            $product ??= $this->productRepo->findByWcProductId($wcProductId);
             if (!$product) {
                 // Fail before opening the inventory transaction: never deduct only
                 // the mapped subset of an order and leave the order under-counted.
