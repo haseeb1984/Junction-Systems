@@ -99,7 +99,9 @@ final class ThemeBootstrapper {
         // ── Admin ─────────────────────────────────────────────────
         if (is_admin()) {
             (new AdminMenuController($this->c))->register();
-            (new AffiliateAdminController($this->c))->register();
+            if ($this->fm->isEnabled('affiliate_system')) {
+                (new AffiliateAdminController($this->c))->register();
+            }
             if ($this->fm->isEnabled('inventory')) {
                 (new InventoryAdminController($this->c))->register();
             }
