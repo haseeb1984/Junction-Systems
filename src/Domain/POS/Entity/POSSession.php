@@ -15,6 +15,11 @@ final class POSSession {
     public function getStatus(): SessionStatus { return $this->status; }
     public function isOpen(): bool { return $this->status === SessionStatus::Open; }
     public function getTotalSalesPkr(): int { return $this->totalSalesPkr; }
+    public function getTotalCashPkr(): int { return $this->totalCashPkr; }
+    public function getTotalJazzcashPkr(): int { return $this->totalJazzcash; }
+    public function getTotalEasypaisaPkr(): int { return $this->totalEasypaisa; }
+    public function getClosingCash(): ?int { return $this->closingCash; }
+    public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
     public function recordSale(int $total, string $paymentMethod): void {
         if (!$this->isOpen()) throw new \LogicException('Cannot record sale on closed session.');
         $this->totalSalesPkr += $total;
