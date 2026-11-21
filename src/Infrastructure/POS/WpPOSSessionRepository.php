@@ -7,11 +7,14 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_pos_sessions'; }
     public function save(POSSession $s): int {
-        $this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        $inserted = $this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        if ($inserted === false || (int)$this->db->insert_id < 1) {
+            throw new \\RuntimeException('Unable to persist the POS session.');
+        }
         return (int)$this->db->insert_id;
     }
     public function update(POSSession $s): void {
-        $this->db->update($this->t(), [
+        $updated = $this->db->update($this->t(), [
             'closing_cash' => $s->getClosingCash(),
             'total_sales_pkr' => $s->getTotalSalesPkr(),
             'total_cash_pkr' => $s->getTotalCashPkr(),
@@ -21,6 +24,9 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
             'status' => $s->getStatus()->value,
             'closed_at' => $s->getClosedAt()?->format('Y-m-d H:i:s'),
         ], ['id' => $s->id]);
+        if ($updated === false) {
+            throw new \\RuntimeException('Unable to persist POS session totals.');
+        }
     }
     public function findById(int $id): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
     public function findOpenByLocation(int $locationId): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A); return $r?$this->h($r):null; }
