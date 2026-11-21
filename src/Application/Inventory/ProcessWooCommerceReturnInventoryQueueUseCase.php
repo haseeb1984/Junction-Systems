@@ -18,11 +18,11 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $this->enqueue('cancel:' . $orderId . ':' . $itemId . ':' . $quantity, 'cancellation', $orderId, $itemId, $productId, $quantity, 0);
     }
 
-    public function enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity): void {
+    public function enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null): void {
         if ($orderId < 1 || $productId < 1 || $quantity < 1 || $cumulativeQuantity < $quantity) {
             throw new \InvalidArgumentException('Invalid WooCommerce refund restock event.');
         }
-        $this->enqueue('refund:' . $orderId . ':' . $productId . ':' . $cumulativeQuantity, 'refund', $orderId, null, $productId, $quantity, $cumulativeQuantity);
+        $this->enqueue('refund:' . $orderId . ':' . $productId . ':' . ($itemId ?? 0) . ':' . $cumulativeQuantity, 'refund', $orderId, $itemId, $productId, $quantity, $cumulativeQuantity);
     }
 
     private function enqueue(string $key, string $kind, int $orderId, ?int $itemId, int $productId, int $quantity, int $cumulative): void {
@@ -59,7 +59,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                     $product = wc_get_product($productId);
                     if (!$product) throw new \RuntimeException('WooCommerce refund product is unavailable.');
                     $this->syncInventory->onWooCommerceRefundItemRestocked(
-                        $productId, $quantity, 0, $order, $product, null, (int) $job['cumulative_quantity']
+                        $productId, $quantity, 0, $order, $product, $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : null, (int) $job['cumulative_quantity']
                     );
                 } else {
                     throw new \RuntimeException('Unknown WooCommerce return event kind.');
