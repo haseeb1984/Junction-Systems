@@ -63,14 +63,22 @@ final class WpStockRepository implements StockRepositoryInterface {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $limit = max(1, min(100, $limit));
         // Recover jobs abandoned by a terminated PHP worker.
-        $this->db->query("UPDATE {$table} SET status='pending', claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB('" . esc_sql(current_time('mysql')) . "', INTERVAL 10 MINUTE)");
+        $recovered = $this->db->query($this->db->prepare(
+            "UPDATE {$table} SET status='pending', claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
+            current_time('mysql')
+        ));
+        if ($recovered === false) throw new \RuntimeException('Unable to recover stale stock sync claims.');
         if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start stock sync queue claim.');
         try {
             $rows = $this->db->get_results($this->db->prepare(
                 "SELECT id, product_id, attempts, generation FROM {$table}
                  WHERE status='pending' AND next_attempt_at <= %s ORDER BY next_attempt_at ASC, id ASC LIMIT %d FOR UPDATE",
                 current_time('mysql'), $limit
-            ), ARRAY_A) ?: [];
+            ), ARRAY_A);
+            if ($rows === null && $this->db->last_error !== '') {
+                throw new \RuntimeException('Unable to read stock sync queue.');
+            }
+            $rows = $rows ?: [];
             foreach ($rows as &$row) {
                 $updated = $this->db->query($this->db->prepare(
                     "UPDATE {$table} SET status='processing', claimed_at=%s, attempts=attempts+1 WHERE id=%d AND status='pending'",
