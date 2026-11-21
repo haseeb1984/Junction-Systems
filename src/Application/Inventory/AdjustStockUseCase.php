@@ -43,8 +43,8 @@ final class AdjustStockUseCase {
 
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
         global $wpdb;
-        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
-            throw new \\RuntimeException('Unable to start manual stock count transaction.');
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start manual stock count transaction.');
         }
 
         try {
@@ -58,9 +58,9 @@ final class AdjustStockUseCase {
             $this->stockRepo->enqueueWooCommerceSync($productId);
 
             if ($wpdb->query('COMMIT') === false) {
-                throw new \\RuntimeException('Unable to commit manual stock count transaction.');
+                throw new \RuntimeException('Unable to commit manual stock count transaction.');
             }
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
             throw $error;
         }
@@ -68,7 +68,7 @@ final class AdjustStockUseCase {
         // External WooCommerce writes only happen after the inventory ledger commits.
         try {
             $this->syncProductToWooCommerce($productId);
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $this->log->error('Manual stock count saved; WooCommerce sync remains queued for retry.', [
                 'product_id' => $productId,
                 'error_class' => get_class($error),
