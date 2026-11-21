@@ -71,7 +71,9 @@ final class ThemeBootstrapper {
                 }
             });
         }
-        if ($this->fm->isEnabled('pos'))
+        // POS is an operational layer over the shared inventory ledger; it
+        // must never run when inventory entitlement is disabled.
+        if ($this->fm->isEnabled('pos') && $this->fm->isEnabled('inventory'))
             (new POSController($this->c))->register();
 
         // ── Analytics ─────────────────────────────────────────────
