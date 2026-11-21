@@ -18,13 +18,42 @@ final class ProcessPOSSaleUseCase {
     public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): POSOrder {
         $session = $this->sessionRepo->findById($sessionId);
         if (!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
-        // Validate items and enrich with product data
+        if ($session->locationId !== $locationId) throw new \RuntimeException('POS session location does not match the sale location.');
+
+        // Never trust prices or quantities supplied by the browser. Product price
+        // is read from the server-side inventory record and quantities must be positive.
         $enriched = [];
         foreach ($items as $item) {
-            $product = $this->productRepo->findById((int)$item['product_id']);
-            if (!$product) throw new \RuntimeException("Product [{$item['product_id']}] not found.");
-            $enriched[] = ['product_id'=>$product->id,'sku'=>$product->sku,'name'=>$product->name,'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)($item['unit_price_pkr'] ?? $product->salePricePkr),'discount_pkr'=>(int)($item['discount_pkr'] ?? 0)];
+            if (!is_array($item) || !isset($item['product_id'], $item['quantity'])) {
+                throw new \InvalidArgumentException('Each POS item must include a product and quantity.');
+            }
+            $productId = filter_var($item['product_id'], FILTER_VALIDATE_INT);
+            $quantity = filter_var($item['quantity'], FILTER_VALIDATE_INT);
+            if (!$productId || !$quantity || $quantity < 1) {
+                throw new \InvalidArgumentException('POS item product and quantity are invalid.');
+            }
+            $product = $this->productRepo->findById($productId);
+            if (!$product || !$product->isActive) {
+                throw new \RuntimeException("Product [{$productId}] is unavailable.");
+            }
+            $enriched[] = [
+                'product_id' => $product->id,
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'quantity' => $quantity,
+                'unit_price_pkr' => $product->salePricePkr,
+                'discount_pkr' => 0,
+            ];
         }
+
+        $subtotal = array_sum(array_map(
+            static fn(array $item): int => $item['unit_price_pkr'] * $item['quantity'],
+            $enriched
+        ));
+        if ($discountPkr < 0 || $discountPkr > $subtotal) {
+            throw new \InvalidArgumentException('Sale discount must be between zero and the sale subtotal.');
+        }
+
         $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
         $orderId = $this->orderRepo->save($order);
         $this->orderRepo->saveItems($orderId, $enriched);
