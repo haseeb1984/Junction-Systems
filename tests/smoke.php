@@ -65,4 +65,13 @@ foreach (['postex_courier', 'rider_courier', 'klaviyo', 'multi_location_inventor
     }
 }
 
+foreach ([
+    \PkStore\Infrastructure\Inventory\WpStockRepository::class,
+    \PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class,
+] as $class) {
+    if (!class_exists($class)) {
+        throw new \RuntimeException('Stock sync queue class failed to autoload: ' . $class);
+    }
+}
+
 echo "Smoke tests passed.\n";
