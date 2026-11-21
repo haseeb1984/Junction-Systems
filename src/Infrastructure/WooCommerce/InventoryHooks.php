@@ -10,6 +10,8 @@ final class InventoryHooks {
         add_action('woocommerce_payment_complete',           [$this, 'onSale']);
         add_action('woocommerce_order_status_completed',     [$this, 'onSale']);
         add_action('woocommerce_order_status_processing',    [$this, 'onSale']);
+        // This per-line hook fires only after WooCommerce actually restores stock.
+        add_action('woocommerce_restore_order_item_stock', [$this, 'onOrderItemRestored'], 10, 4);
         // Scheduled full sync every hour
         if (!wp_next_scheduled('pkstore_inventory_hourly_sync'))
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
@@ -21,6 +23,15 @@ final class InventoryHooks {
         } catch (\Throwable $e) {
             // Avoid leaking exception details that may contain customer/provider data.
             error_log('[PKStore Inventory] Unable to enqueue order inventory event for '.$orderId.' ('.get_class($e).').');
+        }
+    }
+    public function onOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
+        try {
+            $this->c->make(SyncWooCommerceStockUseCase::class)
+                ->onWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
+        } catch (\\Throwable $e) {
+            // The source event is authoritative, but failures need operator attention.
+            error_log('[PKStore Inventory] WooCommerce cancellation restock was not mirrored ('.get_class($e).').');
         }
     }
     public function hourlySyncAll(): void {
