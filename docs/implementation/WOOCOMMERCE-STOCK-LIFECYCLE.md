@@ -112,3 +112,24 @@ This can leave the Junction online-location balance wrong even though each indiv
 **Implementation update:** The current branch now serializes sale, cancellation and refund handlers with one per-order MySQL advisory lock. Sale ingestion re-reads the order after acquiring the lock, skips cancelled/failed orders, and deducts only ordered quantity less WooCommerce's cumulative explicitly-restocked refund quantity. A return callback checks whether the matching Junction sale movement is already committed: if not, it defers the return because the later sale ingestion will account for the already-restocked quantity; if yes, it records the return movement idempotently. This closes the identified sale-before/after-return ordering race for the supported WooCommerce callbacks, subject to staging verification.
 
 **Remaining production blockers:** Return callback failures are still synchronous and do not yet have their own durable retry/reconciliation queue. Ambiguous refund line mapping fails closed and requires operator intervention. The acceptance cases above, worker crash/retry behavior, MySQL advisory-lock behavior under the hosting topology, and concurrent POS sales still require runtime/staging tests. Do not declare production readiness until those tests pass and return-event recovery is implemented.
+
+
+## Durable return-event recovery implementation
+
+The current branch now adds a dedicated `pkstore_wc_return_inventory_queue` table (migration `2.0.4`) and a five-minute worker for cancellation and explicit refund restocks.
+
+- WooCommerce callbacks now persist immutable return event keys instead of writing the Junction ledger synchronously.
+- Cancellation event identity includes order ID, order-item ID, and restored quantity.
+- Refund event identity includes order ID, product ID, optional uniquely resolved order-item ID, and cumulative restocked quantity. Ambiguous same-product order lines remain queued and fail closed rather than guessing.
+- Queue jobs have claim/recovery state, attempts, capped exponential retry, and stale-claim recovery. A worker crash after ledger commit is safe because the ledger movement references remain idempotent; the queue retries and then acknowledges.
+- The worker calls the same order-locked inventory use case. If the matching sale movement is not committed yet, the return event stays pending and retries; it is not discarded. A cancelled/failed/pending order with no sale movement is terminal for a cancellation return. A fully refunded order with no sale movement is terminal for a refund return.
+- Sale ingestion records the original sale quantity; actual cancellation/refund stock restoration is represented by separate durable return movements. This prevents the same partial refund from being deducted from the sale quantity and then added again as a return.
+
+### Remaining blockers
+
+- Ambiguous refund lines currently retry indefinitely; a Junction admin reconciliation screen/dead-letter workflow is still required.
+- If WordPress/MySQL is unavailable at the exact moment the WooCommerce callback fires, the callback cannot persist the event; monitoring and source-event reconciliation are still required.
+- Re-payment/reopening of a previously reduced and restored order may represent a new stock-reduction cycle; sale movement identity currently remains order-level and needs an explicit lifecycle-cycle design before that scenario is certified.
+- The queue and stock behavior have not yet been runtime-tested against WooCommerce/MySQL. Verify cancellation-before-sale, refund-before-sale, partial refunds, full refunds, repeated callbacks, stale worker recovery, concurrent workers, and POS sales in staging.
+
+**Status:** Durable retry is now implemented for persisted return callbacks, but production sign-off remains blocked on runtime acceptance, unresolved-event reconciliation UI, and the order re-payment lifecycle case.
