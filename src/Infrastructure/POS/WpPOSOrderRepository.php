@@ -8,7 +8,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
     private function t(): string { return $this->db->prefix . 'pkstore_pos_orders'; }
     private function ti(): string { return $this->db->prefix . 'pkstore_pos_order_items'; }
     public function save(POSOrder $o): int {
-        $inserted = $this->db->insert($this->t(),['session_id'=>$o->sessionId,'location_id'=>$o->locationId,'order_ref'=>$o->orderRef,'subtotal_pkr'=>$o->subtotalPkr,'discount_pkr'=>$o->discountPkr,'total_pkr'=>$o->totalPkr,'payment_method'=>$o->paymentMethod,'payment_split'=>$o->paymentSplit?wp_json_encode($o->paymentSplit):null,'customer_phone'=>$o->customerPhone,'customer_name'=>$o->customerName,'receipt_sent'=>0,'sync_status'=>'pending','wc_order_id'=>null,'created_at'=>$o->createdAt->format('Y-m-d H:i:s'),'synced_at'=>null]);
+        $inserted = $this->db->insert($this->t(),['session_id'=>$o->sessionId,'location_id'=>$o->locationId,'order_ref'=>$o->orderRef,'request_fingerprint'=>$o->requestFingerprint,'subtotal_pkr'=>$o->subtotalPkr,'discount_pkr'=>$o->discountPkr,'total_pkr'=>$o->totalPkr,'payment_method'=>$o->paymentMethod,'payment_split'=>$o->paymentSplit?wp_json_encode($o->paymentSplit):null,'customer_phone'=>$o->customerPhone,'customer_name'=>$o->customerName,'receipt_sent'=>0,'sync_status'=>'pending','wc_order_id'=>null,'created_at'=>$o->createdAt->format('Y-m-d H:i:s'),'synced_at'=>null]);
         if ($inserted === false || (int)$this->db->insert_id < 1) throw new \RuntimeException('Unable to persist POS order.');
         return (int)$this->db->insert_id;
     }
