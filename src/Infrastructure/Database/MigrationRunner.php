@@ -20,6 +20,7 @@ final class MigrationRunner {
         '2.0.0' => [Installer::class, 'installSchema'],
         '2.0.1' => [InventoryInstaller::class, 'installStockSyncQueue'],
         '2.0.2' => [self::class, 'addPOSRequestFingerprint'],
+        '2.0.3' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
     ];
 
 
@@ -115,6 +116,7 @@ final class MigrationRunner {
             'pkstore_affiliate_payouts',
             'pkstore_inventory_products',
             'pkstore_wc_stock_sync',
+            'pkstore_wc_order_inventory_queue',
             'pkstore_inventory_stock',
             'pkstore_inventory_locations',
             'pkstore_inventory_movements',
