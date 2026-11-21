@@ -86,6 +86,10 @@ class Woo_AI_Engine {
             return self::err("AI assistant is not configured. Contact the store admin.", $wa);
         }
 
+        // A legacy plaintext key may have been migrated during the check above.
+        // Refresh options so the request path never reuses the stale plaintext array.
+        $opts = get_option("woo_ai_settings", []);
+
         $sess = self::check_session_limit($opts, $wa);
         if ($sess !== null) return $sess;
 
