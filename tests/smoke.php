@@ -322,7 +322,7 @@ if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
     || strpos($wcLifecycleSource, '$remainingQuantity = (int) $rawQuantity - $restockedQuantity;') === false
     || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
-    throw new \\RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
+    throw new \RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
 }
 
 echo "Smoke tests passed.\n";
