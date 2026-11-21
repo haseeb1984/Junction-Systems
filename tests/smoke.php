@@ -351,4 +351,20 @@ if (!is_string($returnQueueSource)
     throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
 
+
+$inventoryEventsSource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
+$inventoryEventsTemplate = file_get_contents(dirname(__DIR__) . '/templates/admin/inventory/inventory-events.php');
+if (!is_string($inventoryEventsSource)
+    || strpos($inventoryEventsSource, "pkstore-inventory-events") === false
+    || strpos($inventoryEventsSource, "public function inventoryEvents(): void") === false
+    || strpos($inventoryEventsSource, "current_user_can(self::CAP)") === false
+    || strpos($inventoryEventsSource, "isEnabled('inventory')") === false
+    || strpos($inventoryEventsSource, "LIMIT 100") === false
+    || !is_string($inventoryEventsTemplate)
+    || strpos($inventoryEventsTemplate, "Last error category") === false
+    || strpos($inventoryEventsTemplate, "does not force-complete events or change stock") === false
+    || strpos($inventoryEventsTemplate, "esc_html(") === false) {
+    throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
+}
+
 echo "Smoke tests passed.\n";
