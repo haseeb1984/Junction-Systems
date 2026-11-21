@@ -485,7 +485,7 @@ const POS = {
         if (body) opts.body = JSON.stringify(body);
         const r = await fetch(POS_CONFIG.restUrl + endpoint, opts);
         const data = await r.json();
-        if (!r.ok) throw new Error(data.message||`HTTP ${r.status}`);
+        if (!r.ok) { const error = new Error(data.message||`HTTP ${r.status}`); error.status = r.status; throw error; }
         return data;
     }
 };
