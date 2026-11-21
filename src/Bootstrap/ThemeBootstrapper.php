@@ -64,6 +64,12 @@ final class ThemeBootstrapper {
             add_action('pkstore_process_wc_stock_sync', function(): void {
                 $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class)->execute();
             });
+            add_action('pkstore_process_wc_stock_sync', function(): void {
+                $result = $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class)->execute();
+                if (($result['failed'] ?? 0) > 0) {
+                    error_log('[PK Store] WooCommerce order inventory queue has retryable failures.');
+                }
+            });
         }
         if ($this->fm->isEnabled('pos'))
             (new POSController($this->c))->register();
