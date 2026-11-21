@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace PkStore\Infrastructure\Http;
 use PkStore\Application\Inventory\{AdjustStockUseCase, GenerateBarcodeUseCase};
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\Inventory\Entity\MovementType;
 use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface, LocationRepositoryInterface};
 final class InventoryController {
@@ -19,7 +20,9 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/stock/adjust',     ['methods'=>'POST','callback'=>[$this,'adjustStock'],     'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>fn()=>current_user_can($auth)]);
-            register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            if (FeatureManager::getInstance()->isEnabled('barcode_labels')) {
+                register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            }
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>fn()=>current_user_can($auth)]);
         });
     }
@@ -84,6 +87,9 @@ final class InventoryController {
         return new \WP_REST_Response(['success'=>true,'locations'=>array_map(fn($l)=>['id'=>$l->id,'name'=>$l->name,'type'=>$l->type,'is_pos'=>$l->isPos,'is_online'=>$l->isOnline],$locations)],200);
     }
     public function generateBarcode(\WP_REST_Request $req): \WP_REST_Response {
+        if (!FeatureManager::getInstance()->isEnabled('barcode_labels')) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Barcode labels are not available on the current package.'],403);
+        }
         try { $barcode=$this->c->make(GenerateBarcodeUseCase::class)->execute((int)$req->get_param('id')); return new \WP_REST_Response(['success'=>true,'barcode'=>$barcode],200);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],404); }
     }
