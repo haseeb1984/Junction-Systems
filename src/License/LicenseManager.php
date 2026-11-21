@@ -216,6 +216,10 @@ final class LicenseManager {
             );
         }
 
+        // Offline grace is not an exemption from expiry or domain binding.
+        // A previously cached entitlement must remain valid for this exact store.
+        $this->assertValid($data);
+
         // Still within grace — log warning and continue
         error_log('[PkStore License] Using grace period cache. Days remaining: ' .
             ceil((self::GRACE_PERIOD - (time() - $graceStart)) / 86400));
