@@ -23,13 +23,22 @@ final class SyncWooCommerceStockUseCase {
         $quantities = [];
         foreach ($order->get_items() as $item) {
             $wcProductId = (int) $item->get_product_id();
-            $quantity = (int) $item->get_quantity();
-            if ($wcProductId < 1 || $quantity < 1) continue;
+            $rawQuantity = (float) $item->get_quantity();
+            if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity) {
+                throw new \\RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
+            }
             $product = $this->productRepo->findByWcProductId($wcProductId);
-            if (!$product) continue;
-            $quantities[$product->id] = ($quantities[$product->id] ?? 0) + $quantity;
+            if (!$product) {
+                // Fail before opening the inventory transaction: never deduct only
+                // the mapped subset of an order and leave the order under-counted.
+                throw new \\RuntimeException('WooCommerce order product is not linked to Junction inventory.');
+            }
+            $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int) $rawQuantity;
         }
-        if (!$quantities) return;
+        if (!$quantities) {
+            // An order with no stock-managed product lines needs no inventory movement.
+            return;
+        }
         ksort($quantities, SORT_NUMERIC);
 
         global $wpdb;
