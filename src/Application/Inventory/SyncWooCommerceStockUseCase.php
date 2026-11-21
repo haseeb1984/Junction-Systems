@@ -12,16 +12,19 @@ final class SyncWooCommerceStockUseCase {
         private readonly AdjustStockUseCase $adjustStock,
         private readonly LoggerInterface $log,
     ) {}
-    public function onWooCommerceSale(int $orderId) {
-        if ($orderId < 1) throw new \\InvalidArgumentException('Invalid WooCommerce order ID.');
+    public function onWooCommerceSale(int $orderId): void {
+        if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
         $this->withOrderLock($orderId, function () use ($orderId): void {
             $this->applyonWooCommerceSale($orderId);
         });
     }
 
-    private function applyonWooCommerceSale(int $orderId): void {
+    private function applyWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) { throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.'); }
+        if (in_array((string) $order->get_status(), ['cancelled', 'failed'], true)) {
+            return;
+        }
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) { throw new \RuntimeException('Junction online inventory location is not configured.'); }
 
@@ -32,7 +35,9 @@ final class SyncWooCommerceStockUseCase {
             $wcProductId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             $rawQuantity = (float) $item->get_quantity();
-            if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity) {
+            $restockedQuantity = (int) $item->get_meta('_restock_refunded_items', true);
+            if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity
+                || $restockedQuantity < 0 || $restockedQuantity > $rawQuantity) {
                 throw new \RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
             }
             // Prefer an explicitly mapped variation so separately stocked
@@ -47,7 +52,10 @@ final class SyncWooCommerceStockUseCase {
                 // the mapped subset of an order and leave the order under-counted.
                 throw new \RuntimeException('WooCommerce order product is not linked to Junction inventory.');
             }
-            $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int) $rawQuantity;
+            $remainingQuantity = (int) $rawQuantity - $restockedQuantity;
+            if ($remainingQuantity > 0) {
+                $quantities[$product->id] = ($quantities[$product->id] ?? 0) + $remainingQuantity;
+            }
         }
         if (!$quantities) {
             // An order with no stock-managed product lines needs no inventory movement.
@@ -120,15 +128,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a cancellation restock only after WooCommerce has actually restored
      * the individual order item. The callback's stock delta is authoritative.
      */
-    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order) {
-        if (!($order instanceof \\WC_Order)) throw new \\InvalidArgumentException('WooCommerce restore event is malformed.');
+    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
+        if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
         $orderId = (int) $order->get_id();
         $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order): void {
             $this->applyonWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
         });
     }
 
-    private function applyonWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
+    private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
         if (!($order instanceof \WC_Order) || !is_object($item)
             || !method_exists($item, 'get_id') || !method_exists($item, 'get_product_id')) {
             throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
@@ -159,6 +167,10 @@ final class SyncWooCommerceStockUseCase {
         }
         try {
             $this->stockRepo->getStock($product->id, $onlineLocation->id);
+            if (!$this->stockRepo->hasMovementReference($product->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
+                if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit deferred cancellation restock.');
+                return;
+            }
             if (!$this->stockRepo->hasMovementReference(
                 $product->id,
                 $onlineLocation->id,
@@ -205,15 +217,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a refund only when WooCommerce's explicit restock action fires.
      * The original order item carries cumulative _restock_refunded_items metadata.
      */
-    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product) {
-        if (!($order instanceof \\WC_Order)) throw new \\InvalidArgumentException('WooCommerce refund restock event is malformed.');
+    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+        if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         $orderId = (int) $order->get_id();
         $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product): void {
             $this->applyonWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product);
         });
     }
 
-    private function applyonWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+    private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
         if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
             throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         }
@@ -259,6 +271,10 @@ final class SyncWooCommerceStockUseCase {
         }
         try {
             $this->stockRepo->getStock($productRecord->id, $onlineLocation->id);
+            if (!$this->stockRepo->hasMovementReference($productRecord->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
+                if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit deferred refund restock.');
+                return;
+            }
             if (!$this->stockRepo->hasMovementReference(
                 $productRecord->id,
                 $onlineLocation->id,
@@ -307,13 +323,13 @@ final class SyncWooCommerceStockUseCase {
      */
     private function withOrderLock(int $orderId, callable $callback): void {
         global $wpdb;
-        if ($orderId < 1 || !$wpdb instanceof \\wpdb) {
-            throw new \\RuntimeException('A valid WooCommerce order lock is unavailable.');
+        if ($orderId < 1 || !$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('A valid WooCommerce order lock is unavailable.');
         }
         $lockName = 'pkstore_wc_order_' . $orderId;
         $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ((int) $acquired !== 1) {
-            throw new \\RuntimeException('Unable to acquire WooCommerce order inventory lock.');
+            throw new \RuntimeException('Unable to acquire WooCommerce order inventory lock.');
         }
         try {
             $callback();
