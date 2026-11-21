@@ -350,7 +350,9 @@ const POS = {
         const cphone   = document.getElementById('pos-cphone').value.trim();
         const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
         const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
-        const payload  = {session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
+        // Stable request identity survives timeouts and offline retries.
+        const orderRef = 'P-' + Array.from(crypto.getRandomValues(new Uint8Array(13))).map(b=>b.toString(16).padStart(2,'0')).join('');
+        const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
 
         try {
             const r = await this.api('/pos/sale','POST',payload);
@@ -364,11 +366,15 @@ const POS = {
             this.clearCart();
             this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
         } catch(e) {
-            // Offline: queue locally in IndexedDB
-            const offlineRef = 'OFFLINE-' + Date.now();
-            await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
-            this.clearCart();
-            this.toast(`⚡ Offline — sale queued (${offlineRef})`);
+            // Queue only transport failures. Validation/authorization errors must
+            // remain visible and must not be silently converted into offline sales.
+            if (e.status) {
+                this.toast('Sale rejected: ' + e.message);
+            } else {
+                await DB.put('queue', {...payload, ref:orderRef, total, offline:true});
+                this.clearCart();
+                this.toast(`⚡ Network unavailable — sale queued (${orderRef})`);
+            }
         }
         btn.disabled = false; this.updateTotals();
     },
@@ -457,7 +463,7 @@ const POS = {
         this.toast(`Syncing ${queue.length} offline sale(s)...`);
         for (const item of queue) {
             try {
-                const {ref, offline, ...payload} = item;
+                const {ref, offline, total, ...payload} = item;
                 await this.api('/pos/sale','POST',payload);
                 await DB.delete('queue', ref);
             } catch(e) { /* leave in queue, retry next time */ }
