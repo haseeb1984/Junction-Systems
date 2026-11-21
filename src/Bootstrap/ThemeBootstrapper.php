@@ -70,6 +70,12 @@ final class ThemeBootstrapper {
                     error_log('[PK Store] WooCommerce order inventory queue has retryable failures.');
                 }
             });
+            add_action('pkstore_process_wc_stock_sync', function(): void {
+                $result = $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceReturnInventoryQueueUseCase::class)->execute();
+                if (($result['failed'] ?? 0) > 0) {
+                    error_log('[PK Store] WooCommerce return inventory queue has retryable failures.');
+                }
+            });
         }
         // POS is an operational layer over the shared inventory ledger; it
         // must never run when inventory entitlement is disabled.
