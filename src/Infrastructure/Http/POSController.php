@@ -73,7 +73,7 @@ final class POSController {
         $discount     = (int)($req->get_param('discount_pkr')??0);
         $split        = $req->get_param('payment_split');
         $clientOrderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
-        if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) return new \\WP_REST_Response(['success'=>false,'message'=>'A valid POS request reference is required.'],422);
+        if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) return new \WP_REST_Response(['success'=>false,'message'=>'A valid POS request reference is required.'],422);
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
         if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
