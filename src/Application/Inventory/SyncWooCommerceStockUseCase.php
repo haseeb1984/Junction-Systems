@@ -203,13 +203,15 @@ final class SyncWooCommerceStockUseCase {
                 continue;
             }
             $cumulative = (int) $item->get_meta('_restock_refunded_items', true);
-            if ($cumulative > 0 && $cumulative >= ($newStock - $oldStock)) {
-                $candidates[] = ['item' => $item, 'cumulative' => $cumulative, 'variation_id' => $variationId, 'parent_id' => $parentId];
-            }
+            // Keep every product-matching line in the ambiguity check, even
+            // when its cumulative restock metadata is zero or smaller. Filtering
+            // first could incorrectly select one line while ignoring another.
+            $candidates[] = ['item' => $item, 'cumulative' => $cumulative, 'variation_id' => $variationId, 'parent_id' => $parentId];
         }
-        if (count($candidates) !== 1) {
+        if (count($candidates) !== 1 || $candidates[0]['cumulative'] < ($newStock - $oldStock)) {
             // The WooCommerce hook omits the original order-item ID. Do not guess
-            // when the same product appears on multiple order lines.
+            // when the same product appears on multiple order lines, including
+            // lines whose cumulative metadata is zero or below this callback delta.
             throw new \RuntimeException('Refund restock cannot be mapped unambiguously to one WooCommerce order item.');
         }
         $candidate = $candidates[0];
