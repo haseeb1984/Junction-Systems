@@ -26,17 +26,38 @@ final class POSController {
         if ($locationId < 1 || $openingCash < 0) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Location and opening cash must be valid non-negative values.'],422);
         }
+        global $wpdb;
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
-        $existing    = $sessionRepo->findOpenByLocation($locationId);
-        if ($existing) {
-            if ($existing->cashierId !== get_current_user_id()) {
-                return new \WP_REST_Response(['success'=>false,'message'=>'This location has an open session assigned to another cashier.'],409);
-            }
-            return new \WP_REST_Response(['success'=>true,'session_id'=>$existing->id,'message'=>'Existing session resumed.','resumed'=>true],200);
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Unable to start POS session operation.'],500);
         }
-        $session   = POSSession::open($locationId, get_current_user_id(), $openingCash);
-        $sessionId = $sessionRepo->save($session);
-        return new \WP_REST_Response(['success'=>true,'session_id'=>$sessionId,'message'=>'POS session opened.','resumed'=>false],201);
+        try {
+            // Serialize session creation per location. Locking the parent location
+            // row also protects the "no open session exists yet" case.
+            $locationTable = $wpdb->prefix . 'pkstore_inventory_locations';
+            $lockedLocation = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$locationTable} WHERE id=%d AND is_active=1 FOR UPDATE",
+                $locationId
+            ));
+            if (!$lockedLocation) throw new \RuntimeException('POS location is unavailable.');
+
+            $existing = $sessionRepo->findOpenByLocation($locationId);
+            if ($existing) {
+                if ($existing->cashierId !== get_current_user_id()) {
+                    $wpdb->query('ROLLBACK');
+                    return new \WP_REST_Response(['success'=>false,'message'=>'This location has an open session assigned to another cashier.'],409);
+                }
+                $wpdb->query('COMMIT');
+                return new \WP_REST_Response(['success'=>true,'session_id'=>$existing->id,'message'=>'Existing session resumed.','resumed'=>true],200);
+            }
+            $sessionId = $sessionRepo->save(POSSession::open($locationId, get_current_user_id(), $openingCash));
+            if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit POS session operation.');
+            return new \WP_REST_Response(['success'=>true,'session_id'=>$sessionId,'message'=>'POS session opened.','resumed'=>false],201);
+        } catch (\Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            error_log('[PK Store POS] Session open failed: ' . get_class($e));
+            return new \WP_REST_Response(['success'=>false,'message'=>'POS session could not be opened.'],500);
+        }
     }
     public function closeSession(\WP_REST_Request $req): \WP_REST_Response {
         $sessionId   = (int)($req->get_param('session_id')??0);
@@ -44,15 +65,32 @@ final class POSController {
         if ($sessionId < 1 || $closingCash < 0) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Session and closing cash must be valid non-negative values.'],422);
         }
+        global $wpdb;
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
-        $session     = $sessionRepo->findById($sessionId);
-        if (!$session||!$session->isOpen()) return new \WP_REST_Response(['success'=>false,'message'=>'Session not found or already closed.'],404);
-        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Unable to start POS session operation.'],500);
         }
-        $session->close($closingCash);
-        $sessionRepo->update($session);
-        return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
+        try {
+            // findById uses SELECT ... FOR UPDATE; transaction makes that lock real
+            // and serializes closing against in-flight sales recording the same session.
+            $session = $sessionRepo->findById($sessionId);
+            if (!$session || !$session->isOpen()) {
+                $wpdb->query('ROLLBACK');
+                return new \WP_REST_Response(['success'=>false,'message'=>'Session not found or already closed.'],404);
+            }
+            if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+                $wpdb->query('ROLLBACK');
+                return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+            }
+            $session->close($closingCash);
+            $sessionRepo->update($session);
+            if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit POS session close.');
+            return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
+        } catch (\Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            error_log('[PK Store POS] Session close failed: ' . get_class($e));
+            return new \WP_REST_Response(['success'=>false,'message'=>'POS session could not be closed.'],500);
+        }
     }
     public function currentSession(\WP_REST_Request $req): \WP_REST_Response {
         $locationId = (int)($req->get_param('location_id')??1);
@@ -143,7 +181,7 @@ final class POSController {
         }
 
         $clean = preg_replace('/[^\\d]/', '', $phone);
-        if (str_starts_with($clean, '0')) $clean = '92' . substr($clean, 1);
+        if (strpos($clean, '0') === 0) $clean = '92' . substr($clean, 1);
         if (strlen($clean) < 10 || strlen($clean) > 15) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Phone number is invalid.'],422);
         }
