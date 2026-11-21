@@ -322,6 +322,8 @@ if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
     || strpos($wcLifecycleSource, 'Always book the original sale quantity') === false
     || strpos($wcLifecycleSource, 'return false;') === false
+    || strpos($wcLifecycleSource, 'return $this->withOrderLock($orderId') === false
+    || strpos($wcLifecycleSource, 'return $callback();') === false
     || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
     throw new \RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
 }
@@ -335,6 +337,8 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
+    || strpos($returnQueueSource, 'Cancellation return is waiting for its matching sale movement.') === false
+    || strpos($returnQueueSource, 'Refund return is waiting for its matching sale movement.') === false
     || !is_string($inventoryInstallerSource)
     || strpos($inventoryInstallerSource, 'pkstore_wc_return_inventory_queue') === false
     || strpos($migrationRunnerSource, "'2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue']") === false
