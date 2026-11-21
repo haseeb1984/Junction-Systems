@@ -255,6 +255,9 @@ final class LicenseManager {
         if ($code === 402) {
             throw new LicenseExpiredException(is_array($data) ? ($data['message'] ?? 'License expired') : 'License expired');
         }
+        if ($code === 401 || $code === 410) {
+            throw new LicenseInvalidException(is_array($data) ? ($data['message'] ?? 'License is invalid or revoked') : 'License is invalid or revoked');
+        }
         if ($code < 200 || $code >= 300) {
             throw new LicenseException("License server returned HTTP {$code}.");
         }
