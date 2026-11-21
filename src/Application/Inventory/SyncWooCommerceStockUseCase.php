@@ -31,18 +31,22 @@ final class SyncWooCommerceStockUseCase {
     }
     public function syncAllToWooCommerce(): int {
         $products = $this->productRepo->findAll(500, 0);
-        $synced   = 0;
+        $synced = 0;
         foreach ($products as $product) {
             if (!$product->wcProductId) continue;
-            $totalStock = $this->stockRepo->getTotalStock($product->id);
-            $wcProduct  = wc_get_product($product->wcProductId);
-            if (!$wcProduct) continue;
-            $wcProduct->set_manage_stock(true);
-            $wcProduct->set_stock_quantity($totalStock);
-            $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-            $wcProduct->save();
-            $synced++;
+            // Keep the reconciliation retryable and use the same per-product lock
+            // as POS, manual adjustments and the background queue worker.
+            $this->stockRepo->enqueueWooCommerceSync($product->id);
+            try {
+                $this->adjustStock->syncProductToWooCommerce($product->id);
+                $synced++;
+            } catch (\\Throwable $error) {
+                $this->log->error('Hourly WooCommerce stock reconciliation remains queued.', [
+                    'product_id' => $product->id,
+                    'error_class' => get_class($error),
+                ]);
+            }
         }
         return $synced;
     }
-}
+}}
