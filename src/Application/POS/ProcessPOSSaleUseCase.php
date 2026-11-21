@@ -17,7 +17,7 @@ final class ProcessPOSSaleUseCase {
     ) {}
     public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): POSOrder {
         if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true) || !empty($paymentSplit)) {
-            throw new \\InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
+            throw new \InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
         }
         $session = $this->sessionRepo->findById($sessionId);
         if (!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
