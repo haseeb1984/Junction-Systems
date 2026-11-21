@@ -107,3 +107,11 @@ The later POS/inventory transaction redesign, FBR integration, central billing p
 - POS WhatsApp receipt links now resolve the order by its server-side order reference, verify the caller owns the associated cashier session (or is an administrator), and use the persisted server-side total. Browser-supplied line items and totals are ignored.
 - The WhatsApp endpoint only constructs a `wa.me` link; it does not send a message itself. Phone format is validated before constructing the link.
 - Remaining gaps: offline-sale idempotency, durable retries for post-commit WooCommerce stock synchronization, and runtime verification of transaction/table-engine behavior.
+
+### POS offline retry idempotency
+- The POS client now creates a cryptographically random request reference (`P-` plus 26 lowercase hexadecimal characters) before submitting a sale and persists that same reference with the IndexedDB offline queue item.
+- The existing POS `order_ref` column already has a unique index. The client reference is used as the order reference, so a replay returns the existing committed order instead of deducting stock and recording tender totals again.
+- Concurrent retries are protected by the unique order-reference index; after a failed insert/transaction rollback, the use case checks for the winning committed order and returns it when it belongs to the same session/location.
+- REST retries can retrieve an existing order even after the cashier has closed the session, subject to cashier/session ownership checks.
+- Offline queueing is now limited to transport/response failures. HTTP validation and authorization errors are surfaced and are not silently queued as offline sales.
+- This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A payload fingerprint/reuse-mismatch check and full runtime retry tests remain recommended.
