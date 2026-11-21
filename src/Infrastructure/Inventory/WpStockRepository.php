@@ -8,11 +8,31 @@ final class WpStockRepository implements StockRepositoryInterface {
     private function ts(): string { return $this->db->prefix . 'pkstore_inventory_stock'; }
     private function tm(): string { return $this->db->prefix . 'pkstore_inventory_movements'; }
     public function getStock(int $productId, int $locationId): StockLevel {
-        $r = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->ts()} WHERE product_id=%d AND location_id=%d FOR UPDATE",$productId,$locationId),ARRAY_A);
-        if ($r) return new StockLevel((int)$r['id'],(int)$r['product_id'],(int)$r['location_id'],(int)$r['quantity'],new \DateTimeImmutable($r['updated_at']));
-        $inserted = $this->db->insert($this->ts(),['product_id'=>$productId,'location_id'=>$locationId,'quantity'=>0,'updated_at'=>current_time('mysql')]);
-        if ($inserted === false || (int)$this->db->insert_id < 1) throw new \RuntimeException('Unable to initialize stock level.');
-        return new StockLevel((int)$this->db->insert_id,$productId,$locationId,0,new \DateTimeImmutable());
+        // Ensure the unique product/location row exists before locking it. A
+        // SELECT ... FOR UPDATE cannot protect a row that does not exist; two
+        // first-time sales could otherwise race to insert the same stock row.
+        $inserted = $this->db->query($this->db->prepare(
+            "INSERT IGNORE INTO {$this->ts()} (product_id, location_id, quantity, updated_at) VALUES (%d, %d, 0, %s)",
+            $productId,
+            $locationId,
+            current_time('mysql')
+        ));
+        if ($inserted === false) throw new \RuntimeException('Unable to initialize stock level.');
+
+        $r = $this->db->get_row($this->db->prepare(
+            "SELECT * FROM {$this->ts()} WHERE product_id=%d AND location_id=%d FOR UPDATE",
+            $productId,
+            $locationId
+        ), ARRAY_A);
+        if (!$r) throw new \RuntimeException('Unable to lock stock level.');
+
+        return new StockLevel(
+            (int)$r['id'],
+            (int)$r['product_id'],
+            (int)$r['location_id'],
+            (int)$r['quantity'],
+            new \DateTimeImmutable($r['updated_at'])
+        );
     }
     public function updateStock(StockLevel $stock): void {
         $updated = $this->db->update($this->ts(),['quantity'=>$stock->getQuantity(),'updated_at'=>current_time('mysql')],['product_id'=>$stock->productId,'location_id'=>$stock->locationId]);
