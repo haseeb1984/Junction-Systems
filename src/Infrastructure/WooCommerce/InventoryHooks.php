@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\WooCommerce;
 use PkStore\Application\Inventory\SyncWooCommerceStockUseCase;
+use PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase;
 use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
     public function __construct(private readonly ServiceContainer $c) {}
@@ -24,6 +25,6 @@ final class InventoryHooks {
     }
     public function hourlySyncAll(): void {
         try { $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce(); }
-        catch (\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed: '.$e->getMessage()); }
+        catch (\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed ('.get_class($e).').'); }
     }
 }
