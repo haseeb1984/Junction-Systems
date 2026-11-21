@@ -53,8 +53,12 @@ final class WpStockRepository implements StockRepositoryInterface {
         $result = $this->db->query($this->db->prepare(
             "INSERT INTO {$table} (product_id, generation, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
              VALUES (%d, %s, 'pending', 0, %s, NULL, '', %s, %s)
-             ON DUPLICATE KEY UPDATE generation=VALUES(generation), status=IF(status='processing','processing','pending'),
-             attempts=0, next_attempt_at=VALUES(next_attempt_at), claimed_at=IF(status='processing',claimed_at,NULL),
+             ON DUPLICATE KEY UPDATE
+             generation=VALUES(generation),
+             status=IF(claimed_at IS NOT NULL,'processing','pending'),
+             attempts=IF(claimed_at IS NOT NULL,attempts,0),
+             next_attempt_at=IF(claimed_at IS NOT NULL,next_attempt_at,VALUES(next_attempt_at)),
+             claimed_at=claimed_at,
              last_error='', updated_at=VALUES(updated_at)",
             $productId, wp_generate_uuid4(), $now, $now, $now
         ));
