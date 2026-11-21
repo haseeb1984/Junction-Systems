@@ -45,7 +45,7 @@ final class ProcessWooCommerceStockSyncQueueUseCase {
                         'error_class' => get_class($queueError),
                     ]);
                 }
-                $this->log->error('WooCommerce stock sync will be retried.', [
+                $this->log->error('WooCommerce stock sync failed; inspect Sync Health for retry or review status.', [
                     'product_id' => $productId,
                     'attempt' => $attempts,
                     'error_class' => get_class($error),
