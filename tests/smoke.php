@@ -110,6 +110,13 @@ foreach (['postex_courier', 'rider_courier', 'klaviyo', 'multi_location_inventor
     }
 }
 
+if (!method_exists(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class, 'hasMovementReference')) {
+    throw new \RuntimeException('Stock repository must expose WooCommerce order movement idempotency lookup.');
+}
+if (!method_exists(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class, 'onWooCommerceSale')) {
+    throw new \RuntimeException('WooCommerce order inventory ingestion use case is unavailable.');
+}
+
 foreach ([
     \PkStore\Infrastructure\Inventory\WpStockRepository::class,
     \PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class,
