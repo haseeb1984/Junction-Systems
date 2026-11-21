@@ -148,4 +148,20 @@ foreach ([
     }
 }
 
+
+$bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
+$adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
+if (!is_string($bootstrapSource)
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('inventory'))") === false
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('barcode_labels'))") === false
+    || strpos($bootstrapSource, "current_user_can('manage_woocommerce') || !\$this->fm->isEnabled('barcode_labels')") === false) {
+    throw new \RuntimeException('Inventory and barcode admin registration must enforce package entitlements.');
+}
+if (!is_string($adminInventorySource)
+    || strpos($adminInventorySource, "if (!\$features->isEnabled('inventory')) return;") === false
+    || strpos($adminInventorySource, "if (\$features->isEnabled('pos'))") === false
+    || strpos($adminInventorySource, "if (!FeatureManager::getInstance()->isEnabled('pos'))") === false) {
+    throw new \RuntimeException('Inventory admin routes must enforce inventory and POS entitlements independently.');
+}
+
 echo "Smoke tests passed.\n";
