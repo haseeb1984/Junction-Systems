@@ -11,7 +11,15 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
         return (int)$this->db->insert_id;
     }
     public function update(POSSession $s): void {
-        $this->db->update($this->t(),['total_sales_pkr'=>$s->getTotalSalesPkr(),'status'=>$s->getStatus()->value],['id'=>$s->id]);
+        $this->db->update($this->t(), [
+            'closing_cash' => $s->getClosingCash(),
+            'total_sales_pkr' => $s->getTotalSalesPkr(),
+            'total_cash_pkr' => $s->getTotalCashPkr(),
+            'total_jazzcash' => $s->getTotalJazzcashPkr(),
+            'total_easypaisa' => $s->getTotalEasypaisaPkr(),
+            'status' => $s->getStatus()->value,
+            'closed_at' => $s->getClosedAt()?->format('Y-m-d H:i:s'),
+        ], ['id' => $s->id]);
     }
     public function findById(int $id): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
     public function findOpenByLocation(int $locationId): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A); return $r?$this->h($r):null; }
