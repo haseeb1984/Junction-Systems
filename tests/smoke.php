@@ -151,6 +151,7 @@ foreach ([
 
 $bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
 $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
+$adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('inventory'))") === false
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('barcode_labels'))") === false
@@ -162,6 +163,14 @@ if (!is_string($adminInventorySource)
     || strpos($adminInventorySource, "if (\$features->isEnabled('pos'))") === false
     || strpos($adminInventorySource, "if (!FeatureManager::getInstance()->isEnabled('pos'))") === false) {
     throw new \RuntimeException('Inventory admin routes must enforce inventory and POS entitlements independently.');
+}
+
+
+if (!is_string($bootstrapSource)
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('affiliate_system'))") === false
+    || !is_string($adminAffiliateSource)
+    || strpos($adminAffiliateSource, "if (!FeatureManager::getInstance()->isEnabled('affiliate_system'))") === false) {
+    throw new \RuntimeException('Affiliate admin registration and pages must enforce the affiliate entitlement.');
 }
 
 echo "Smoke tests passed.\n";
