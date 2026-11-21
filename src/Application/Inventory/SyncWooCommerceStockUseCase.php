@@ -114,15 +114,15 @@ final class SyncWooCommerceStockUseCase {
      * the individual order item. The callback's stock delta is authoritative.
      */
     public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
-        if (!($order instanceof \\WC_Order) || !is_object($item)
+        if (!($order instanceof \WC_Order) || !is_object($item)
             || !method_exists($item, 'get_id') || !method_exists($item, 'get_product_id')) {
-            throw new \\InvalidArgumentException('WooCommerce restore event is malformed.');
+            throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
         }
         $orderId = (int) $order->get_id();
         $itemId = (int) $item->get_id();
         $quantity = $newStock - $oldStock;
         if ($orderId < 1 || $itemId < 1 || $quantity < 1) {
-            throw new \\InvalidArgumentException('WooCommerce restore quantity is invalid.');
+            throw new \InvalidArgumentException('WooCommerce restore quantity is invalid.');
         }
 
         $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
@@ -130,17 +130,17 @@ final class SyncWooCommerceStockUseCase {
         $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
         $product ??= $this->productRepo->findByWcProductId($wcProductId);
         if (!$product) {
-            throw new \\RuntimeException('Restored WooCommerce item is not linked to Junction inventory.');
+            throw new \RuntimeException('Restored WooCommerce item is not linked to Junction inventory.');
         }
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) {
-            throw new \\RuntimeException('Junction online inventory location is not configured.');
+            throw new \RuntimeException('Junction online inventory location is not configured.');
         }
 
         $referenceId = $orderId . ':' . $itemId;
         global $wpdb;
-        if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
-            throw new \\RuntimeException('Unable to start WooCommerce return ledger transaction.');
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start WooCommerce return ledger transaction.');
         }
         try {
             $this->stockRepo->getStock($product->id, $onlineLocation->id);
@@ -163,9 +163,9 @@ final class SyncWooCommerceStockUseCase {
                 );
             }
             if ($wpdb->query('COMMIT') === false) {
-                throw new \\RuntimeException('Unable to commit WooCommerce return ledger transaction.');
+                throw new \RuntimeException('Unable to commit WooCommerce return ledger transaction.');
             }
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
             $this->log->error('WooCommerce cancellation restock was not applied to Junction inventory.', [
                 'order_id' => $orderId,
@@ -177,7 +177,7 @@ final class SyncWooCommerceStockUseCase {
 
         try {
             $this->adjustStock->syncProductToWooCommerce($product->id);
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $this->log->error('WooCommerce return committed; aggregate stock sync remains queued.', [
                 'order_id' => $orderId,
                 'product_id' => $product->id,
