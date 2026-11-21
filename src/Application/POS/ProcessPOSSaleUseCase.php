@@ -57,21 +57,41 @@ final class ProcessPOSSaleUseCase {
             throw new \InvalidArgumentException('Sale discount must be between zero and the sale subtotal.');
         }
 
-        $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
-        $orderId = $this->orderRepo->save($order);
-        $this->orderRepo->saveItems($orderId, $enriched);
-        // Deduct stock from physical location
-        foreach ($enriched as $item) {
-            try {
-                $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
-            } catch (\DomainException $e) {
-                $this->log->warning('POS stock deduction failed — sold below zero.', ['product'=>$item['sku'],'error'=>$e->getMessage()]);
-            }
+        // Keep order, line items, stock ledger/levels and session totals atomic.
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start the POS sale transaction.');
         }
-        // Update session totals
-        $session->recordSale($order->totalPkr, $paymentMethod);
-        $this->sessionRepo->update($session);
-        $this->log->info('POS sale processed.', ['order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'method'=>$paymentMethod]);
-        return $this->orderRepo->findById($orderId);
+
+        try {
+            $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
+            $orderId = $this->orderRepo->save($order);
+            if ($orderId < 1) {
+                throw new \RuntimeException('Unable to save POS order.');
+            }
+            $this->orderRepo->saveItems($orderId, $enriched);
+
+            foreach ($enriched as $item) {
+                // Any stock shortage or persistence error aborts the entire sale.
+                $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
+            }
+
+            $session->recordSale($order->totalPkr, $paymentMethod);
+            $this->sessionRepo->update($session);
+
+            $savedOrder = $this->orderRepo->findById($orderId);
+            if (!$savedOrder) {
+                throw new \RuntimeException('Saved POS order could not be reloaded.');
+            }
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \RuntimeException('Unable to commit POS sale transaction.');
+            }
+        } catch (\Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            throw $e;
+        }
+
+        $this->log->info('POS sale processed.', ['order_ref'=>$savedOrder->orderRef,'total'=>$savedOrder->totalPkr,'method'=>$paymentMethod]);
+        return $savedOrder;
     }
 }
