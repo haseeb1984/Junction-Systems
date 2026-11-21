@@ -53,8 +53,9 @@ final class WpStockRepository implements StockRepositoryInterface {
         $result = $this->db->query($this->db->prepare(
             "INSERT INTO {$table} (product_id, generation, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
              VALUES (%d, %s, 'pending', 0, %s, NULL, '', %s, %s)
-             ON DUPLICATE KEY UPDATE generation=VALUES(generation), status='pending', attempts=0, next_attempt_at=VALUES(next_attempt_at),
-             claimed_at=NULL, last_error='', updated_at=VALUES(updated_at)",
+             ON DUPLICATE KEY UPDATE generation=VALUES(generation), status=IF(status='processing','processing','pending'),
+             attempts=0, next_attempt_at=VALUES(next_attempt_at), claimed_at=IF(status='processing',claimed_at,NULL),
+             last_error='', updated_at=VALUES(updated_at)",
             $productId, wp_generate_uuid4(), $now, $now, $now
         ));
         if ($result === false) throw new \RuntimeException('Unable to queue WooCommerce stock synchronization.');
@@ -99,6 +100,16 @@ final class WpStockRepository implements StockRepositoryInterface {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $deleted = $this->db->delete($table, ['id'=>$id, 'generation'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
         if ($deleted === false) throw new \RuntimeException('Unable to complete stock sync queue item.');
+        if ($deleted === 0) {
+            // A newer stock change arrived while this job was processing. Keep the
+            // product serialized, then release the newer generation for a fresh read.
+            $released = $this->db->query($this->db->prepare(
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s",
+                current_time('mysql'), $id, $generation
+            ));
+            if ($released === false) throw new \RuntimeException('Unable to release newer stock sync generation.');
+        }
     }
     public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
@@ -109,5 +120,15 @@ final class WpStockRepository implements StockRepositoryInterface {
             current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule stock sync queue item.');
+        if ($updated === 0) {
+            // If a newer generation was enqueued during this failed attempt, retry
+            // that latest snapshot immediately rather than applying the old backoff.
+            $released = $this->db->query($this->db->prepare(
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s",
+                current_time('mysql'), $id, $generation
+            ));
+            if ($released === false) throw new \RuntimeException('Unable to release newer stock sync generation after failure.');
+        }
     }
 }
