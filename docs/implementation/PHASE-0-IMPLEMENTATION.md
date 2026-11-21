@@ -173,3 +173,11 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Corrected a fail-open edge case in the queued online-order ingestion path: if the referenced WooCommerce order can no longer be loaded, or Junction's online inventory location is missing, the use case now throws instead of returning normally.
 - A normal return would have caused the durable queue worker to acknowledge and delete an event despite no inventory deduction. The exception now sends the event through the existing retry/backoff path for operator diagnosis.
 - Added a source-level smoke guard for both prerequisite failure messages. This is not a runtime test; the GitHub Actions runner and WooCommerce staging verification remain outstanding.
+
+
+### Order ingestion fail-closed follow-up — 21 November 2026
+
+- Follow-up review found two remaining false-acknowledgement paths: a missing WooCommerce order object and failure to start the inventory ledger transaction were returning normally. Both now throw, allowing the durable order event queue to retry instead of deleting an event that was never applied.
+- Corrected the exception class namespace escaping introduced in the prior edit.
+- Verified the committed source contains the missing-order, missing-online-location and transaction-start exceptions, contains no doubled namespace separator for RuntimeException, and the smoke guard is present. These are source inspections only; PHP execution and database/runtime tests have not run.
+- Refund/cancellation restocking remains intentionally unimplemented until it can be tied to WooCommerce's actual restock events and per-refund/per-line idempotency. A payment refund without a WooCommerce stock-restock action must never add stock to Junction.
