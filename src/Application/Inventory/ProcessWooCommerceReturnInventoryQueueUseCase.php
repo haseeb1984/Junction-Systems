@@ -6,6 +6,8 @@ use Psr\Log\LoggerInterface;
 
 /** Durable retry queue for WooCommerce cancellation and explicit refund restocks. */
 final class ProcessWooCommerceReturnInventoryQueueUseCase {
+    private const MAX_AUTOMATIC_ATTEMPTS = 12;
+
     public function __construct(
         private readonly SyncWooCommerceStockUseCase $syncInventory,
         private readonly LoggerInterface $log,
@@ -132,11 +134,15 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
     private function retry(int $id, int $attempt, string $errorClass): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $needsReview = $attempt >= self::MAX_AUTOMATIC_ATTEMPTS;
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempt - 1))));
+        $now = current_time('mysql');
         $updated = $wpdb->query($wpdb->prepare(
-            "UPDATE {$table} SET status='pending',claimed_at=NULL,next_attempt_at=DATE_ADD(%s,INTERVAL %d SECOND),last_error=%s
+            "UPDATE {$table} SET status=%s,claimed_at=NULL,
+             next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s,INTERVAL %d SECOND)),last_error=%s
              WHERE id=%d AND status='processing'",
-            current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id
+            $needsReview ? 'needs_review' : 'pending', $needsReview ? 'needs_review' : 'pending',
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id
         ));
         if ($updated !== 1) throw new \RuntimeException('Unable to reschedule WooCommerce return event.');
     }
