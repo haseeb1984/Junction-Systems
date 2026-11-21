@@ -295,4 +295,12 @@ if (!is_string($returnSource)
     throw new \RuntimeException('Actual WooCommerce cancellation restocks must be mirrored idempotently into the Junction ledger.');
 }
 
+if (strpos($returnSource, 'onWooCommerceRefundItemRestocked(') === false
+    || strpos($returnSource, "'wc_refund_restock'") === false
+    || strpos($returnSource, "_restock_refunded_items") === false
+    || strpos($returnHooks, "woocommerce_restock_refunded_item") === false
+    || strpos($returnHooks, "onRefundItemRestocked") === false) {
+    throw new \\RuntimeException('Only explicit WooCommerce refund restocks may create online return movements.');
+}
+
 echo "Smoke tests passed.\n";
