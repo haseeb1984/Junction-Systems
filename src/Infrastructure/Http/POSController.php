@@ -24,7 +24,7 @@ final class POSController {
         $locationId  = (int)($req->get_param('location_id')??1);
         $openingCash = (int)($req->get_param('opening_cash')??0);
         if ($locationId < 1 || $openingCash < 0) {
-            return new \\WP_REST_Response(['success'=>false,'message'=>'Location and opening cash must be valid non-negative values.'],422);
+            return new \WP_REST_Response(['success'=>false,'message'=>'Location and opening cash must be valid non-negative values.'],422);
         }
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
         $existing    = $sessionRepo->findOpenByLocation($locationId);
@@ -42,7 +42,7 @@ final class POSController {
         $sessionId   = (int)($req->get_param('session_id')??0);
         $closingCash = (int)($req->get_param('closing_cash')??0);
         if ($sessionId < 1 || $closingCash < 0) {
-            return new \\WP_REST_Response(['success'=>false,'message'=>'Session and closing cash must be valid non-negative values.'],422);
+            return new \WP_REST_Response(['success'=>false,'message'=>'Session and closing cash must be valid non-negative values.'],422);
         }
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
         $session     = $sessionRepo->findById($sessionId);
