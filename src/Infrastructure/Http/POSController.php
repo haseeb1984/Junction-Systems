@@ -198,6 +198,15 @@ final class POSController {
             return new \WP_REST_Response(['success'=>false,'message'=>'Phone number is invalid.'],422);
         }
 
+        // Receipts contain order and payment information. Only allow sending
+        // to the phone number captured on this order, never an arbitrary number
+        // supplied later by the browser.
+        $storedPhone = preg_replace('/[^\\d]/', '', $order->customerPhone);
+        if (strpos($storedPhone, '0') === 0) $storedPhone = '92' . substr($storedPhone, 1);
+        if ($storedPhone === '' || !hash_equals($storedPhone, $clean)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Receipt destination must match the phone number saved with this order.'],403);
+        }
+
         $msg = get_bloginfo('name') . PHP_EOL
             . "Order: {$order->orderRef}" . PHP_EOL
             . "Total: PKR " . number_format($order->totalPkr) . PHP_EOL
