@@ -103,7 +103,7 @@ final class ProcessPOSSaleUseCase {
         foreach (array_unique(array_column($enriched, 'product_id')) as $productId) {
             try {
                 $this->adjustStock->syncProductToWooCommerce((int)$productId, $locationId);
-            } catch (\\Throwable $syncError) {
+            } catch (\Throwable $syncError) {
                 $this->log->error('POS sale committed but WooCommerce stock sync failed.', [
                     'order_ref' => $savedOrder->orderRef,
                     'product_id' => (int)$productId,
