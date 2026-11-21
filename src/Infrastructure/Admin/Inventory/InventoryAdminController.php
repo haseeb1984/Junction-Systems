@@ -66,14 +66,37 @@ final class InventoryAdminController {
     }
 
     private function handleAdjustStock(): void {
+        if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
+        $productId = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT);
+        $locationId = filter_var($_POST['location_id'] ?? null, FILTER_VALIDATE_INT);
+        $quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT);
+        $type = \\PkStore\\Domain\\Inventory\\Entity\\MovementType::tryFrom(sanitize_key($_POST['movement_type'] ?? 'adjustment'));
+        $allowedTypes = [
+            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Adjustment,
+            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::PurchaseReceive,
+            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Damage,
+            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Opening,
+        ];
+        if ($productId === false || $locationId === false || $quantity === false || $productId < 1 || $locationId < 1 || $quantity === 0 || !$type || !in_array($type, $allowedTypes, true)) {
+            $this->redirect('pkstore-inventory','error','Invalid stock adjustment details.'); return;
+        }
+        $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
+        $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
+        if (!$product || !$product->isActive || !$location || !$location->isActive) {
+            $this->redirect('pkstore-inventory','error','Active product and location are required.'); return;
+        }
         try {
-            $this->c->make(AdjustStockUseCase::class)->execute(
-                (int)($_POST['product_id']??0),(int)($_POST['location_id']??1),
-                (int)($_POST['quantity']??0),\PkStore\Domain\Inventory\Entity\MovementType::from(sanitize_key($_POST['movement_type']??'adjustment')),
-                sanitize_text_field($_POST['note']??'Manual adjustment')
+            $this->c->make(AdjustStockUseCase::class)->executeManualAdjustment(
+                $productId,
+                $locationId,
+                $quantity,
+                $type,
+                sanitize_text_field($_POST['note'] ?? 'Manual adjustment')
             );
             $this->redirect('pkstore-inventory','adjusted','Stock updated.');
-        } catch(\Throwable $e){ $this->redirect('pkstore-inventory','error',$e->getMessage()); }
+        } catch(\\Throwable $e) {
+            $this->redirect('pkstore-inventory','error','Stock adjustment could not be completed. Verify the available stock and try again.');
+        }
     }
 
     private function handleGenerateBarcodes(): void {
