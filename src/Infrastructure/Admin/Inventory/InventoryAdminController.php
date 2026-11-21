@@ -55,14 +55,42 @@ final class InventoryAdminController {
 
     private function handleAddProduct(): void {
         $repo = $this->c->make(InventoryProductRepositoryInterface::class);
-        $sku  = sanitize_text_field($_POST['sku']??''  );
-        $name = sanitize_text_field($_POST['name']??''  );
-        if (empty($sku)||empty($name)){ $this->redirect('pkstore-inventory','error','SKU and name are required.'); return; }
-        if ($repo->findBySku($sku)){ $this->redirect('pkstore-inventory','error','SKU already exists.'); return; }
-        $p  = \PkStore\Domain\Inventory\Entity\InventoryProduct::create($sku,$name,(int)($_POST['cost_price']??0),(int)($_POST['sale_price']??0),sanitize_text_field($_POST['category']??''),(int)($_POST['wc_product_id']??0)?:(null),sanitize_text_field($_POST['barcode']??''),(sanitize_text_field($_POST['unit']??'piece')),(int)($_POST['reorder_point']??5));
+        $sku = sanitize_text_field($_POST['sku'] ?? '');
+        $name = sanitize_text_field($_POST['name'] ?? '');
+        if ($sku === '' || $name === '') {
+            $this->redirect('pkstore-inventory','error','SKU and name are required.'); return;
+        }
+        if ($repo->findBySku($sku)) {
+            $this->redirect('pkstore-inventory','error','SKU already exists.'); return;
+        }
+
+        $costPrice = filter_var($_POST['cost_price'] ?? 0, FILTER_VALIDATE_INT);
+        $salePrice = filter_var($_POST['sale_price'] ?? 0, FILTER_VALIDATE_INT);
+        $reorderPoint = filter_var($_POST['reorder_point'] ?? 5, FILTER_VALIDATE_INT);
+        $wcProductRaw = $_POST['wc_product_id'] ?? 0;
+        $wcProductId = filter_var($wcProductRaw, FILTER_VALIDATE_INT);
+        if ($costPrice === false || $salePrice === false || $reorderPoint === false || $wcProductId === false
+            || $costPrice < 0 || $salePrice < 0 || $reorderPoint < 0 || $wcProductId < 0
+            || ($wcProductId > 0 && !wc_get_product($wcProductId))) {
+            $this->redirect('pkstore-inventory','error','Prices, reorder point or WooCommerce product mapping are invalid.'); return;
+        }
+
+        $p = \\PkStore\\Domain\\Inventory\\Entity\\InventoryProduct::create(
+            $sku,
+            $name,
+            $costPrice,
+            $salePrice,
+            sanitize_text_field($_POST['category'] ?? ''),
+            $wcProductId > 0 ? $wcProductId : null,
+            sanitize_text_field($_POST['barcode'] ?? ''),
+            sanitize_text_field($_POST['unit'] ?? 'piece'),
+            $reorderPoint
+        );
         $id = $repo->save($p);
-        $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
-        $this->redirect('pkstore-inventory','added','Product added and barcode generated.');
+        if (!$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) {
+            $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
+        }
+        $this->redirect('pkstore-inventory','added','Product added.');
     }
 
     private function handleAdjustStock(): void {
