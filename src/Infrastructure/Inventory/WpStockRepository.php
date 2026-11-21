@@ -57,14 +57,14 @@ final class WpStockRepository implements StockRepositoryInterface {
              claimed_at=NULL, last_error='', updated_at=VALUES(updated_at)",
             $productId, wp_generate_uuid4(), $now, $now, $now
         ));
-        if ($result === false) throw new \\RuntimeException('Unable to queue WooCommerce stock synchronization.');
+        if ($result === false) throw new \RuntimeException('Unable to queue WooCommerce stock synchronization.');
     }
     public function claimWooCommerceSyncBatch(int $limit = 20): array {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $limit = max(1, min(100, $limit));
         // Recover jobs abandoned by a terminated PHP worker.
         $this->db->query("UPDATE {$table} SET status='pending', claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB('" . esc_sql(current_time('mysql')) . "', INTERVAL 10 MINUTE)");
-        if ($this->db->query('START TRANSACTION') === false) throw new \\RuntimeException('Unable to start stock sync queue claim.');
+        if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start stock sync queue claim.');
         try {
             $rows = $this->db->get_results($this->db->prepare(
                 "SELECT id, product_id, attempts, generation FROM {$table}
@@ -76,13 +76,13 @@ final class WpStockRepository implements StockRepositoryInterface {
                     "UPDATE {$table} SET status='processing', claimed_at=%s, attempts=attempts+1 WHERE id=%d AND status='pending'",
                     current_time('mysql'), (int)$row['id']
                 ));
-                if ($updated === false) throw new \\RuntimeException('Unable to claim stock sync queue item.');
+                if ($updated === false) throw new \RuntimeException('Unable to claim stock sync queue item.');
                 $row['attempts'] = (int)$row['attempts'] + 1;
             }
             unset($row);
-            if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit stock sync queue claim.');
+            if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit stock sync queue claim.');
             return $rows;
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $this->db->query('ROLLBACK');
             throw $error;
         }
@@ -90,7 +90,7 @@ final class WpStockRepository implements StockRepositoryInterface {
     public function completeWooCommerceSync(int $id, string $generation): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $deleted = $this->db->delete($table, ['id'=>$id, 'generation'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
-        if ($deleted === false) throw new \\RuntimeException('Unable to complete stock sync queue item.');
+        if ($deleted === false) throw new \RuntimeException('Unable to complete stock sync queue item.');
     }
     public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
@@ -100,6 +100,6 @@ final class WpStockRepository implements StockRepositoryInterface {
              WHERE id=%d AND generation=%s AND status='processing'",
             current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
-        if ($updated === false) throw new \\RuntimeException('Unable to reschedule stock sync queue item.');
+        if ($updated === false) throw new \RuntimeException('Unable to reschedule stock sync queue item.');
     }
 }
