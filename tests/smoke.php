@@ -304,4 +304,13 @@ if (strpos($returnSource, 'onWooCommerceRefundItemRestocked(') === false
     throw new \RuntimeException('Only explicit WooCommerce refund restocks may create online return movements.');
 }
 
+
+$migrationRunnerSource = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
+if (!is_string($migrationRunnerSource)
+    || strpos($migrationRunnerSource, '$isExistingInstall = self::hasExistingTables();') === false
+    || strpos($migrationRunnerSource, 'self::verifyRequiredTables($version)') === false
+    || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false) {
+    throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
+}
+
 echo "Smoke tests passed.\n";
