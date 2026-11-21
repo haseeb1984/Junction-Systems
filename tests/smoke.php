@@ -360,8 +360,12 @@ if (!is_string($inventoryEventsSource)
     || strpos($inventoryEventsSource, "current_user_can(self::CAP)") === false
     || strpos($inventoryEventsSource, "isEnabled('inventory')") === false
     || strpos($inventoryEventsSource, "LIMIT 100") === false
+    || strpos($inventoryEventsSource, "SELECT status, COUNT(*) AS total") === false
+    || strpos($inventoryEventsSource, "\$queueCounts[\$key]") === false
     || !is_string($inventoryEventsTemplate)
     || strpos($inventoryEventsTemplate, "Last error category") === false
+    || strpos($inventoryEventsTemplate, "Queue status totals") === false
+    || strpos($inventoryEventsTemplate, "needs_review") === false
     || strpos($inventoryEventsTemplate, "does not force-complete events or change stock") === false
     || strpos($inventoryEventsTemplate, "esc_html(") === false) {
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
