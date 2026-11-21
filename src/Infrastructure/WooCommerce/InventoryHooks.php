@@ -40,7 +40,7 @@ final class InventoryHooks {
         try {
             $this->c->make(SyncWooCommerceStockUseCase::class)
                 ->onWooCommerceRefundItemRestocked($productId, (int) $newStock, (int) $oldStock, $order, $product);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             error_log('[PKStore Inventory] WooCommerce refund restock was not mirrored ('.get_class($e).').');
         }
     }
