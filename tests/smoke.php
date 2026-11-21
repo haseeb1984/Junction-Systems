@@ -267,8 +267,8 @@ if (!is_string($inventoryHttpSource)
 $woocommerceStockSyncSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($woocommerceStockSyncSource)
     || strpos($woocommerceStockSyncSource, "get_variation_id") === false
-    || strpos($woocommerceStockSyncSource, "findByWcProductId($variationId)") === false
-    || strpos($woocommerceStockSyncSource, "findByWcProductId($wcProductId)") === false) {
+    || strpos($woocommerceStockSyncSource, "findByWcProductId(\$variationId)") === false
+    || strpos($woocommerceStockSyncSource, "findByWcProductId(\$wcProductId)") === false) {
     throw new \RuntimeException('WooCommerce variation orders must prefer a mapped variation and fall back to the parent product mapping.');
 }
 
