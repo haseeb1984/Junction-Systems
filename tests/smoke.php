@@ -339,7 +339,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
     || strpos($returnQueueSource, 'Cancellation return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'Refund return is waiting for its matching sale movement.') === false
-    || strpos($returnQueueSource, "if (!$applied)") === false
+    || strpos($returnQueueSource, 'if (!$applied)') === false
     || strpos($returnQueueSource, 'A refunded payment does not prove WooCommerce restored stock.') === false
     || !is_string($inventoryInstallerSource)
     || strpos($inventoryInstallerSource, 'pkstore_wc_return_inventory_queue') === false
