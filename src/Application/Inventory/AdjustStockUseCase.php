@@ -21,7 +21,23 @@ final class AdjustStockUseCase {
         // can recover it after a PHP crash or a failed WooCommerce product save.
         $this->stockRepo->enqueueWooCommerceSync($productId);
         // POS sales defer external WooCommerce side effects until their DB transaction commits.
-        if ($syncWooCommerce) $this->syncProductToWooCommerce($productId);
+        if ($syncWooCommerce) {
+            try {
+                try {
+            $this->syncProductToWooCommerce($productId);
+        } catch (\Throwable $error) {
+            $this->log->error('Manual stock count saved; WooCommerce sync is queued for retry.', [
+                'product_id' => $productId,
+                'error_class' => get_class($error),
+            ]);
+        }
+            } catch (\Throwable $error) {
+                $this->log->error('Stock change saved; WooCommerce sync is queued for retry.', [
+                    'product_id' => $productId,
+                    'error_class' => get_class($error),
+                ]);
+            }
+        }
         $this->log->info('Stock adjusted.', ['product_id'=>$productId,'location_id'=>$locationId,'delta'=>$delta,'type'=>$type->value]);
     }
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
