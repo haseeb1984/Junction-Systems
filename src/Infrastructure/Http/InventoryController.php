@@ -64,7 +64,11 @@ final class InventoryController {
         $costPrice = $req->get_param('cost_price') ?? 0;
         $salePrice = $req->get_param('sale_price') ?? 0;
         $reorderPoint = $req->get_param('reorder_point') ?? 5;
-        $wcProductId = (int) ($req->get_param('wc_product_id') ?? 0);
+        $wcProductRaw = $req->get_param('wc_product_id');
+        if ($wcProductRaw !== null && $wcProductRaw !== '' && filter_var($wcProductRaw, FILTER_VALIDATE_INT) === false) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product ID must be a whole number.'],422);
+        }
+        $wcProductId = (int) ($wcProductRaw ?? 0);
         foreach ([$costPrice, $salePrice, $reorderPoint] as $numericValue) {
             if (!is_numeric($numericValue) || (float) $numericValue < 0 || floor((float) $numericValue) !== (float) $numericValue) {
                 return new \WP_REST_Response(['success'=>false,'message'=>'Prices and reorder point must be non-negative whole numbers.'],422);
