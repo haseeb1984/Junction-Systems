@@ -70,20 +70,20 @@ final class InventoryAdminController {
         $productId = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT);
         $locationId = filter_var($_POST['location_id'] ?? null, FILTER_VALIDATE_INT);
         $quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT);
-        $type = \\PkStore\\Domain\\Inventory\\Entity\\MovementType::tryFrom(sanitize_key($_POST['movement_type'] ?? 'adjustment'));
+        $type = \PkStore\Domain\Inventory\Entity\MovementType::tryFrom(sanitize_key($_POST['movement_type'] ?? 'adjustment'));
         $allowedTypes = [
-            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Adjustment,
-            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::PurchaseReceive,
-            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Damage,
-            \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Opening,
+            \PkStore\Domain\Inventory\Entity\MovementType::Adjustment,
+            \PkStore\Domain\Inventory\Entity\MovementType::PurchaseReceive,
+            \PkStore\Domain\Inventory\Entity\MovementType::Damage,
+            \PkStore\Domain\Inventory\Entity\MovementType::Opening,
         ];
         if ($productId === false || $locationId === false || $quantity === false || $productId < 1 || $locationId < 1 || $quantity === 0 || !$type || !in_array($type, $allowedTypes, true)) {
             $this->redirect('pkstore-inventory','error','Invalid stock adjustment details.'); return;
         }
-        if (($type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::PurchaseReceive || $type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Opening) && $quantity < 1) {
+        if (($type === \PkStore\Domain\Inventory\Entity\MovementType::PurchaseReceive || $type === \PkStore\Domain\Inventory\Entity\MovementType::Opening) && $quantity < 1) {
             $this->redirect('pkstore-inventory','error','Purchase receipts and opening stock must add a positive quantity.'); return;
         }
-        if ($type === \\PkStore\\Domain\\Inventory\\Entity\\MovementType::Damage && $quantity > -1) {
+        if ($type === \PkStore\Domain\Inventory\Entity\MovementType::Damage && $quantity > -1) {
             $this->redirect('pkstore-inventory','error','Damage/loss must reduce stock using a negative quantity.'); return;
         }
         $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
@@ -100,7 +100,7 @@ final class InventoryAdminController {
                 sanitize_text_field($_POST['note'] ?? 'Manual adjustment')
             );
             $this->redirect('pkstore-inventory','adjusted','Stock updated.');
-        } catch(\\Throwable $e) {
+        } catch(\Throwable $e) {
             $this->redirect('pkstore-inventory','error','Stock adjustment could not be completed. Verify the available stock and try again.');
         }
     }
