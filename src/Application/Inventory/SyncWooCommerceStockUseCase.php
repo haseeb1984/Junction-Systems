@@ -217,15 +217,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a refund only when WooCommerce's explicit restock action fires.
      * The original order item carries cumulative _restock_refunded_items metadata.
      */
-    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null): void {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         $orderId = (int) $order->get_id();
-        $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product): void {
-            $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product);
+        $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked): void {
+            $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked);
         });
     }
 
-    private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+    private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null): void {
         if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
             throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         }
@@ -237,13 +237,18 @@ final class SyncWooCommerceStockUseCase {
             if ($wcProductId !== $parentId && $wcProductId !== $variationId) {
                 continue;
             }
+            if ($orderItemId !== null && (int) $item->get_id() !== $orderItemId) {
+                continue;
+            }
             $cumulative = (int) $item->get_meta('_restock_refunded_items', true);
             // Keep every product-matching line in the ambiguity check, even
             // when its cumulative restock metadata is zero or smaller. Filtering
             // first could incorrectly select one line while ignoring another.
             $candidates[] = ['item' => $item, 'cumulative' => $cumulative, 'variation_id' => $variationId, 'parent_id' => $parentId];
         }
-        if (count($candidates) !== 1 || $candidates[0]['cumulative'] < ($newStock - $oldStock)) {
+        $eventCumulative = $cumulativeRestocked ?? ($candidates[0]['cumulative'] ?? 0);
+        if (count($candidates) !== 1 || $eventCumulative < ($newStock - $oldStock)
+            || $eventCumulative > (int) $candidates[0]['item']->get_quantity()) {
             // The WooCommerce hook omits the original order-item ID. Do not guess
             // when the same product appears on multiple order lines, including
             // lines whose cumulative metadata is zero or below this callback delta.
@@ -264,7 +269,7 @@ final class SyncWooCommerceStockUseCase {
         }
 
         $itemId = (int) $item->get_id();
-        $referenceId = $orderId . ':' . $itemId . ':' . $candidate['cumulative'];
+        $referenceId = $orderId . ':' . $itemId . ':' . $eventCumulative;
         global $wpdb;
         if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
             throw new \RuntimeException('Unable to start WooCommerce refund return transaction.');
