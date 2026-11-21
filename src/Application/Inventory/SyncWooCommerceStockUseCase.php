@@ -22,7 +22,7 @@ final class SyncWooCommerceStockUseCase {
     private function applyWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) { throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.'); }
-        if (in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending', 'refunded'], true)) {
+        if (in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending'], true)) {
             return;
         }
         $onlineLocation = $this->locationRepo->findOnline();
