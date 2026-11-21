@@ -19,7 +19,21 @@ final class MigrationRunner {
     private const MIGRATIONS = [
         '2.0.0' => [Installer::class, 'installSchema'],
         '2.0.1' => [InventoryInstaller::class, 'installStockSyncQueue'],
+        '2.0.2' => [self::class, 'addPOSRequestFingerprint'],
     ];
+
+
+    public static function addPOSRequestFingerprint(): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'pkstore_pos_orders';
+        $column = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $table . ' LIKE %s', 'request_fingerprint'));
+        if ($column) return;
+
+        $result = $wpdb->query("ALTER TABLE {$table} ADD COLUMN request_fingerprint CHAR(64) DEFAULT NULL AFTER order_ref");
+        if ($result === false) {
+            throw new \\RuntimeException('Unable to add POS request fingerprint column.');
+        }
+    }
 
     public static function register(): void {
         add_action('init', [self::class, 'maybeRun'], 1);
