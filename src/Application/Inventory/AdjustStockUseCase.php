@@ -29,7 +29,7 @@ final class AdjustStockUseCase {
         $this->stockRepo->updateStock($stock);
         $movement = StockMovement::create($productId, $locationId, MovementType::Adjustment, $delta, $before, 'manual', '', $note, get_current_user_id());
         $this->stockRepo->recordMovement($movement);
-        $this->syncToWooCommerce($productId, $locationId);
+        $this->syncProductToWooCommerce($productId, $locationId);
     }
     public function syncProductToWooCommerce(int $productId, int $locationId): void {
         $product = $this->productRepo->findById($productId);
