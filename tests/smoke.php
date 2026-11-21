@@ -169,6 +169,11 @@ if (!is_string($adminInventorySource)
 
 
 if (!is_string($bootstrapSource)
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('pos') && \$this->fm->isEnabled('inventory'))") === false) {
+    throw new \RuntimeException('POS runtime registration must require both POS and shared inventory entitlements.');
+}
+
+if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('affiliate_system'))") === false
     || !is_string($adminAffiliateSource)
     || strpos($adminAffiliateSource, "if (!FeatureManager::getInstance()->isEnabled('affiliate_system'))") === false) {
