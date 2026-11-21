@@ -82,7 +82,9 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 catch (\Throwable $queueError) {
                     $this->log->critical('WooCommerce return retry could not be persisted.', ['event_id' => $id, 'error_class' => get_class($queueError)]);
                 }
-                $this->log->error('WooCommerce return event remains queued for retry.', ['event_id' => $id, 'attempt' => $attempt, 'error_class' => get_class($error)]);
+                $this->log->error($attempt >= self::MAX_AUTOMATIC_ATTEMPTS
+                    ? 'WooCommerce return event moved to needs_review after exhausting automatic retries.'
+                    : 'WooCommerce return event remains queued for retry.', ['event_id' => $id, 'attempt' => $attempt, 'error_class' => get_class($error)]);
             }
         }
         return $result;
