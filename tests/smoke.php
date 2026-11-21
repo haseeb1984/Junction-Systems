@@ -236,4 +236,19 @@ if (!is_string($inventoryHttpSource)
     throw new \\RuntimeException('Manual stock REST endpoint must validate integer inputs, allowed movement types and avoid exposing internal exceptions.');
 }
 
+
+if (!is_string($adminInventorySource)
+    || strpos($adminInventorySource, 'executeManualAdjustment(') === false
+    || strpos($adminInventorySource, 'Purchase receipts and opening stock must add a positive quantity.') === false
+    || strpos($adminInventorySource, 'Damage/loss must reduce stock using a negative quantity.') === false
+    || strpos($adminInventorySource, 'filter_var($_POST[\'quantity\'] ?? null, FILTER_VALIDATE_INT)') === false) {
+    throw new \RuntimeException('Admin stock adjustments must use atomic writes and validate movement direction and integer quantities.');
+}
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, 'MovementType::Opening') === false
+    || strpos($inventoryHttpSource, 'Purchase receipts and opening stock must add a positive quantity.') === false
+    || strpos($inventoryHttpSource, 'Damage/loss must reduce stock using a negative quantity.') === false) {
+    throw new \\RuntimeException('REST stock adjustments must enforce valid movement direction.');
+}
+
 echo "Smoke tests passed.\n";
