@@ -72,6 +72,8 @@ final class POSController {
         $customerName = sanitize_text_field($req->get_param('customer_name')??'Walk-in');
         $discount     = (int)($req->get_param('discount_pkr')??0);
         $split        = $req->get_param('payment_split');
+        $clientOrderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
+        if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) return new \\WP_REST_Response(['success'=>false,'message'=>'A valid POS request reference is required.'],422);
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
         if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
@@ -81,7 +83,7 @@ final class POSController {
             return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
         }
         try {
-            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split);
+            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split,$clientOrderRef);
             return new \WP_REST_Response(['success'=>true,'order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'message'=>'Sale processed.'],201);
         } catch (\Throwable $e) {
             error_log('[PK Store POS] Sale processing failed: ' . get_class($e));
