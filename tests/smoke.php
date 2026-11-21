@@ -207,7 +207,7 @@ if (!is_string($posHttpSource)
 
 if (!is_string($barcodeLabelSource)
     || strpos($barcodeLabelSource, "private function safeZplText(string \$value): string") === false
-    || strpos($barcodeLabelSource, "str_replace(['^', '~', '\']") === false) {
+    || strpos($barcodeLabelSource, "str_replace(['^', '~', '\\\\']") === false) {
     throw new \RuntimeException('ZPL output must strip command introducers from catalogue and branding text.');
 }
 
