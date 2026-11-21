@@ -7,6 +7,7 @@ interface StockRepositoryInterface {
     public function updateStock(StockLevel $stock): void;
     public function recordMovement(StockMovement $movement): int;
     public function getMovements(int $productId, int $limit=20): array;
+    public function hasMovementReference(int $productId, int $locationId, string $referenceType, string $referenceId): bool;
     public function getLocationStock(int $locationId): array;
     public function getTotalStock(int $productId): int;
     public function enqueueWooCommerceSync(int $productId): void;
