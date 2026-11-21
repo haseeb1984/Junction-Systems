@@ -58,15 +58,15 @@ final class MigrationRunner {
         // from running the same DDL migration concurrently.
         if (!add_option(self::LOCK_OPTION, time(), '', false)) return;
 
+        // Determine whether this is an upgrade before the first migration creates
+        // tables. Re-checking inside the loop misclassifies a fresh install as an
+        // existing store on migration 2.0.1 and blocks setup behind the backup gate.
+        $isExistingInstall = self::hasExistingTables();
+
         try {
             foreach (self::MIGRATIONS as $version => $migration) {
                 $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
                 if (version_compare($current, $version, '>=')) continue;
-
-                // Existing installations may not have a version option yet.
-                // Detect their existing PK Store tables instead of treating every
-                // unversioned database as a fresh install.
-                $isExistingInstall = self::hasExistingTables();
 
                 // Never alter an existing store until hosting confirms a recent
                 // full database + website-files backup.
@@ -76,7 +76,7 @@ final class MigrationRunner {
                 }
 
                 call_user_func($migration);
-                self::verifyRequiredTables();
+                self::verifyRequiredTables($version);
                 update_option(self::VERSION_OPTION, $version, false);
             }
 
@@ -102,7 +102,7 @@ final class MigrationRunner {
         return false;
     }
 
-    private static function verifyRequiredTables(): void {
+    private static function verifyRequiredTables(string $version): void {
         global $wpdb;
 
         $required = [
@@ -116,7 +116,6 @@ final class MigrationRunner {
             'pkstore_affiliate_payouts',
             'pkstore_inventory_products',
             'pkstore_wc_stock_sync',
-            'pkstore_wc_order_inventory_queue',
             'pkstore_inventory_stock',
             'pkstore_inventory_locations',
             'pkstore_inventory_movements',
@@ -127,6 +126,12 @@ final class MigrationRunner {
             'pkstore_purchase_orders',
             'pkstore_purchase_order_items',
         ];
+
+        // This queue is introduced by migration 2.0.3; requiring it while
+        // verifying 2.0.0–2.0.2 prevents those earlier steps from completing.
+        if (version_compare($version, '2.0.3', '>=')) {
+            $required[] = 'pkstore_wc_order_inventory_queue';
+        }
 
         foreach ($required as $suffix) {
             $table = $wpdb->prefix . $suffix;
