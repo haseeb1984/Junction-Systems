@@ -64,7 +64,9 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                     $applied = $this->syncInventory->onWooCommerceRefundItemRestocked(
                         $productId, $quantity, 0, $order, $product, $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : null, (int) $job['cumulative_quantity']
                     );
-                    if (!$applied && (string) $order->get_status() !== 'refunded') {
+                    if (!$applied) {
+                        // A refunded payment does not prove WooCommerce restored stock.
+                        // Keep the return pending until its sale movement exists.
                         throw new \RuntimeException('Refund return is waiting for its matching sale movement.');
                     }
                 } else {
