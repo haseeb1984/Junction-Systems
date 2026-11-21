@@ -9,7 +9,7 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     public function save(POSSession $s): int {
         $inserted = $this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
         if ($inserted === false || (int)$this->db->insert_id < 1) {
-            throw new \\RuntimeException('Unable to persist the POS session.');
+            throw new \RuntimeException('Unable to persist the POS session.');
         }
         return (int)$this->db->insert_id;
     }
@@ -25,7 +25,7 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
             'closed_at' => $s->getClosedAt()?->format('Y-m-d H:i:s'),
         ], ['id' => $s->id]);
         if ($updated === false) {
-            throw new \\RuntimeException('Unable to persist POS session totals.');
+            throw new \RuntimeException('Unable to persist POS session totals.');
         }
     }
     public function findById(int $id): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
