@@ -4,6 +4,7 @@ namespace PkStore\Infrastructure\Inventory;
 use PkStore\Domain\Inventory\Entity\{StockLevel, StockMovement, MovementType};
 use PkStore\Domain\Inventory\Repository\StockRepositoryInterface;
 final class WpStockRepository implements StockRepositoryInterface {
+    private const MAX_AUTOMATIC_SYNC_ATTEMPTS = 12;
     public function __construct(private readonly \wpdb $db) {}
     private function ts(): string { return $this->db->prefix . 'pkstore_inventory_stock'; }
     private function tm(): string { return $this->db->prefix . 'pkstore_inventory_movements'; }
@@ -124,11 +125,15 @@ final class WpStockRepository implements StockRepositoryInterface {
     }
     public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
+        $needsReview = $attempts >= self::MAX_AUTOMATIC_SYNC_ATTEMPTS;
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempts - 1))));
+        $now = current_time('mysql');
         $updated = $this->db->query($this->db->prepare(
-            "UPDATE {$table} SET status='pending', claimed_at=NULL, next_attempt_at=DATE_ADD(%s, INTERVAL %d SECOND), last_error=%s
+            "UPDATE {$table} SET status=%s, claimed_at=NULL,
+             next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s, INTERVAL %d SECOND)), last_error=%s
              WHERE id=%d AND generation=%s AND status='processing'",
-            current_time('mysql'), $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
+            $needsReview ? 'needs_review' : 'pending', $needsReview ? 'needs_review' : 'pending',
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule stock sync queue item.');
         if ($updated === 0) {
