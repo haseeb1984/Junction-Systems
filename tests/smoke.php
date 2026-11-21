@@ -197,4 +197,11 @@ if (!is_string($posHttpSource)
     throw new \RuntimeException('POS WhatsApp receipts must be restricted to the customer phone stored on the order.');
 }
 
+
+if (!is_string($barcodeLabelSource)
+    || strpos($barcodeLabelSource, "private function safeZplText(string \$value): string") === false
+    || strpos($barcodeLabelSource, "str_replace(['^', '~', '\\\\']") === false) {
+    throw new \RuntimeException('ZPL output must strip command introducers from catalogue and branding text.');
+}
+
 echo "Smoke tests passed.\n";
