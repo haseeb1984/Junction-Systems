@@ -49,7 +49,8 @@ final class SyncWooCommerceStockUseCase {
                     (int) $productId,
                     $onlineLocation->id,
                     'wc_order',
-                    (string) $orderId
+                    (string) $orderId,
+                    MovementType::OnlineSale
                 )) {
                     continue;
                 }
