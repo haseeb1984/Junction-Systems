@@ -30,6 +30,7 @@ final class SyncWooCommerceStockUseCase {
             $quantities[$product->id] = ($quantities[$product->id] ?? 0) + $quantity;
         }
         if (!$quantities) return;
+        ksort($quantities, SORT_NUMERIC);
 
         global $wpdb;
         if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
