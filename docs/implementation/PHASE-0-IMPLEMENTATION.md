@@ -166,3 +166,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Ledger transaction failures are now rethrown to the queue worker after rollback; they can no longer be swallowed and incorrectly acknowledged as completed. The queue stores only the WooCommerce order ID and operational metadata, not customer/order payloads.
 - Added versioned migration `2.0.3`; existing installations remain subject to the existing pre-migration full-backup confirmation gate.
 - Remaining operational work: a dead-letter/terminal status, admin reconciliation screen, alerting/monitoring and a manual replay action are not yet implemented. Retries currently continue indefinitely with capped backoff. A real system cron should invoke WP-Cron reliably; the WordPress scheduler is otherwise traffic-driven. Runtime tests for duplicate hooks, worker crash recovery, transaction rollback, retry timing and concurrent enqueue/claim are still required.
+
+
+### WooCommerce inventory retry correctness correction — 21 November 2026
+
+- Corrected a fail-open edge case in the queued online-order ingestion path: if the referenced WooCommerce order can no longer be loaded, or Junction's online inventory location is missing, the use case now throws instead of returning normally.
+- A normal return would have caused the durable queue worker to acknowledge and delete an event despite no inventory deduction. The exception now sends the event through the existing retry/backoff path for operator diagnosis.
+- Added a source-level smoke guard for both prerequisite failure messages. This is not a runtime test; the GitHub Actions runner and WooCommerce staging verification remain outstanding.
