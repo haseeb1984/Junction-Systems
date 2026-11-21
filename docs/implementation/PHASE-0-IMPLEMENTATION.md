@@ -114,7 +114,14 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Concurrent retries are protected by the unique order-reference index; after a failed insert/transaction rollback, the use case checks for the winning committed order and returns it when it belongs to the same session/location.
 - REST retries can retrieve an existing order even after the cashier has closed the session, subject to cashier/session ownership checks.
 - Offline queueing is now limited to transport/response failures. HTTP validation and authorization errors are surfaced and are not silently queued as offline sales.
-- This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A payload fingerprint/reuse-mismatch check and full runtime retry tests remain recommended.
+- This is request-level idempotency, not a complete offline authorization model: an offline sale is not guaranteed until the server accepts it, and queue durability depends on the browser's IndexedDB storage. A SHA-256 request fingerprint is now persisted with each client-referenced POS order; retries with the same reference but a different or unverifiable payload are rejected. Existing pre-migration rows retain a NULL fingerprint and cannot be silently treated as a verified replay. Full runtime retry/concurrency tests remain outstanding.
+
+
+### POS idempotency payload binding
+- Added a nullable SHA-256 request fingerprint to POS orders and a versioned `2.0.2` migration for existing installations.
+- The fingerprint binds the client order reference to session, location, normalized product/quantity lines, tender, customer fields and discount. A retry with the same reference and identical payload returns the committed order; a changed payload or legacy row without a fingerprint is rejected instead of being treated as the same sale.
+- Product prices are deliberately not part of the fingerprint: the initial accepted sale uses server-side prices, and a later retry must retrieve that committed sale even if catalogue pricing has since changed.
+- This protects request-reference reuse; runtime replay, concurrent duplicate and migration tests remain required.
 
 ### POS session concurrency hardening
 - Opening a POS session now starts a database transaction and locks the active inventory-location row before checking for an existing open session and inserting a new one. Concurrent open requests for the same location therefore serialize, including the first-session/no-existing-row case.
