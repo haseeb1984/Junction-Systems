@@ -8,14 +8,16 @@ final class POSSession {
         public readonly int $id, public readonly int $locationId,
         public readonly int $cashierId, public readonly int $openingCash,
         private ?int $closingCash, private int $totalSalesPkr,
-        private int $totalCashPkr, private int $totalJazzcash,
-        private int $totalEasypaisa, private SessionStatus $status,
+        private int $totalCashPkr, private int $totalCardPkr,
+        private int $totalJazzcash, private int $totalEasypaisa,
+        private SessionStatus $status,
         public readonly DateTimeImmutable $openedAt, private ?DateTimeImmutable $closedAt,
     ) {}
     public function getStatus(): SessionStatus { return $this->status; }
     public function isOpen(): bool { return $this->status === SessionStatus::Open; }
     public function getTotalSalesPkr(): int { return $this->totalSalesPkr; }
     public function getTotalCashPkr(): int { return $this->totalCashPkr; }
+    public function getTotalCardPkr(): int { return $this->totalCardPkr; }
     public function getTotalJazzcashPkr(): int { return $this->totalJazzcash; }
     public function getTotalEasypaisaPkr(): int { return $this->totalEasypaisa; }
     public function getClosingCash(): ?int { return $this->closingCash; }
@@ -25,9 +27,11 @@ final class POSSession {
         if ($total < 0) throw new \InvalidArgumentException('Sale total cannot be negative.');
         $this->totalSalesPkr += $total;
         match($paymentMethod) {
+            'cash'      => $this->totalCashPkr   += $total,
+            'card'      => $this->totalCardPkr   += $total,
             'jazzcash'  => $this->totalJazzcash  += $total,
             'easypaisa' => $this->totalEasypaisa += $total,
-            default      => $this->totalCashPkr   += $total,
+            default => throw new \\InvalidArgumentException('Unsupported POS payment method.'),
         };
     }
     public function close(int $closingCash): void {
@@ -41,6 +45,6 @@ final class POSSession {
         if ($locationId < 1 || $cashierId < 1 || $openingCash < 0) {
             throw new \InvalidArgumentException('POS location, cashier, and opening cash must be valid non-negative values.');
         }
-        return new self(0, $locationId, $cashierId, $openingCash, null, 0, 0, 0, 0, SessionStatus::Open, new DateTimeImmutable(), null);
+        return new self(0, $locationId, $cashierId, $openingCash, null, 0, 0, 0, 0, 0, SessionStatus::Open, new DateTimeImmutable(), null);
     }
 }
