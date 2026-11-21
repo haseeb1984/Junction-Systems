@@ -318,7 +318,7 @@ $wcLifecycleSource = file_get_contents($src . '/Application/Inventory/SyncWooCom
 if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($wcLifecycleSource, "SELECT RELEASE_LOCK(%s)") === false
-    || strpos($wcLifecycleSource, "['cancelled', 'failed', 'pending', 'refunded']") === false
+    || strpos($wcLifecycleSource, "['cancelled', 'failed', 'pending']") === false
     || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
     || strpos($wcLifecycleSource, 'Always book the original sale quantity') === false
     || strpos($wcLifecycleSource, 'return false;') === false
@@ -339,6 +339,8 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
     || strpos($returnQueueSource, 'Cancellation return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'Refund return is waiting for its matching sale movement.') === false
+    || strpos($returnQueueSource, "if (!$applied)") === false
+    || strpos($returnQueueSource, 'A refunded payment does not prove WooCommerce restored stock.') === false
     || !is_string($inventoryInstallerSource)
     || strpos($inventoryInstallerSource, 'pkstore_wc_return_inventory_queue') === false
     || strpos($migrationRunnerSource, "'2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue']") === false
