@@ -12,7 +12,14 @@ final class SyncWooCommerceStockUseCase {
         private readonly AdjustStockUseCase $adjustStock,
         private readonly LoggerInterface $log,
     ) {}
-    public function onWooCommerceSale(int $orderId): void {
+    public function onWooCommerceSale(int $orderId) {
+        if ($orderId < 1) throw new \\InvalidArgumentException('Invalid WooCommerce order ID.');
+        $this->withOrderLock($orderId, function () use ($orderId): void {
+            $this->applyonWooCommerceSale($orderId);
+        });
+    }
+
+    private function applyonWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) { throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.'); }
         $onlineLocation = $this->locationRepo->findOnline();
@@ -113,7 +120,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a cancellation restock only after WooCommerce has actually restored
      * the individual order item. The callback's stock delta is authoritative.
      */
-    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
+    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order) {
+        if (!($order instanceof \\WC_Order)) throw new \\InvalidArgumentException('WooCommerce restore event is malformed.');
+        $orderId = (int) $order->get_id();
+        $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order): void {
+            $this->applyonWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
+        });
+    }
+
+    private function applyonWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
         if (!($order instanceof \WC_Order) || !is_object($item)
             || !method_exists($item, 'get_id') || !method_exists($item, 'get_product_id')) {
             throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
@@ -190,7 +205,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a refund only when WooCommerce's explicit restock action fires.
      * The original order item carries cumulative _restock_refunded_items metadata.
      */
-    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
+    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product) {
+        if (!($order instanceof \\WC_Order)) throw new \\InvalidArgumentException('WooCommerce refund restock event is malformed.');
+        $orderId = (int) $order->get_id();
+        $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product): void {
+            $this->applyonWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product);
+        });
+    }
+
+    private function applyonWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product): void {
         if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
             throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         }
@@ -275,6 +298,27 @@ final class SyncWooCommerceStockUseCase {
                 'product_id' => $productRecord->id,
                 'error_class' => get_class($error),
             ]);
+        }
+    }
+
+    /**
+     * Serialize sale ingestion and all return callbacks for one WooCommerce
+     * order. MySQL releases this advisory lock automatically if the request dies.
+     */
+    private function withOrderLock(int $orderId, callable $callback): void {
+        global $wpdb;
+        if ($orderId < 1 || !$wpdb instanceof \\wpdb) {
+            throw new \\RuntimeException('A valid WooCommerce order lock is unavailable.');
+        }
+        $lockName = 'pkstore_wc_order_' . $orderId;
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ((int) $acquired !== 1) {
+            throw new \\RuntimeException('Unable to acquire WooCommerce order inventory lock.');
+        }
+        try {
+            $callback();
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
     }
 
