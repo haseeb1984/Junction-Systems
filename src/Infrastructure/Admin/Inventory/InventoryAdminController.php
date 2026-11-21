@@ -16,8 +16,13 @@ final class InventoryAdminController {
     }
 
     public function menus(): void {
+        $features = FeatureManager::getInstance();
+        if (!$features->isEnabled('inventory')) return;
+
         add_submenu_page('pkstore-operations','Inventory','📦 Inventory',self::CAP,'pkstore-inventory',[$this,'inventory']);
-        add_submenu_page('pkstore-operations','POS Register','🖥 POS Register',self::CAP,'pkstore-pos',[$this,'pos']);
+        if ($features->isEnabled('pos')) {
+            add_submenu_page('pkstore-operations','POS Register','🖥 POS Register',self::CAP,'pkstore-pos',[$this,'pos']);
+        }
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
         add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders',self::CAP,'pkstore-purchase-orders',[$this,'purchaseOrders']);
     }
@@ -31,8 +36,13 @@ final class InventoryAdminController {
     public function handleForms(): void {
         if (!isset($_POST['pkstore_inventory_action'])) return;
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        $features = FeatureManager::getInstance();
+        if (!$features->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         check_admin_referer('pkstore_inventory_action');
         $action = sanitize_key($_POST['pkstore_inventory_action']);
+        if ($action === 'generate_barcodes' && !$features->isEnabled('barcode_labels')) {
+            wp_die('Barcode labels are not available on the current package.');
+        }
         match($action) {
             'add_product'     => $this->handleAddProduct(),
             'adjust_stock'    => $this->handleAdjustStock(),
@@ -81,6 +91,7 @@ final class InventoryAdminController {
 
     public function inventory(): void {
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         $repo      = $this->c->make(InventoryProductRepositoryInterface::class);
         $stockRepo = $this->c->make(StockRepositoryInterface::class);
         $locations = $this->c->make(LocationRepositoryInterface::class)->findAll();
@@ -94,11 +105,13 @@ final class InventoryAdminController {
 
     public function pos(): void {
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('pos')) wp_die('POS is not available on the current package.');
         include PKSTORE_DIR.'/templates/pos/pos-app.php';
     }
 
     public function stockLog(): void {
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
         $movements = $wpdb->get_results(
             "SELECT m.*,p.name AS product_name,p.sku,l.name AS location_name
@@ -113,6 +126,7 @@ final class InventoryAdminController {
 
     public function purchaseOrders(): void {
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
         $pos = $wpdb->get_results(
             "SELECT po.*,s.name AS supplier_name,l.name AS location_name
