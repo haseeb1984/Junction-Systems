@@ -21,7 +21,7 @@ final class ProcessPOSSaleUseCase {
         }
         $requestFingerprint = null;
         if ($clientOrderRef !== null) {
-            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \\InvalidArgumentException('POS client order reference is invalid.');
+            if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \InvalidArgumentException('POS client order reference is invalid.');
             $requestFingerprint = self::requestFingerprint(
                 $sessionId, $locationId, $items, $paymentMethod, $customerPhone,
                 $customerName, $discountPkr, $paymentSplit
@@ -29,10 +29,10 @@ final class ProcessPOSSaleUseCase {
             $existing = $this->orderRepo->findByRef($clientOrderRef);
             if ($existing) {
                 if ($existing->sessionId !== $sessionId || $existing->locationId !== $locationId) {
-                    throw new \\RuntimeException('POS idempotency reference is already used by another session.');
+                    throw new \RuntimeException('POS idempotency reference is already used by another session.');
                 }
                 if (!$existing->requestFingerprint || !hash_equals($existing->requestFingerprint, $requestFingerprint)) {
-                    throw new \\RuntimeException('POS idempotency reference was reused with a different or unverifiable sale payload.');
+                    throw new \RuntimeException('POS idempotency reference was reused with a different or unverifiable sale payload.');
                 }
                 return $existing;
             }
@@ -154,12 +154,12 @@ final class ProcessPOSSaleUseCase {
         $normalizedItems = [];
         foreach ($items as $item) {
             if (!is_array($item) || !isset($item['product_id'], $item['quantity'])) {
-                throw new \\InvalidArgumentException('Each POS item must include a product and quantity.');
+                throw new \InvalidArgumentException('Each POS item must include a product and quantity.');
             }
             $productId = filter_var($item['product_id'], FILTER_VALIDATE_INT);
             $quantity = filter_var($item['quantity'], FILTER_VALIDATE_INT);
             if (!$productId || !$quantity || $quantity < 1) {
-                throw new \\InvalidArgumentException('POS item product and quantity are invalid.');
+                throw new \InvalidArgumentException('POS item product and quantity are invalid.');
             }
             $normalizedItems[] = ['product_id' => (int)$productId, 'quantity' => (int)$quantity];
         }
