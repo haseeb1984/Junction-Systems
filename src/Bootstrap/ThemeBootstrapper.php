@@ -100,10 +100,14 @@ final class ThemeBootstrapper {
         if (is_admin()) {
             (new AdminMenuController($this->c))->register();
             (new AffiliateAdminController($this->c))->register();
-            (new InventoryAdminController($this->c))->register();
+            if ($this->fm->isEnabled('inventory')) {
+                (new InventoryAdminController($this->c))->register();
+            }
             (new FeatureSettingsController())->register();
             $this->c->make(SetupWizard::class)->register();
-            $this->registerBarcodeLabelsPage();
+            if ($this->fm->isEnabled('barcode_labels')) {
+                $this->registerBarcodeLabelsPage();
+            }
             $this->registerExportConfig();
         }
 
@@ -141,6 +145,9 @@ final class ThemeBootstrapper {
     private function registerBarcodeLabelsPage(): void {
         add_action('admin_menu', function() {
             add_submenu_page('pkstore-operations','Barcode Labels','🏷 Label Printer','manage_woocommerce','pkstore-barcode-labels', function() {
+                if (!current_user_can('manage_woocommerce') || !$this->fm->isEnabled('barcode_labels')) {
+                    wp_die('This feature is not available on the current package.');
+                }
                 $this->c->make(\PkStore\Infrastructure\Barcode\BarcodeLabel::class)->adminPage();
             });
         });
