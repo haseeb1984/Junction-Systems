@@ -78,3 +78,35 @@ The branch now listens to `woocommerce_restock_refunded_item`, not generic refun
 WooCommerce does not include the original order-item ID in this hook's arguments. If more than one matching order line exists, the implementation deliberately refuses to guess. That event is logged for reconciliation; it is not silently applied to the wrong Junction product.
 
 The cancellation and refund hooks currently perform the ledger write synchronously. They do not yet persist their own dedicated retry queue when mapping/database operations fail. A robust retry queue and administrative reconciliation workflow remain required before production readiness.
+
+
+## Additional implementation finding — sale/return ordering is a production blocker
+
+A code-path review confirmed a concrete race in the current implementation:
+
+1. A paid/processing/completed hook enqueues an order-level sale job.
+2. Before that worker runs, WooCommerce may cancel the order or the merchant may explicitly restock a partial refund.
+3. The cancellation/refund handler currently writes an OnlineReturn movement synchronously.
+4. The delayed sale worker can subsequently deduct the original full order quantity.
+
+This can leave the Junction online-location balance wrong even though each individual movement is idempotent. The existing stock-sync outbox only serializes writes back to WooCommerce; it does not serialize the source sale and return ledger events.
+
+### Required correction before production
+
+- Replace the order-level sale then independent synchronous return behavior with an order-item event stream.
+- Persist immutable event identity, order ID, order-item ID, event kind, mapped Junction product, positive quantity, source cumulative-restock quantity where relevant, and retry/claim state.
+- Serialize events for each order item. A return must not be applied until its corresponding sale reduction has been committed; if sale ingestion has not arrived yet, the return stays pending rather than being applied early or discarded.
+- Sale quantity must reflect WooCommerce's actual remaining reduced-stock quantity after any completed restocks, not blindly assume the original ordered quantity.
+- Reconcile already-committed sale and return event identities before applying a retry. Keep movement insert, stock update, and WooCommerce stock outbox intent in one transaction.
+- Do not let an order-level sale worker acknowledge an order while any of its line events are unresolved.
+- Add a recovery/reconciliation screen for unmapped, ambiguous, or repeatedly failing events; never silently mark them complete.
+
+### Required race acceptance cases
+
+- Sale queued, cancellation restores stock before worker: final Junction stock equals pre-order stock.
+- Sale queued, partial refund restocks before worker: final stock equals pre-order stock minus the still-reduced quantity.
+- Sale committed, then cancellation: exactly one matching return restores the sold quantity.
+- Sale committed, then two partial refund restocks: each cumulative restock is applied once, and total returns never exceed the original sale.
+- Duplicate and out-of-order callbacks, worker crash between claim/commit/ack, mapping failure, and concurrent POS sale must preserve the same final shared ledger balance.
+
+**Status:** This race is not fixed by the current branch. Do not treat cancellation/refund mirroring as production-safe until the durable order-item event stream and staging acceptance cases above are implemented and pass.
