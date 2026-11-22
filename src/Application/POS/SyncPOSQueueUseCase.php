@@ -37,7 +37,7 @@ final class SyncPOSQueueUseCase {
             }
 
             global $wpdb;
-            if (!$wpdb instanceof \\wpdb) {
+            if (!$wpdb instanceof \wpdb) {
                 $failed++;
                 $errors[] = 'POS synchronization database is unavailable.';
                 continue;
@@ -108,7 +108,7 @@ final class SyncPOSQueueUseCase {
                 }
                 $wcOrder->save();
                 if ((int) $wcOrder->get_id() < 1) {
-                    throw new \\RuntimeException('WooCommerce POS order has no persisted ID.');
+                    throw new \RuntimeException('WooCommerce POS order has no persisted ID.');
                 }
 
                 $order->markSynced((int) $wcOrder->get_id());
