@@ -481,6 +481,10 @@ $orderQueueRetrySource = file_get_contents($src . '/Application/Inventory/Proces
 $returnQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
 $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
 if (!is_string($orderQueueRetrySource)
+    || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order): void') === false
+    || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
+    || strpos($orderQueueRetrySource, "update_status(\\$previousStatus") === false
+    || strpos($orderQueueRetrySource, "$this->releaseInventorySyncHold($order)") === false
     || strpos($orderQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
     || strpos($orderQueueRetrySource, "'needs_review' : 'pending'") === false
     || strpos($orderQueueRetrySource, "DATE_ADD(%s, INTERVAL %d SECOND)") === false
@@ -942,6 +946,10 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, '_pkstore_wc_active_cycle_uuid') === false
     || strpos($stockCycleHooksSource, 'markReturnPending(') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_cycle_return_capture_failed_') === false
+    || strpos($stockCycleHooksSource, 'holdOrderForInventorySync(') === false
+    || strpos($stockCycleHooksSource, "_pkstore_wc_inventory_sync_hold") === false
+    || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
+    || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order)') === false
     || !is_string($stockCycleServicesSource)
     || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') === false) {
     throw new \RuntimeException('WooCommerce stock-cycle capture must be wired to the real reduction hook and registered with the cycle-aware ledger workers.');
