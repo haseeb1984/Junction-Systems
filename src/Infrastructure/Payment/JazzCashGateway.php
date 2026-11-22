@@ -62,7 +62,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $existingTxn = (string) $order->get_meta('_pkstore_jazzcash_txn_ref');
         $existingState = (string) $order->get_meta('_pkstore_jazzcash_state');
         $existingExpiry = (string) $order->get_meta('_pkstore_jazzcash_expiry_datetime');
-        if ($existingTxn !== '' && in_array($existingState, ['', 'pending', 'unknown'], true)) {
+        if ($existingTxn !== '' && !in_array($existingState, ['failed', 'expired'], true)) {
             if ($existingExpiry === '' || $existingExpiry > date('YmdHis')) {
                 wc_add_notice('A JazzCash payment is already awaiting confirmation. Please do not retry yet; contact the store if the status does not update.', 'error');
                 return ['result' => 'fail'];
