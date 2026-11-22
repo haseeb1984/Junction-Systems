@@ -134,3 +134,12 @@ The current branch now adds a dedicated `pkstore_wc_return_inventory_queue` tabl
 - The queue and stock behavior have not yet been runtime-tested against WooCommerce/MySQL. Verify cancellation-before-sale, refund-before-sale, partial refunds, full refunds, repeated callbacks, stale worker recovery, concurrent workers, and POS sales in staging.
 
 **Status:** Durable retry is now implemented for persisted return callbacks, but production sign-off remains blocked on runtime acceptance, unresolved-event reconciliation UI, and the order re-payment lifecycle case.
+
+
+## Return-worker lease fencing — implementation update
+
+A further concurrency review found that the return queue had stale-claim recovery but no per-claim ownership token. A worker that exceeded the ten-minute lease could therefore finish after another worker reclaimed the same row and potentially acknowledge or reschedule the newer worker's claim.
+
+The return queue now persists a UUID `claim_token` for each claim. Stale-claim recovery clears the token; completion and retry updates are conditional on the exact token held by that worker. A worker whose lease has been replaced cannot delete or reschedule the newer claim. Migration `2.0.5` adds the nullable token column to existing installations.
+
+The ledger operation remains independently idempotent, so a stale worker that finishes an already-applied movement cannot duplicate the inventory movement. This change has source-level smoke guards only; it still requires multi-worker/lease-expiry runtime testing.
