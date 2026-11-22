@@ -313,3 +313,12 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Inventory product list/detail REST responses include `cost_price` only for users with `manage_options`; shop managers with `manage_woocommerce` still receive operational sale price and stock but not wholesale cost.
 - Product creation through REST and the admin form ignores cost input for non-administrators. The admin form hides the field, and the Purchase Orders screen is administrator-only because it contains supplier and purchase-cost data.
 - Inventory stock operations remain available to authorized `manage_woocommerce` operators under the inventory entitlement.
+
+
+## WhatsApp Business API lifecycle
+
+- Added a per-install WhatsApp settings tab for encrypted permanent access token, webhook verify token and Meta app secret, plus phone-number ID, admin alert number, template names/language and Graph API version. Credentials remain scoped to that customer's WordPress installation.
+- Outbound order, shipment, delivery and low-stock notifications now use configured approved WhatsApp message templates. The integration deliberately does not fall back to free-form messages outside Meta's customer-service window. Template names and body parameter order must match templates approved in the customer's Meta Business Manager.
+- Corrected the shipment hook to `woocommerce_order_status_shipped` and read tracking/courier metadata through `WC_Order` CRUD. Order confirmation, shipment and delivery notifications use order-meta idempotency markers and are marked sent only after provider success.
+- Added an hourly low-stock scan with per-product daily alert suppression. The webhook now supports Meta's GET challenge parameters (`hub.mode`, `hub.verify_token`, `hub.challenge`) and validates POST `X-Hub-Signature-256` using the configured App Secret. Raw webhook payloads and recipient numbers are not logged.
+- External release gates: the customer must provision a Meta Business App, permanent system-user token, phone-number ID, approved templates for all four notification types, webhook subscription and valid template language. Incoming messages and delivery-status webhooks are acknowledged after signature validation but are not yet processed into an agent inbox or delivery ledger; those workflows remain outside this implementation.
