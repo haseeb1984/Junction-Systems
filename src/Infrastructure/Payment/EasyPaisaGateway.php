@@ -157,6 +157,12 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
+        $httpStatus = (int) wp_remote_retrieve_response_code($response);
+        if ($httpStatus < 200 || $httpStatus >= 300) {
+            $order->add_order_note('Easypaisa returned an HTTP error after initiation; transaction status is unknown and must be reconciled before another charge.');
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+        }
+
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
         if (!is_array($body)) {
             $order->add_order_note('Easypaisa returned an unreadable initiation response; status must be reconciled before another charge.');
@@ -276,6 +282,9 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             $this->log->warning('Easypaisa transaction inquiry returned a non-success HTTP status.', ['http_status' => $httpStatus]);
             return null;
         }
+
+        $httpStatus = (int) wp_remote_retrieve_response_code($response);
+        if ($httpStatus < 200 || $httpStatus >= 300) return null;
 
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
         if (!is_array($body)
