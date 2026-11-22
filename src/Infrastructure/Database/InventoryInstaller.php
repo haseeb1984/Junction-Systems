@@ -245,6 +245,7 @@ final class InventoryInstaller {
             wc_order_id BIGINT UNSIGNED NOT NULL,
             wc_order_item_id BIGINT UNSIGNED DEFAULT NULL,
             wc_product_id BIGINT UNSIGNED NOT NULL,
+            cycle_uuid CHAR(36) DEFAULT NULL,
             quantity INT UNSIGNED NOT NULL,
             cumulative_quantity INT UNSIGNED NOT NULL DEFAULT 0,
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -300,6 +301,7 @@ final class InventoryInstaller {
             inventory_product_id INT UNSIGNED NOT NULL,
             inventory_location_id INT UNSIGNED NOT NULL,
             reduced_quantity INT UNSIGNED NOT NULL,
+            allocation_snapshot LONGTEXT DEFAULT NULL,
             cancellation_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
             refund_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
@@ -339,6 +341,13 @@ final class InventoryInstaller {
             INDEX idx_claimed (status, claimed_at),
             INDEX idx_order_item (wc_order_id, wc_order_item_id)
         ) ENGINE=InnoDB {$cs};");
+    }
+
+    public static function installWooCommerceStockCycleRuntime(): void {
+        // Re-run dbDelta for additive columns required by cycle-aware sale/return
+        // processing. Existing queue rows remain legacy (cycle_uuid NULL).
+        self::installWooCommerceReturnInventoryQueue();
+        self::installWooCommerceStockCycles();
     }
 
     public static function installInventoryQueueAudit(): void {
