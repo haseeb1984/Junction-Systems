@@ -920,6 +920,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "'wc_product_id' => $wcProductId") === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
     || strpos($stockCycleCaptureSource, 'A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.') === false
+    || strpos($stockCycleCaptureSource, 'WooCommerce refund cannot be assigned safely after a prior cancellation stock cycle.') === false
     || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
