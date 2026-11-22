@@ -158,8 +158,9 @@ final class InventoryController {
         return new \WP_REST_Response(['success'=>true,'location_id'=>$locationId,'stock'=>$stock],200);
     }
     public function listLocations(\WP_REST_Request $req): \WP_REST_Response {
-        $locations = $this->c->make(LocationRepositoryInterface::class)->findAll();
-        return new \WP_REST_Response(['success'=>true,'locations'=>array_map(fn($l)=>['id'=>$l->id,'name'=>$l->name,'type'=>$l->type,'is_pos'=>$l->isPos,'is_online'=>$l->isOnline],$locations)],200);
+        // POS sessions may only be opened against physical locations explicitly enabled for POS.
+        $locations = $this->c->make(LocationRepositoryInterface::class)->findPOS();
+        return new \WP_REST_Response(['success'=>true,'locations'=>array_map(fn($l)=>['id'=>$l->id,'name'=>$l->name,'type'=>$l->type,'is_pos'=>$l->isPos],$locations)],200);
     }
     public function generateBarcode(\WP_REST_Request $req): \WP_REST_Response {
         if (!FeatureManager::getInstance()->isEnabled('barcode_labels')) {
