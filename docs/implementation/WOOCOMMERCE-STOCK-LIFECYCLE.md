@@ -217,3 +217,5 @@ No cycle schema or cycle-aware processing has been enabled by this documentation
 - Follow-up hardening: both the active sale-ingestion worker and the isolated cycle-capture service now reject non-numeric `_reduced_stock` metadata. Previously malformed non-empty text could cast to zero and be silently treated as a non-stock-managed line. Numeric zero remains a valid no-reduction signal. Source smoke guards added; runtime metadata-corruption tests remain pending.
 
 - Idempotency lookup hardening: `WpStockRepository::hasMovementReference()` now throws on a database read error instead of interpreting a failed lookup as “movement not found”. This prevents an uncertain read from being followed by a duplicate sale/return deduction. Added source smoke guard; database fault-injection test remains pending.
+
+- Aggregate stock read hardening: WooCommerce stock publication now throws if the aggregate inventory query errors or returns a non-numeric result. A database read failure can no longer be misinterpreted as zero stock and push an incorrect `outofstock` value to the storefront. Source smoke guard added; DB fault-injection test remains pending.
