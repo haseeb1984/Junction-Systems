@@ -724,6 +724,11 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource) || !
     || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
     || strpos($aiChatControllerSource, '$ipCount >= 100') === false
     || strpos($aiChatControllerSource, '$sessionCount >= 20') === false
+    || strpos($aiChatControllerSource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($aiChatControllerSource, 'pkstore_chat_ip_') === false
+    || strpos($aiChatControllerSource, 'pkstore_chat_session_') === false
+    || strpos($aiChatControllerSource, 'sort($lockNames, SORT_STRING)') === false
+    || strpos($aiChatControllerSource, 'SELECT RELEASE_LOCK(%s)') === false
     || strpos($aiChatControllerSource, 'streamError(') === false
     || strpos($aiChatModuleSource, 'p.error') === false
     || strpos($aiChatModuleSource, 'new ApiError') === false
