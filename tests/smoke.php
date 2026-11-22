@@ -385,13 +385,13 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "'resulting_status' =>") === false
     || strpos($queueOperatorSource, "'START TRANSACTION'") === false
     || strpos($queueOperatorSource, "'ROLLBACK'") === false
-    || strpos($queueOperatorSource, "strlen(trim($reason)) < 5") === false
+    || strpos($queueOperatorSource, "strlen(trim(\$reason)) < 5") === false
     || !is_string($queueOperatorTemplate)
     || strpos($queueOperatorTemplate, "Recent operator audit") === false
     || strpos($queueOperatorTemplate, "retry_inventory_event") === false
     || strpos($queueOperatorTemplate, "ignore_inventory_event") === false
     || !is_string($queueOperatorSchema)
-    || strpos($queueOperatorSchema, "CREATE TABLE {$wpdb->prefix}pkstore_inventory_queue_audit") === false
+    || strpos($queueOperatorSchema, "CREATE TABLE {\$wpdb->prefix}pkstore_inventory_queue_audit") === false
     || strpos($queueOperatorSchema, "previous_status VARCHAR(20)") === false
     || strpos($queueOperatorSchema, "resulting_status VARCHAR(20)") === false
     || !is_string($queueOperatorMigration)
