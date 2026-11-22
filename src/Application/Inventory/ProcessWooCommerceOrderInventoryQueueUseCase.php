@@ -8,9 +8,9 @@ use Psr\Log\LoggerInterface;
 /**
  * Durable retry queue for WooCommerce order-to-inventory ledger ingestion.
  *
- * Queue rows contain only the WooCommerce order ID and operational state. The
- * inventory use case remains responsible for transactional, idempotent ledger
- * updates; this queue makes failed attempts recoverable.
+ * Each row is scoped to a WooCommerce order + stock-cycle UUID (or the legacy
+ * sentinel). The inventory use case remains responsible for transactional,
+ * idempotent ledger updates; this queue makes failed attempts recoverable.
  */
 final class ProcessWooCommerceOrderInventoryQueueUseCase {
     private const MAX_AUTOMATIC_ATTEMPTS = 12;
