@@ -41,7 +41,7 @@ Online sales are enqueued from `woocommerce_reduce_order_stock`, after WooCommer
 
 - Legacy sale/return queue rows without cycle identity continue through the legacy order-level path. Historical UUIDs are not fabricated. Conflicting legacy movements fail closed when a new cycle-aware sale is processed.
 - If multiple cycles for one order remain open, subsequent return hooks are ambiguous. Those events are retained for review rather than assigned to the newest cycle.
-- Cycle events are stored durably, but the current Sync Health UI primarily displays sale, return and stock-sync queues. A dedicated cycle-event reconciliation screen, periodic reconciliation against WooCommerce order-item metadata, and proactive alerting are not yet implemented.
+- Cycle events are stored durably and are now visible in a read-only Sync Health table. Dedicated cycle-event retry/reconciliation controls, periodic reconciliation against WooCommerce order-item metadata, and proactive alerting are not yet implemented.
 - Runtime acceptance has not yet been run against a real WooCommerce database, HPOS, supported WooCommerce versions, concurrent workers, or crash recovery. Source-level smoke guards are not a substitute for those tests.
 
 ## Required runtime acceptance
