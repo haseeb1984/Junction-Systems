@@ -10,6 +10,16 @@ final class InventoryAdminController {
     private const CAP = 'manage_woocommerce';
     public function __construct(private readonly ServiceContainer $c) {}
 
+    private function schemaReady(): bool {
+        return version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=');
+    }
+
+    private function requireSchemaReady(): void {
+        if (!$this->schemaReady()) {
+            wp_die('Inventory and POS are temporarily paused until the protected database migration and backup confirmation are complete.');
+        }
+    }
+
     public function register(): void {
         add_action('admin_menu',            [$this, 'menus']);
         add_action('admin_enqueue_scripts', [$this, 'assets']);
@@ -17,6 +27,7 @@ final class InventoryAdminController {
     }
 
     public function menus(): void {
+        if (!$this->schemaReady()) return;
         $features = FeatureManager::getInstance();
         if (!$features->isEnabled('inventory')) return;
 
@@ -44,6 +55,7 @@ final class InventoryAdminController {
 
     public function handleForms(): void {
         if (!isset($_POST['pkstore_inventory_action'])) return;
+        $this->requireSchemaReady();
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         $features = FeatureManager::getInstance();
         if (!$features->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
@@ -258,6 +270,7 @@ final class InventoryAdminController {
     }
 
     public function locations(): void {
+        $this->requireSchemaReady();
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('multi_location')) {
             wp_die('Multi-location inventory is not available on the current package.');
@@ -269,6 +282,7 @@ final class InventoryAdminController {
     }
 
     public function inventory(): void {
+        $this->requireSchemaReady();
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         $repo      = $this->c->make(InventoryProductRepositoryInterface::class);
@@ -283,12 +297,14 @@ final class InventoryAdminController {
     }
 
     public function pos(): void {
+        $this->requireSchemaReady();
         if (!current_user_can('use_junction_pos')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('pos')) wp_die('POS is not available on the current package.');
         include PKSTORE_DIR.'/templates/pos/pos-app.php';
     }
 
     public function stockLog(): void {
+        $this->requireSchemaReady();
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
@@ -309,6 +325,7 @@ final class InventoryAdminController {
      * This deliberately offers no force-complete or direct stock mutation action.
      */
     public function inventoryEvents(): void {
+        $this->requireSchemaReady();
         if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
 
@@ -393,6 +410,7 @@ final class InventoryAdminController {
     }
 
     public function purchaseOrders(): void {
+        $this->requireSchemaReady();
         if (!current_user_can('manage_options')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
