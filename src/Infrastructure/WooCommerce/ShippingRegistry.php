@@ -20,9 +20,9 @@ final class ShippingRegistry {
             }
             return $methods;
         });
-        add_action('woocommerce_payment_complete',             [$this, 'autoBookShipment']);
-        add_filter('woocommerce_available_payment_gateways',   [$this, 'filterGatewaysForDigital']);
+        add_filter('woocommerce_available_payment_gateways', [$this, 'filterGatewaysForDigital']);
         if ($this->hasEnabledCourier()) {
+            add_action('woocommerce_payment_complete', [$this, 'autoBookShipment']);
             add_action('pkstore_tracking_sync_cron', [$this, 'syncTrackingUpdates']);
             if (!wp_next_scheduled('pkstore_tracking_sync_cron')) {
                 wp_schedule_event(time() + 300, 'hourly', 'pkstore_tracking_sync_cron');
