@@ -1068,43 +1068,23 @@ final class SyncWooCommerceStockUseCase {
             if ($wpdb->last_error !== '') {
                 throw new \RuntimeException('Unable to inspect WooCommerce stock-cycle return event.');
             }
-            if (is_array($existingEvent)) {
-                if ($existingEvent['status'] === 'processed') {
-                    throw new \RuntimeException('WooCommerce stock-cycle return event was already acknowledged before its ledger counters.');
-                }
-                $updated = $wpdb->update($eventsTable, [
-                    'status' => 'processed',
-                    'claimed_at' => null,
-                    'claim_token' => null,
-                    'last_error' => '',
-                    'updated_at' => $now,
-                ], ['id' => (int) $existingEvent['id']]);
-                if ($updated === false) throw new \RuntimeException('Unable to acknowledge WooCommerce stock-cycle return event.');
-            } else {
-                $eventInserted = $wpdb->insert($eventsTable, [
-                    'event_uuid' => wp_generate_uuid4(),
-                    'event_key' => $eventKey,
-                    'cycle_uuid' => $cycleUuid,
-                    'wc_order_id' => $orderId,
-                    'wc_order_item_id' => $itemId,
-                    'event_kind' => $eventKind,
-                    'quantity' => $quantity,
-                    'cumulative_quantity' => $eventCumulative,
-                    'source_hook' => $sourceHook,
-                    'source_metadata' => wp_json_encode(['allocation_count' => count($normalized)]),
-                    'status' => 'processed',
-                    'attempts' => 0,
-                    'next_attempt_at' => $now,
-                    'claimed_at' => null,
-                    'claim_token' => null,
-                    'last_error' => '',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-                if ($eventInserted !== 1) {
-                    throw new \RuntimeException('Unable to persist WooCommerce stock-cycle return event.');
-                }
+            if (!is_array($existingEvent)) {
+                throw new \RuntimeException('WooCommerce stock-cycle return event was not captured at hook time.');
             }
+            if ($existingEvent['status'] === 'processed') {
+                throw new \RuntimeException('WooCommerce stock-cycle return event was already acknowledged before its ledger counters.');
+            }
+            if (!in_array($existingEvent['status'], ['pending', 'processing'], true)) {
+                throw new \RuntimeException('WooCommerce stock-cycle return event is not eligible for processing.');
+            }
+            $updated = $wpdb->update($eventsTable, [
+                'status' => 'processed',
+                'claimed_at' => null,
+                'claim_token' => null,
+                'last_error' => '',
+                'updated_at' => $now,
+            ], ['id' => (int) $existingEvent['id']]);
+            if ($updated === false) throw new \RuntimeException('Unable to acknowledge WooCommerce stock-cycle return event.');
 
             if ($wpdb->query('COMMIT') === false) {
                 throw new \RuntimeException('Unable to commit WooCommerce stock-cycle return transaction.');
