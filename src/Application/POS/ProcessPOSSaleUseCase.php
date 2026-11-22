@@ -172,7 +172,7 @@ final class ProcessPOSSaleUseCase {
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
 
         $pendingEvents = $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$eventsTable} WHERE event_kind='reduction' AND status<>'processed'"
+            "SELECT COUNT(*) FROM {$eventsTable} WHERE event_kind='reduction' AND status IN ('pending','processing','needs_review','failed','review')"
         );
         if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) {
             throw new OnlineStockReconciliationPendingException('Online store inventory reconciliation could not be verified; POS sales are paused.');
