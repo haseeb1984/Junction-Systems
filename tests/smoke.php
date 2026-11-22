@@ -345,7 +345,8 @@ if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, 'Never interpret a failed schema probe as a fresh install') === false
     || strpos($migrationRunnerSource, "'2.0.10' => [Installer::class, 'addOtpConsumptionColumns']") === false
     || strpos($migrationRunnerSource, "'consumed_at', 'consumed_order_id'") === false
-    || strpos($migrationRunnerSource, "'pkstore_') . '%'") === false) {
+    || strpos($migrationRunnerSource, 'Any Junction-owned table means this is an existing installation.') === false
+    || strpos($migrationRunnerSource, "esc_like(\$wpdb->prefix . 'pkstore_')") === false) {
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
 
