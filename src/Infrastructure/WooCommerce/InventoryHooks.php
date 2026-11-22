@@ -8,6 +8,21 @@ use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
+        // MigrationRunner runs on init priority 1. Register lifecycle hooks only
+        // after it has completed the cycle-aware schema upgrade.
+        add_action('init', [$this, 'registerLifecycleHooks'], 20);
+    }
+
+    public function registerLifecycleHooks(): void {
+        if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) {
+            // Without the cycle-scoped sale/return schema, allowing online sales
+            // would make the shared POS/store ledger unreliable.
+            add_filter('woocommerce_is_purchasable', [$this, 'blockPurchasesDuringMigration'], 99, 2);
+            add_action('woocommerce_check_cart_items', [$this, 'blockCheckoutDuringMigration']);
+            add_action('admin_notices', [$this, 'migrationNotice']);
+            return;
+        }
+
         // Queue an online sale only after WooCommerce has completed its actual
         // order stock-reduction pass. Payment/status transitions alone are not proof.
         add_action('woocommerce_reduce_order_stock', [$this, 'onOrderStockReduced'], 10, 1);
@@ -15,10 +30,25 @@ final class InventoryHooks {
         add_action('woocommerce_restore_order_item_stock', [$this, 'onOrderItemRestored'], 10, 4);
         // This hook fires only when the merchant explicitly restocks a refunded item.
         add_action('woocommerce_restock_refunded_item', [$this, 'onRefundItemRestocked'], 10, 5);
-        // Scheduled full sync every hour
-        if (!wp_next_scheduled('pkstore_inventory_hourly_sync'))
+        if (!wp_next_scheduled('pkstore_inventory_hourly_sync')) {
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
+        }
         add_action('pkstore_inventory_hourly_sync', [$this, 'hourlySyncAll']);
+    }
+
+    public function blockPurchasesDuringMigration(bool $purchasable, $product): bool {
+        return false;
+    }
+
+    public function blockCheckoutDuringMigration(): void {
+        if (function_exists('wc_add_notice')) {
+            wc_add_notice('Online checkout is temporarily paused while Junction completes a protected inventory schema upgrade. Please contact the store administrator.', 'error');
+        }
+    }
+
+    public function migrationNotice(): void {
+        if (!current_user_can('manage_woocommerce')) return;
+        echo '<div class="notice notice-error"><p>Junction inventory integration is paused: database migration 2.0.13 is not complete. Confirm the required pre-migration hosting backup so the cycle-aware POS/online stock ledger can be upgraded safely.</p></div>';
     }
     public function onOrderStockReduced($order): void {
         try {
