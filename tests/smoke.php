@@ -451,4 +451,15 @@ if (!is_string($posSyncSource)
     throw new \RuntimeException('POS-to-WooCommerce mirroring must be idempotent and preserve the single shared inventory deduction and original-location returns.');
 }
 
+
+if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
+    || strpos($posSyncSource, "_pkstore_inventory_product_id") === false
+    || strpos($posSyncSource, "get_discount_total()") === false
+    || strpos($posSyncSource, "get_currency() !== 'PKR'") === false
+    || strpos($posStockLifecycle, "MovementType::Sale") === false
+    || strpos($posStockLifecycle, "'pos_order'") === false
+    || strpos($posStockLifecycle, "The original Junction inventory location is unavailable.") === false) {
+    throw new \RuntimeException('POS order retry, original-location return, and stock-cycle safeguards must remain in place.');
+}
+
 echo "Smoke tests passed.\n";
