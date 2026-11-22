@@ -9,7 +9,6 @@ final class SyncWooCommerceStockUseCase {
         private readonly InventoryProductRepositoryInterface $productRepo,
         private readonly StockRepositoryInterface $stockRepo,
         private readonly LocationRepositoryInterface $locationRepo,
-        private readonly CaptureWooCommerceStockCycleUseCase $cycleCapture,
         private readonly AdjustStockUseCase $adjustStock,
         private readonly LoggerInterface $log,
     ) {}
@@ -28,15 +27,7 @@ final class SyncWooCommerceStockUseCase {
             $order = wc_get_order($orderId);
             if ($order instanceof \WC_Order
                 && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
-                // A previous capture attempt may have failed transiently. Retry
-                // capture from the persisted hook-time quantity snapshot.
-                $newCycleUuid = $this->cycleCapture->capture($order);
-                $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $newCycleUuid);
-                if ((int) $order->save() !== $orderId) {
-                    throw new \RuntimeException('Unable to persist retried WooCommerce stock-cycle identity.');
-                }
-                $this->applyWooCommerceSaleCycle($order, $newCycleUuid);
-                return;
+                throw new \RuntimeException('Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.');
             }
 
             $this->applyWooCommerceSale($orderId);
