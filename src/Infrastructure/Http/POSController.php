@@ -13,12 +13,13 @@ final class POSController {
     public function register(): void {
         add_action('rest_api_init', function () {
             $ns   = 'pkstore/v1';
-            $auth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
+            $schemaReady = static fn(): bool => version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=');
+            $auth = fn()=>$schemaReady() && (current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
                 && FeatureManager::getInstance()->isEnabled('pos')
                 && FeatureManager::getInstance()->isEnabled('inventory');
             // Queue synchronization processes every cashier's pending orders;
             // it is an installation-wide operation, not a cashier capability.
-            $managerAuth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('manage_options'))
+            $managerAuth = fn()=>$schemaReady() && (current_user_can('manage_woocommerce') || current_user_can('manage_options'))
                 && FeatureManager::getInstance()->isEnabled('pos')
                 && FeatureManager::getInstance()->isEnabled('inventory');
             register_rest_route($ns,'/pos/session/open',      ['methods'=>'POST','callback'=>[$this,'openSession'],  'permission_callback'=>$auth]);
