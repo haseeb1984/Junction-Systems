@@ -283,7 +283,7 @@ final class SyncWooCommerceStockUseCase {
                 if (!is_string($encoded)) throw new \RuntimeException('Unable to encode WooCommerce stock-cycle allocation snapshot.');
                 $firstLocationId = (int) $line['cycle_state']['allocations'][0]['location_id'];
                 $cycleItemRow = $wpdb->get_row($wpdb->prepare(
-                    "SELECT id,reduced_quantity,refund_cumulative_baseline FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
+                    "SELECT id,reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,refund_restored_quantity FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
                     $cycleUuid,
                     $line['item_id']
                 ), ARRAY_A);
@@ -295,8 +295,10 @@ final class SyncWooCommerceStockUseCase {
                 }
                 if (!$hasSnapshot) {
                     $line['cycle_state']['refund_cumulative_baseline'] = (int) $cycleItemRow['refund_cumulative_baseline'];
-                } elseif ((int) $line['cycle_state']['refund_cumulative_baseline'] !== (int) $cycleItemRow['refund_cumulative_baseline']) {
-                    throw new \RuntimeException('WooCommerce refund cumulative baseline does not match its captured cycle.');
+                } elseif ((int) $line['cycle_state']['refund_cumulative_baseline'] !== (int) $cycleItemRow['refund_cumulative_baseline']
+                    || (int) ($line['cycle_state']['cancellation_returned_quantity'] ?? -1) !== (int) $cycleItemRow['cancellation_restored_quantity']
+                    || (int) ($line['cycle_state']['refund_returned_quantity'] ?? -1) !== (int) $cycleItemRow['refund_restored_quantity']) {
+                    throw new \RuntimeException('WooCommerce refund baseline or return counters do not match the captured cycle.');
                 }
                 $updated = $wpdb->update($cycleItemsTable, [
                     'inventory_location_id' => $firstLocationId,
