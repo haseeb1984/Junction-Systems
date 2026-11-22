@@ -5,6 +5,7 @@ use PkStore\Application\POS\{ProcessPOSSaleUseCase, SyncPOSQueueUseCase};
 use PkStore\Container\ServiceContainer;
 use PkStore\Domain\POS\Repository\{POSSessionRepositoryInterface, POSOrderRepositoryInterface};
 use PkStore\Domain\POS\Entity\POSSession;
+use PkStore\Domain\Inventory\Repository\LocationRepositoryInterface;
 final class POSController {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
