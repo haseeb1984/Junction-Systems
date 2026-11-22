@@ -236,3 +236,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added source smoke guards. Provider sandbox rejection/failover and circuit reset timing still require runtime tests.
 
 - Tracking worker coverage now includes `delivery-failed` and `on-hold` shipments, so a failed delivery attempt or temporary provider exception does not permanently remove the order from subsequent tracking checks.
+
+- Circuit-breaker classification was tightened: only transport errors and HTTP 5xx responses count toward opening a courier circuit and trigger queued retry. HTTP 4xx/input validation rejections still try the next provider but do not poison that provider's health score.
