@@ -22,6 +22,7 @@ final class MigrationRunner {
         '2.0.2' => [self::class, 'addPOSRequestFingerprint'],
         '2.0.3' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
         '2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue'],
+        '2.0.5' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue'],
     ];
 
 
@@ -135,6 +136,11 @@ final class MigrationRunner {
         }
         if (version_compare($version, '2.0.4', '>=')) {
             $required[] = 'pkstore_wc_return_inventory_queue';
+        }
+        if (version_compare($version, '2.0.5', '>=')) {
+            $returnQueue = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+            $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $returnQueue . ' LIKE %s', 'claim_token'));
+            if (!$claimToken) throw new \\RuntimeException('Required return queue claim-token column was not created.');
         }
 
         foreach ($required as $suffix) {
