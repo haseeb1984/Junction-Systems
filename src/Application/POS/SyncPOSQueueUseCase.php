@@ -99,7 +99,7 @@ final class SyncPOSQueueUseCase {
                     $this->replaceWooCommerceOrderItems($wcOrder, $order);
                     $wcOrder->payment_complete('POS-' . $order->orderRef);
                 } elseif (!$this->paidWooCommerceOrderMatches($wcOrder, $order)) {
-                    throw new \\RuntimeException('Paid WooCommerce order does not match its POS source record.');
+                    throw new \RuntimeException('Paid WooCommerce order does not match its POS source record.');
                 }
                 $wcOrder->save();
 
