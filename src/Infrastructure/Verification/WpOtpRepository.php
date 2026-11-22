@@ -12,12 +12,17 @@ final class WpOtpRepository implements OtpRepositoryInterface {
     public function findActiveByPhoneAndOrder(PakistanPhoneNumber $p,string $oid):?OtpAttempt{$r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC LIMIT 1",$p->e164,$oid),ARRAY_A);if($r===null)return null;return OtpAttempt::reconstitute($r['id'],new PakistanPhoneNumber($r['phone_e164']),$r['hashed_code'],$r['order_id'],new \DateTimeImmutable($r['created_at']),new \DateTimeImmutable($r['expires_at']),(int)$r['attempt_count'],(bool)$r['is_verified']);}
     public function countRecentSendsByPhone(PakistanPhoneNumber $p,\DateTimeImmutable $since):int{return(int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t()} WHERE phone_e164=%s AND created_at>=%s",$p->e164,$since->format('Y-m-d H:i:s')));}
     public function consumeVerifiedAttempt(string $attemptId, PakistanPhoneNumber $phone, string $sessionRef): bool {
+        // OtpAttempt timestamps are created/reconstituted in PHP's default
+        // timezone. Compare using that same clock rather than MySQL NOW(),
+        // whose server timezone may differ from the PHP/WordPress runtime.
+        $now = (new \\DateTimeImmutable())->format('Y-m-d H:i:s');
         $result = $this->db->query($this->db->prepare(
-            "UPDATE {$this->t()} SET consumed_at=%s WHERE id=%s AND phone_e164=%s AND order_id=%s AND is_verified=1 AND consumed_at IS NULL AND expires_at>NOW()",
-            current_time('mysql'),
+            "UPDATE {$this->t()} SET consumed_at=%s WHERE id=%s AND phone_e164=%s AND order_id=%s AND is_verified=1 AND consumed_at IS NULL AND expires_at>%s",
+            $now,
             $attemptId,
             $phone->e164,
-            $sessionRef
+            $sessionRef,
+            $now
         ));
         if ($result === false) {
             throw new \RuntimeException('Unable to consume verified COD OTP proof.');
