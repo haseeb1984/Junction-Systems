@@ -336,3 +336,6 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - A real WooCommerce stock reduction now places the order on hold if cycle capture, queue persistence, or the synchronous Junction ledger commit cannot be confirmed. The original order status and cycle identity are retained so the order cannot be fulfilled against an incomplete shared stock ledger.
 - Once the cycle-aware sale worker commits successfully, it restores the prior order status only if the order remains on hold. It does not overwrite a later operator or terminal status, and it clears the hold marker only after the order save succeeds.
 - The same release path is used by synchronous recovery and the durable worker. Source smoke guards cover the hold/release path; WooCommerce/HPOS status-hook and stock-restoration side effects remain runtime acceptance requirements.
+
+
+- Courier retry scheduling now passes the order ID as the positional callback argument for both Action Scheduler and WP-Cron. The previous associative `order_id` argument did not match the registered callback's `$orderId` parameter and could prevent the five-minute retry from executing after all providers were unavailable. Added a source smoke guard; actual scheduler execution remains part of staging acceptance.
