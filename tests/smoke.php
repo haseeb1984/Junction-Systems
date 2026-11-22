@@ -597,6 +597,15 @@ if (!is_string($posSyncSource)
 }
 
 
+$posRetryExceptionSource = file_get_contents($src . '/Application/POS/Exception/OnlineStockReconciliationPendingException.php');
+if (!is_string($posRetryExceptionSource)
+    || strpos($posHttpSource, 'catch (OnlineStockReconciliationPendingException $error)') === false
+    || strpos($posHttpSource, "'retryable' => true") === false
+    || strpos($posHttpSource, '], 503)') === false
+    || strpos($posRetryExceptionSource, 'extends \\RuntimeException') === false) {
+    throw new \RuntimeException('Temporary online inventory reconciliation must return a retryable POS response, not reject an offline sale.');
+}
+
 $posSaleSource = file_get_contents($src . '/Application/POS/ProcessPOSSaleUseCase.php');
 $orderInventoryQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
 if (!is_string($posSaleSource) || !is_string($orderInventoryQueueSource)
