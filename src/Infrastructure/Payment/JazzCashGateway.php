@@ -38,7 +38,12 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
         $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$dt=date('YmdHis');$exp=date('YmdHis',strtotime('+30 minutes'));
-        $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$this->get_return_url($order),'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
+        // JazzCash POSTs transaction results to pp_ReturnURL. The callback
+        // endpoint must receive that POST before the customer is redirected.
+        $callbackUrl = function_exists('WC') && WC() && method_exists(WC(), 'api_request_url')
+            ? WC()->api_request_url('jazzcash_callback')
+            : add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
+        $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$callbackUrl,'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
         ksort($pd);$hs=$ik.'&'.implode('&',array_values($pd));$pd['pp_SecureHash']=strtoupper(hash_hmac('sha256',$hs,$ik));
         $order->update_meta_data('_pkstore_jazzcash_txn_ref',$txn);
         $order->update_meta_data('_pkstore_jazzcash_expected_amount',$amt);
@@ -104,8 +109,9 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             $order->add_order_note('JazzCash payment confirmed. TxID: ' . $txnRef);
         }
 
-        status_header(200);
-        echo 'OK';
+        // Return the customer to the normal WooCommerce receipt after the
+        // signed transaction response has been verified and applied.
+        wp_safe_redirect($this->get_return_url($order));
         exit;
     }
 }
