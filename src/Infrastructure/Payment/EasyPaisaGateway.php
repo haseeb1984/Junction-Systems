@@ -29,6 +29,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
         add_action('woocommerce_api_easypaisa_ipn', [$this, 'handleIpn']);
+        add_action('woocommerce_thankyou_easypaisa', [$this, 'verifyOnReturn'], 10, 1);
     }
 
     public function is_available(): bool {
@@ -225,6 +226,18 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             $checked++;
         }
         return $checked;
+    }
+
+    public function verifyOnReturn(int $orderId): void {
+        $order = wc_get_order($orderId);
+        if (!$order instanceof \WC_Order || $order->get_payment_method() !== $this->id || $order->is_paid()) return;
+
+        $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
+        if ($orderRef === '') return;
+        $status = $this->inquireTransactionStatus($orderRef);
+        if (is_array($status)) {
+            $this->applyProviderStatus($order, $status);
+        }
     }
 
     public function handleIpn(): void {
