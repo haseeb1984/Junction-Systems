@@ -373,6 +373,11 @@ if (strpos($wcLifecycleSource, 'applyWooCommerceOrderItemRestored($item, $newSto
     throw new \\RuntimeException('Cycle identity must reach the online cancellation and refund ledger handlers.');
 }
 
+if (strpos($wcLifecycleSource, "elseif (!in_array(\$cycle['state'], ['active', 'restoring'], true))") === false
+    || strpos($wcLifecycleSource, 'A cancellation/refund callback may arrive before the sale') === false) {
+    throw new \\RuntimeException('WooCommerce sale processing must commit the sale even when its return callback arrived first.');
+}
+
 $inventoryHooksLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
 if (!is_string($inventoryHooksLifecycleSource)
     || strpos($inventoryHooksLifecycleSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')") === false
