@@ -50,8 +50,8 @@ final class SyncWooCommerceStockUseCase {
                 ? $this->productRepo->findByWcProductId($variationId)
                 : null;
             $product ??= $this->productRepo->findByWcProductId($wcProductId);
-            if (!$product) {
-                throw new \RuntimeException('WooCommerce order product is not linked to Junction inventory.');
+            if (!$product || !$product->isActive) {
+                throw new \RuntimeException('WooCommerce order product is not linked to active Junction inventory.');
             }
 
             $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
