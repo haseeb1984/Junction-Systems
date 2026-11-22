@@ -200,7 +200,7 @@ final class CodOtpController {
                 $billingPhone,
                 $sessionRef
             );
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             error_log('[PK Store] COD OTP proof consumption failed (' . get_class($error) . ').');
             $errors->add('pkstore_cod_otp_unavailable', 'Phone verification could not be confirmed. Please try again.');
             return;
