@@ -78,6 +78,7 @@ final class DashboardService {
 
         $this->forEachOrder([
             'type' => 'shop_order',
+            'status' => ['wc-processing', 'wc-on-hold'],
         ], static function ($order) use (&$summary): void {
             if (!($order instanceof \WC_Order)) return;
             $tracking = (string) $order->get_meta('_tracking_courier');
