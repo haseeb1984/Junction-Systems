@@ -39,7 +39,7 @@ final class SyncWooCommerceStockUseCase {
                 continue;
             }
             if (!is_numeric($reducedStock)) {
-                throw new \\RuntimeException('WooCommerce order contains a malformed actual stock-reduction quantity.');
+                throw new \RuntimeException('WooCommerce order contains a malformed actual stock-reduction quantity.');
             }
             $rawQuantity = (float) $reducedStock;
             if ($rawQuantity === 0.0) {
