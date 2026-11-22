@@ -573,7 +573,10 @@ if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, 'wc_get_orders(') === false
     || strpos($dashboardServiceSource, 'paginate') === false
     || strpos($dashboardServiceSource, '$this->db->posts') !== false
-    || strpos($dashboardServiceSource, '$this->db->postmeta') !== false) {
+    || strpos($dashboardServiceSource, '$this->db->postmeta') !== false
+    || strpos($dashboardServiceSource, "['cancelled', 'failed', 'refunded']") === false
+    || strpos($dashboardServiceSource, "'verification_rate' => $total > 0") === false
+    || strpos($dashboardServiceSource, "'avg_messages_per_session' => $sessions > 0") === false) {
     throw new \\RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
 }
 
