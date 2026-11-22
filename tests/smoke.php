@@ -388,4 +388,21 @@ if (!is_string($orderQueueRetrySource)
     throw new \RuntimeException('WooCommerce inventory queues must stop automatic retries after 12 attempts and expose needs_review.');
 }
 
+
+$returnQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
+$returnQueueSchema = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+$returnQueueMigrations = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
+if (!is_string($returnQueueSource)
+    || strpos($returnQueueSource, 'claim_token=NULL') === false
+    || strpos($returnQueueSource, 'claim_token=%s') === false
+    || strpos($returnQueueSource, "['id' => $id, 'status' => 'processing', 'claim_token' => $claimToken]") === false
+    || strpos($returnQueueSource, "'claim_token' => $claimToken") === false
+    || !is_string($returnQueueSchema)
+    || strpos($returnQueueSchema, 'claim_token CHAR(36) DEFAULT NULL') === false
+    || !is_string($returnQueueMigrations)
+    || strpos($returnQueueMigrations, "'2.0.5' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue']") === false
+    || strpos($returnQueueMigrations, "'claim_token'") === false) {
+    throw new \RuntimeException('WooCommerce return queue workers must be fenced by persisted claim tokens.');
+}
+
 echo "Smoke tests passed.\n";
