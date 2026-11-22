@@ -199,6 +199,7 @@ final class InventoryInstaller {
             attempts INT UNSIGNED NOT NULL DEFAULT 0,
             next_attempt_at DATETIME NOT NULL,
             claimed_at DATETIME DEFAULT NULL,
+            claim_token CHAR(36) DEFAULT NULL,
             last_error VARCHAR(100) NOT NULL DEFAULT '',
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
