@@ -98,7 +98,7 @@ final class SyncPOSQueueUseCase {
                 if (!$wcOrder->is_paid()) {
                     $this->replaceWooCommerceOrderItems($wcOrder, $order);
                     $wcOrder->payment_complete('POS-' . $order->orderRef);
-                } elseif (!$this->paidWooCommerceOrderMatches($wcOrder, $order)) {
+                } elseif ($wcOrder->get_meta('_order_stock_reduced', true) !== 'yes' || !$this->paidWooCommerceOrderMatches($wcOrder, $order)) {
                     throw new \RuntimeException('Paid WooCommerce order does not match its POS source record.');
                 }
                 $wcOrder->save();
@@ -202,7 +202,9 @@ final class SyncPOSQueueUseCase {
     }
 
     private function paidWooCommerceOrderMatches(\WC_Order $wcOrder, POSOrder $posOrder): bool {
-        if ((int) round((float) $wcOrder->get_total()) !== $posOrder->totalPkr) {
+        if ($wcOrder->get_currency() !== 'PKR'
+            || (int) round((float) $wcOrder->get_total()) !== $posOrder->totalPkr
+            || (int) round((float) $wcOrder->get_discount_total()) !== $posOrder->discountPkr) {
             return false;
         }
 
