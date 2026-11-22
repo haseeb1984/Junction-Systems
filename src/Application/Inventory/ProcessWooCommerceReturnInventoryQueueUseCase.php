@@ -54,14 +54,14 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT e.cycle_uuid,e.wc_order_id,e.wc_order_item_id,e.event_kind,e.quantity,
                     e.cumulative_quantity,i.refund_cumulative_baseline,
-                    COALESCE(NULLIF(CAST(JSON_UNQUOTE(JSON_EXTRACT(e.source_metadata,'$.wc_product_id')) AS UNSIGNED),0),NULLIF(i.wc_variation_id,0),i.wc_parent_product_id) AS wc_product_id
+                    COALESCE(NULLIF(CAST(JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(e.source_metadata) THEN e.source_metadata ELSE '{}' END,'$.wc_product_id')) AS UNSIGNED),0),NULLIF(i.wc_variation_id,0),i.wc_parent_product_id) AS wc_product_id
              FROM {$eventsTable} e
              INNER JOIN {$itemsTable} i
                 ON i.cycle_uuid=e.cycle_uuid AND i.wc_order_item_id=e.wc_order_item_id
              LEFT JOIN {$queueTable} q
                 ON q.event_key=CASE
                     WHEN e.event_kind='cancellation' THEN CONCAT('cancel:',e.cycle_uuid,':',e.wc_order_id,':',e.wc_order_item_id,':',e.quantity)
-                    WHEN e.event_kind='refund' THEN CONCAT('refund:',e.cycle_uuid,':',e.wc_order_id,':',COALESCE(NULLIF(i.wc_variation_id,0),i.wc_parent_product_id),':',e.wc_order_item_id,':',e.cumulative_quantity+i.refund_cumulative_baseline)
+                    WHEN e.event_kind='refund' THEN CONCAT('refund:',e.cycle_uuid,':',e.wc_order_id,':',COALESCE(NULLIF(CAST(JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(e.source_metadata) THEN e.source_metadata ELSE '{}' END,'$.wc_product_id')) AS UNSIGNED),0),NULLIF(i.wc_variation_id,0),i.wc_parent_product_id),':',e.wc_order_item_id,':',e.cumulative_quantity+i.refund_cumulative_baseline)
                     ELSE ''
                 END
              WHERE e.event_kind IN ('cancellation','refund')
