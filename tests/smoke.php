@@ -568,6 +568,14 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
 }
 
+$affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
+if (!is_string($affiliateControllerSource)
+    || strpos($affiliateControllerSource, 'maskPaymentAccount(') === false
+    || strpos($affiliateControllerSource, "'payment_account'=>$this->maskPaymentAccount($a->paymentAccount)") === false
+    || strpos($affiliateControllerSource, "'payment_account'=>$a->paymentAccount") !== false) {
+    throw new \\RuntimeException('Affiliate dashboard API must mask payout account details by default.');
+}
+
 $trackingControllerSource = file_get_contents($src . '/Infrastructure/Http/TrackingController.php');
 $shippingRegistryLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
 if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecycleSource)
