@@ -759,7 +759,10 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     || strpos($shippingRegistryLifecycleSource, "'paginate' => true") === false
     || strpos($shippingRegistryLifecycleSource, "'return' => 'objects'") === false
     || strpos($shippingRegistryLifecycleSource, "'wc-delivery-failed'") === false
-    || strpos($shippingRegistryLifecycleSource, "'wc-on-hold'") === false) {
+    || strpos($shippingRegistryLifecycleSource, "'wc-on-hold'") === false
+    || strpos($shippingRegistryLifecycleSource, "as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',[$orderId]") === false
+    || strpos($shippingRegistryLifecycleSource, "['order_id'=>$orderId]") !== false
+    || strpos($shippingRegistryLifecycleSource, "_pkstore_pos_origin") === false) {
     throw new \RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
