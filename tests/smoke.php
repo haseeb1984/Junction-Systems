@@ -182,6 +182,7 @@ if (!is_string($bootstrapSource)
 if (!is_string($adminInventorySource)
     || strpos($adminInventorySource, "if (!\$features->isEnabled('inventory')) return;") === false
     || strpos($adminInventorySource, "if (\$features->isEnabled('pos'))") === false
+    || strpos($adminInventorySource, "add_menu_page('Junction POS','🖥 Junction POS','use_junction_pos'") === false
     || strpos($adminInventorySource, "if (!FeatureManager::getInstance()->isEnabled('pos'))") === false) {
     throw new \RuntimeException('Inventory admin routes must enforce inventory and POS entitlements independently.');
 }
