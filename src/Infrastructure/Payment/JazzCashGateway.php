@@ -71,6 +71,13 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             static fn($key) => str_starts_with((string)$key, 'pp') && $key !== 'pp_SecureHash',
             ARRAY_FILTER_USE_KEY
         );
+        foreach ($signedPayload as $key => $value) {
+            if (!is_scalar($value)) {
+                status_header(400);
+                exit;
+            }
+            $signedPayload[$key] = (string) $value;
+        }
         ksort($signedPayload);
         $expectedHash = strtoupper(hash_hmac('sha256', $ik . '&' . implode('&', array_values($signedPayload)), $ik));
         if (!hash_equals($expectedHash, strtoupper($receivedHash))) {
