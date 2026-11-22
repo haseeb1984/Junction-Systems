@@ -35,7 +35,7 @@
     </div>
 
     <?php
-    $renderQueue = static function (string $heading, array $events, ?string $queueType = null): void {
+    $renderQueue = static function (string $heading, array $events, ?string $queueType = null, bool $allowIgnore = true): void {
         ?>
         <h2><?= esc_html($heading) ?></h2>
         <table class="wp-list-table widefat fixed striped">
@@ -78,6 +78,7 @@
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason for retry" style="max-width:180px;">
                                     <button type="submit" class="button button-secondary">Retry</button>
                                 </form>
+                                <?php if ($allowIgnore): ?>
                                 <form method="post">
                                     <?php wp_nonce_field('pkstore_inventory_action'); ?>
                                     <input type="hidden" name="pkstore_inventory_action" value="ignore_inventory_event">
@@ -86,6 +87,7 @@
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason to ignore" style="max-width:180px;">
                                     <button type="submit" class="button button-secondary">Ignore</button>
                                 </form>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="description">Available only for needs_review</span>
                             <?php endif; ?>
@@ -105,7 +107,7 @@
 
     <?php $renderQueue('Online store sale events', $salesEvents, 'sales'); ?>
     <?php $renderQueue('Cancellation and refund restock events', $returnEvents, 'returns'); ?>
-    <?php $renderQueue('WooCommerce aggregate stock-sync events', $stockEvents); ?>
+    <?php $renderQueue('WooCommerce aggregate stock-sync events', $stockEvents, 'stock', false); ?>
 
     <h2>Recent operator audit</h2>
     <table class="wp-list-table widefat fixed striped">
@@ -125,5 +127,5 @@
         <?php if (empty($operatorAudit)): ?><tr><td colspan="7">No operator actions recorded.</td></tr><?php endif; ?>
         </tbody>
     </table>
-    <p class="description">Retry and ignore are limited to retained sale/return events in needs_review. Ignore does not change stock; it records an explicit operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
+    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale/return events. Ignore does not change stock; it records an explicit operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
 </div>
