@@ -291,3 +291,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Public tracking no longer accepts an arbitrary courier tracking number. The endpoint requires the secret WooCommerce order key, resolves the order through WooCommerce, verifies the key with `hash_equals`, and returns only the courier/tracking data attached to that order. When a logged-in customer requests an order owned by another account, access is denied unless the caller has `manage_woocommerce`.
 - The tracking widget now asks for the order key from the confirmation email and sends it to the endpoint. The storefront nonce remains a CSRF layer, not the identity proof; the order key is the authorization secret.
 - Runtime tests for guest orders, logged-in ownership, invalid keys, and key leakage/cache behavior remain pending.
+
+- The customer tracking widget no longer caches the order key or returned tracking/location data in `sessionStorage`; each lookup is authorized server-side and the response is rendered in memory only.
