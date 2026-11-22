@@ -759,6 +759,8 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !
     || strpos($otpRepositorySource, "new \\DateTimeImmutable())->format('Y-m-d H:i:s')") === false
     || strpos($otpRepositorySource, 'expires_at>%s') === false
     || strpos($otpRepositorySource, 'expires_at>NOW()') !== false
+    || strpos($otpRepositorySource, 'Unable to verify recent COD OTP send limits.') === false
+    || strpos($otpRepositorySource, 'A failed rate-limit lookup must not be treated as zero sends.') === false
     || strpos($otpRepositorySource, 'WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC LIMIT 1') === false
     || strpos($otpCheckoutJsSource, 'order_id: state.orderId') !== false
     || strpos($otpCheckoutJsSource, 'state.orderId') !== false) {
