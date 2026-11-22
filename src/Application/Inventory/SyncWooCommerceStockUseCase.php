@@ -73,10 +73,10 @@ final class SyncWooCommerceStockUseCase {
                 // Lock the location/product row before checking the reference.
                 // Concurrent duplicate WooCommerce hooks then observe the first
                 // committed movement and cannot deduct the same order twice.
-                $this->stockRepo->getStock((int) $productId, $returnLocation->id);
+                $this->stockRepo->getStock((int) $productId, $onlineLocation->id);
                 if ($this->stockRepo->hasMovementReference(
                     (int) $productId,
-                    $returnLocation->id,
+                    $onlineLocation->id,
                     'wc_order',
                     (string) $orderId,
                     MovementType::OnlineSale
@@ -86,7 +86,7 @@ final class SyncWooCommerceStockUseCase {
 
                 $this->adjustStock->execute(
                     (int) $productId,
-                    $returnLocation->id,
+                    $onlineLocation->id,
                     -$quantity,
                     MovementType::OnlineSale,
                     "WooCommerce order #{$orderId}",
