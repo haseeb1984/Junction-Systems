@@ -62,12 +62,12 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
 
             try {
                 $this->syncInventory->onWooCommerceSale($orderId);
-                $this->complete($id, $generation);
+                $this->complete($id, $generation, (string) ($job['claim_token'] ?? ''));
                 $result['processed']++;
             } catch (\Throwable $error) {
                 $result['failed']++;
                 try {
-                    $this->retry($id, $generation, $attempts, get_class($error));
+                    $this->retry($id, $generation, (string) ($job['claim_token'] ?? ''), $attempts, get_class($error));
                 } catch (\Throwable $queueError) {
                     $this->log->critical('WooCommerce order inventory retry could not be persisted.', [
                         'order_id' => $orderId,
@@ -95,7 +95,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
         $limit = max(1, min(100, $limit));
         $recovered = $wpdb->query($wpdb->prepare(
-            "UPDATE {$table} SET status='pending', claimed_at=NULL
+            "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL
              WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
             current_time('mysql')
         ));
@@ -116,13 +116,15 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             }
             $rows = $rows ?: [];
             foreach ($rows as &$row) {
+                $claimToken = wp_generate_uuid4();
                 $updated = $wpdb->query($wpdb->prepare(
-                    "UPDATE {$table} SET status='processing', claimed_at=%s, attempts=attempts+1
+                    "UPDATE {$table} SET status='processing', claimed_at=%s, claim_token=%s, attempts=attempts+1
                      WHERE id=%d AND status='pending'",
-                    current_time('mysql'), (int) $row['id']
+                    current_time('mysql'), $claimToken, (int) $row['id']
                 ));
-                if ($updated === false) throw new \RuntimeException('Unable to claim order inventory event.');
+                if ($updated !== 1) throw new \RuntimeException('Unable to claim order inventory event.');
                 $row['attempts'] = (int) $row['attempts'] + 1;
+                $row['claim_token'] = $claimToken;
             }
             unset($row);
             if ($wpdb->query('COMMIT') === false) {
@@ -135,14 +137,15 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
     }
 
-    private function complete(int $id, string $generation): void {
+    private function complete(int $id, string $generation, string $claimToken): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
         $deleted = $wpdb->delete($table, [
             'id' => $id,
             'generation' => $generation,
             'status' => 'processing',
-        ], ['%d', '%s', '%s']);
+            'claim_token' => $claimToken,
+        ], ['%d', '%s', '%s', '%s']);
         if ($deleted === false) throw new \RuntimeException('Unable to complete order inventory event.');
         if ($deleted === 0) {
             // A duplicate lifecycle hook refreshed this event while it ran.
@@ -157,7 +160,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
     }
 
-    private function retry(int $id, string $generation, int $attempts, string $errorClass): void {
+    private function retry(int $id, string $generation, string $claimToken, int $attempts, string $errorClass): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
         $needsReview = $attempts >= self::MAX_AUTOMATIC_ATTEMPTS;
@@ -168,10 +171,10 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
              SET status=%s, claimed_at=NULL,
                  next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s, INTERVAL %d SECOND)),
                  last_error=%s
-             WHERE id=%d AND generation=%s AND status='processing'",
+             WHERE id=%d AND generation=%s AND status='processing' AND claim_token=%s",
             $needsReview ? 'needs_review' : 'pending',
             $needsReview ? 'needs_review' : 'pending',
-            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation, $claimToken
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule order inventory event.');
         if ($updated === 0) {
