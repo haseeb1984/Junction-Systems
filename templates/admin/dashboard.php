@@ -1,6 +1,12 @@
 <?php defined('ABSPATH')||exit;?>
 <div class="wrap pkstore-admin">
-<h1>🛒 Store Operations <a href="<?=esc_url(add_query_arg('bust_cache','1'))?>" class="page-title-action">Refresh Stats</a></h1>
+<h1>🛒 Store Operations
+<form method="post" action="<?=esc_url(admin_url('admin-post.php'))?>" style="display:inline-block;margin-left:8px;">
+<input type="hidden" name="action" value="pkstore_bust_dashboard_cache">
+<?php wp_nonce_field('pkstore_bust_dashboard_cache'); ?>
+<button type="submit" class="page-title-action">Refresh Stats</button>
+</form>
+</h1>
 <div class="pkstore-stat-grid">
 <div class="card pkstore-stat-card <?=($logistics['booking_failures_24h']>5)?'pkstore-stat-card--alert':''?>">
 <h3>Orders Today</h3><span class="pkstore-stat-number"><?=number_format($logistics['total_today'])?></span>
