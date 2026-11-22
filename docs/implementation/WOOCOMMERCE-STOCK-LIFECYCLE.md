@@ -171,3 +171,10 @@ The POS sync worker now:
 An unpaid WooCommerce order found during retry has its line items rebuilt from the immutable POS record before payment completion. A paid order is linked only after its line-item product/variation quantities and total match the POS source. Multiple matching WooCommerce orders, missing mappings, currency mismatch, or inconsistent paid orders fail closed and remain pending for operator investigation.
 
 This is source implementation, not runtime acceptance. Required tests include duplicate sync requests, crash after WooCommerce order creation, crash after payment completion but before POS linkage, variation products, unmapped items, cancellation and refund restock at a non-online POS location, and ensuring the WooCommerce stock quantity remains the combined Junction stock snapshot without a second deduction. The actual WooCommerce/MySQL/HPOS runtime matrix is still outstanding.
+
+
+### POS mirror restock bookkeeping follow-up
+
+WooCommerce's native cancellation and explicit refund-restock flows inspect per-order-item `_reduced_stock` bookkeeping before emitting their actual-restock callbacks. Because Junction has already deducted the shared stock ledger and aggregate WooCommerce stock snapshot, the POS mirror does not invoke a second WooCommerce stock reduction. It now records the POS line quantity in `_reduced_stock` as lifecycle bookkeeping only. Paid-order recovery verifies that this marker equals the immutable POS line quantity alongside the Junction product, original location and POS reference metadata.
+
+This is intended to let WooCommerce's own cancellation/refund flows identify the quantity to restore, after which Junction's durable return queue applies the corresponding ledger movement to the original POS location and republishes the combined stock snapshot. It still needs real WooCommerce-version/HPOS runtime acceptance; product stock-management settings and the exact native restore behavior must be exercised before production use.
