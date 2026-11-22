@@ -10,6 +10,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
 
     public function __construct(
         private readonly SyncWooCommerceStockUseCase $syncInventory,
+        private readonly CaptureWooCommerceStockCycleUseCase $cycleCapture,
         private readonly LoggerInterface $log,
     ) {}
 
@@ -55,6 +56,19 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 $kind = (string) $job['event_kind'];
                 $productId = (int) $job['wc_product_id'];
                 $quantity = (int) $job['quantity'];
+                $cycleUuid = $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null;
+                if ($cycleUuid !== null) {
+                    $itemId = $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : 0;
+                    if ($itemId < 1) throw new \\RuntimeException('Cycle-bound return event has no WooCommerce order item.');
+                    $this->cycleCapture->markReturnPending(
+                        $order,
+                        $itemId,
+                        $kind,
+                        $quantity,
+                        $kind === 'refund' ? (int) $job['cumulative_quantity'] : null,
+                        $cycleUuid
+                    );
+                }
                 if ($kind === 'cancellation') {
                     $item = $order->get_item((int) $job['wc_order_item_id']);
                     if (!$item) throw new \RuntimeException('WooCommerce order item is unavailable.');
