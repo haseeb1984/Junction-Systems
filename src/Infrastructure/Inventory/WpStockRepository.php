@@ -58,7 +58,17 @@ final class WpStockRepository implements StockRepositoryInterface {
     }
     public function getMovements(int $productId, int $limit=20): array { return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->tm()} WHERE product_id=%d ORDER BY created_at DESC LIMIT %d",$productId,$limit),ARRAY_A)?:[]; }
     public function getLocationStock(int $locationId): array { return $this->db->get_results($this->db->prepare("SELECT s.*,p.name,p.sku,p.barcode,p.reorder_point FROM {$this->ts()} s INNER JOIN {$this->db->prefix}pkstore_inventory_products p ON s.product_id=p.id WHERE s.location_id=%d ORDER BY p.name",$locationId),ARRAY_A)?:[]; }
-    public function getTotalStock(int $productId): int { return (int)$this->db->get_var($this->db->prepare("SELECT COALESCE(SUM(quantity),0) FROM {$this->ts()} WHERE product_id=%d",$productId)); }
+    public function getTotalStock(int $productId): int {
+        $total = $this->db->get_var($this->db->prepare(
+            "SELECT COALESCE(SUM(quantity),0) FROM {$this->ts()} WHERE product_id=%d",
+            $productId
+        ));
+        if ($this->db->last_error !== '' || !is_numeric($total)) {
+            // Never publish an assumed zero when the aggregate inventory read fails.
+            throw new \RuntimeException('Unable to read aggregate inventory stock.');
+        }
+        return (int) $total;
+    }
 
     public function enqueueWooCommerceSync(int $productId): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
