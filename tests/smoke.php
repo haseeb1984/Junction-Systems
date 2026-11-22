@@ -579,6 +579,14 @@ if (!is_string($adminMenuSource) || !is_string($dashboardTemplateSource)
     throw new \\RuntimeException('Dashboard cache invalidation must use a capability-checked, nonce-protected POST action.');
 }
 
+$themeBootstrapperSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
+if (!is_string($themeBootstrapperSource)
+    || strpos($themeBootstrapperSource, "wc_get_order($orderId)") === false
+    || strpos($themeBootstrapperSource, "update_meta_data('_ga4_client_id', $clientId)") === false
+    || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false) {
+    throw new \\RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
+}
+
 $dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
 if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, 'wc_get_orders(') === false
