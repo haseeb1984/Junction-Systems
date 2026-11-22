@@ -613,7 +613,7 @@ if (!is_string($posSaleSource) || !is_string($orderInventoryQueueSource)
     || strpos($posInventoryHooks, 'acknowledgeCompleted($orderId, $cycleUuid)') === false
     || strpos($orderInventoryQueueSource, 'public function acknowledgeCompleted(') === false
     || strpos($posSaleSource, 'assertNoPendingOnlineStockReductions();') === false
-    || strpos($posSaleSource, "event_kind='reduction' AND status<>'processed'") === false
+    || strpos($posSaleSource, "event_kind='reduction' AND status IN ('pending','processing','needs_review','failed','review')") === false
     || strpos($posSaleSource, "q.status IN ('pending','processing','needs_review')") === false
     || strpos($posSaleSource, 'Online store sales are still being reconciled.') === false) {
     throw new \RuntimeException('Online stock must reach the shared ledger before checkout returns, and POS must pause while online reductions remain unresolved.');
