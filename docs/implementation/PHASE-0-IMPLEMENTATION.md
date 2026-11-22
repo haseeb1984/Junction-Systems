@@ -261,3 +261,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Dashboard metric corrections: delivery health now excludes cancelled/failed/refunded orders from its booked-shipment denominator; pending delivery-failure/on-hold shipments remain visible as active. OTP and AI summaries now report true zero counts (not fabricated 1s), avoid divide-by-zero, and use the WordPress site timezone for 24-hour windows. The OTP template label now correctly says “last 24h”.
 
 - Dashboard cache refresh is no longer a GET side effect. It now uses a `manage_woocommerce` capability check, an `admin-post.php` POST action, and a WordPress nonce before invalidating caches; the template submits a protected form.
+
+- WooCommerce status API correction: `TrackingStatus::toWooCommerceStatus()` now returns unprefixed CRUD slugs (`shipped`, `out-for-delivery`, `delivery-failed`, `returned`, etc.) for `WC_Order::update_status()`. The `wc-` prefix remains only in order-query/registration contexts where WooCommerce expects it. Source smoke assertions added; runtime custom-status tests remain pending.
