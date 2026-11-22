@@ -7,7 +7,7 @@
 <?php if($logistics['pending_booking']>0):?><p class="pkstore-stat-warning">⚠ <?=$logistics['pending_booking']?> pending booking</p><?php endif;?>
 </div>
 <div class="card pkstore-stat-card"><h3>API Failures (24h)</h3><span class="pkstore-stat-number" style="color:<?=$logistics['booking_failures_24h']>5?'#d63638':'inherit'?>"><?=$logistics['booking_failures_24h']?></span><p class="pkstore-stat-sub">Avg: <?=$logistics['avg_api_response_ms']?>ms</p></div>
-<div class="card pkstore-stat-card"><h3>OTP Verification Rate</h3><span class="pkstore-stat-number"><?=$otp['verification_rate']?>%</span><p class="pkstore-stat-sub"><?=$otp['verified_24h']?> / <?=$otp['total_24h']?> today</p></div>
+<div class="card pkstore-stat-card"><h3>OTP Verification Rate</h3><span class="pkstore-stat-number"><?=$otp['verification_rate']?>%</span><p class="pkstore-stat-sub"><?=$otp['verified_24h']?> / <?=$otp['total_24h']?> in last 24h</p></div>
 <div class="card pkstore-stat-card"><h3>AI Sessions (24h)</h3><span class="pkstore-stat-number"><?=$ai['total_sessions_24h']?></span><p class="pkstore-stat-sub">Avg <?=$ai['avg_messages_per_session']?> msgs/session</p></div>
 </div>
 <h2>Delivery Health (Last 30 Days)</h2>
