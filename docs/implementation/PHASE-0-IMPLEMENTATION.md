@@ -225,3 +225,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 - Logistics dashboard delivery-rate, RTO, in-transit, daily-order and pending-booking statistics no longer read `wp_posts` or `wp_postmeta` directly. They iterate WooCommerce order objects through paginated `wc_get_orders()` calls, so the active HPOS or legacy datastore is used.
 - Added source smoke guards. Dashboard performance with high-volume order histories and HPOS/legacy parity still need runtime measurement.
+
+- Courier webhook idempotency: repeated provider callbacks with the same status no longer add duplicate order notes; status writes occur only when the normalized WooCommerce status actually changes.
