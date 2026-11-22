@@ -827,7 +827,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
-    || strpos($stockCycleCaptureSource, "'state' => 'restoring'") === false
+    || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
     || strpos($stockCycleCaptureSource, 'Previous WooCommerce stock cycle is still restoring') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
