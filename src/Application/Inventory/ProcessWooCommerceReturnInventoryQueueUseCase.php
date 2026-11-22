@@ -14,23 +14,23 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         private readonly LoggerInterface $log,
     ) {}
 
-    public function enqueueCancellation(int $orderId, int $itemId, int $productId, int $quantity, ?string $cycleUuid = null): void {
+    public function enqueueCancellation(int $orderId, int $itemId, int $productId, int $quantity, ?string $cycleUuid = null): string {
         if ($orderId < 1 || $itemId < 1 || $productId < 1 || $quantity < 1
             || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
             throw new \InvalidArgumentException('Invalid WooCommerce cancellation restock event.');
         }
-        $this->enqueue('cancel:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $itemId . ':' . $quantity, 'cancellation', $orderId, $itemId, $productId, $quantity, 0, $cycleUuid);
+        return $this->enqueue('cancel:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $itemId . ':' . $quantity, 'cancellation', $orderId, $itemId, $productId, $quantity, 0, $cycleUuid);
     }
 
-    public function enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null, ?string $cycleUuid = null): void {
+    public function enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null, ?string $cycleUuid = null): string {
         if ($orderId < 1 || $productId < 1 || $quantity < 1 || $cumulativeQuantity < $quantity
             || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
             throw new \InvalidArgumentException('Invalid WooCommerce refund restock event.');
         }
-        $this->enqueue('refund:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $productId . ':' . ($itemId ?? 0) . ':' . $cumulativeQuantity, 'refund', $orderId, $itemId, $productId, $quantity, $cumulativeQuantity, $cycleUuid);
+        return $this->enqueue('refund:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $productId . ':' . ($itemId ?? 0) . ':' . $cumulativeQuantity, 'refund', $orderId, $itemId, $productId, $quantity, $cumulativeQuantity, $cycleUuid);
     }
 
-    private function enqueue(string $key, string $kind, int $orderId, ?int $itemId, int $productId, int $quantity, int $cumulative, ?string $cycleUuid): void {
+    private function enqueue(string $key, string $kind, int $orderId, ?int $itemId, int $productId, int $quantity, int $cumulative, ?string $cycleUuid): string {
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for WooCommerce return queue.');
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
@@ -42,6 +42,22 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
             $key, $kind, $orderId, $itemId ?? 0, $productId, $cycleUuid ?? '', $quantity, $cumulative, $now, $now, $now
         ));
         if ($result === false) throw new \RuntimeException('Unable to persist WooCommerce return inventory event.');
+        return $key;
+    }
+
+    public function acknowledgeCompleted(string $eventKey): void {
+        if ($eventKey === '' || strlen($eventKey) > 191) {
+            throw new \InvalidArgumentException('A valid WooCommerce return event key is required.');
+        }
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for WooCommerce return queue.');
+        $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $deleted = $wpdb->delete($table, [
+            'event_key' => $eventKey,
+            'status' => 'pending',
+            'claimed_at' => null,
+        ], ['%s', '%s', '%s']);
+        if ($deleted === false) throw new \RuntimeException('Unable to acknowledge synchronously completed WooCommerce return event.');
     }
 
     private function recoverUnqueuedCycleEvents(int $limit): void {
