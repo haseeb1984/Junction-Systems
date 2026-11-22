@@ -92,18 +92,13 @@ final class InventoryHooks {
                 // the worker will fail closed on a conflicting snapshot.
                 $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)
                     ->enqueue($orderId, null);
-                $this->log->critical('WooCommerce stock-cycle capture failed; order was queued for safe reconciliation.', [
-                    'order_id' => $orderId,
-                    'error_class' => get_class($captureError),
-                ]);
+                error_log('[PKStore Inventory] WooCommerce stock-cycle capture failed; order queued for review ('.get_class($captureError).').');
                 return;
             }
 
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, $cycleUuid);
         } catch (\Throwable $error) {
-            $this->log->error('WooCommerce stock reduction hook could not enqueue inventory processing.', [
-                'error_class' => get_class($error),
-            ]);
+            error_log('[PKStore Inventory] WooCommerce stock reduction hook could not enqueue inventory processing ('.get_class($error).').');
         }
     }
 
@@ -129,11 +124,7 @@ final class InventoryHooks {
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
-                    $this->log->critical('WooCommerce cancellation cycle capture failed; queued return will require review.', [
-                        'order_id' => (int) $order->get_id(),
-                        'order_item_id' => (int) $item->get_id(),
-                        'error_class' => get_class($captureError),
-                    ]);
+                    error_log('[PKStore Inventory] WooCommerce cancellation cycle capture failed; queued return needs review ('.get_class($captureError).').');
                 }
             }
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
@@ -177,11 +168,7 @@ final class InventoryHooks {
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
-                    $this->log->critical('WooCommerce refund cycle capture failed; queued return will require review.', [
-                        'order_id' => (int) $order->get_id(),
-                        'order_item_id' => (int) $itemId,
-                        'error_class' => get_class($captureError),
-                    ]);
+                    error_log('[PKStore Inventory] WooCommerce refund cycle capture failed; queued return needs review ('.get_class($captureError).').');
                 }
             }
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueRefund(
