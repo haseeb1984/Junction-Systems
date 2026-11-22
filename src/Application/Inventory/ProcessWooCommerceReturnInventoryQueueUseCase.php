@@ -52,11 +52,11 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for WooCommerce return queue.');
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
-        $deleted = $wpdb->delete($table, [
-            'event_key' => $eventKey,
-            'status' => 'pending',
-            'claimed_at' => null,
-        ], ['%s', '%s', '%s']);
+        $deleted = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$table}
+             WHERE event_key=%s AND status IN ('pending','needs_review') AND claimed_at IS NULL",
+            $eventKey
+        ));
         if ($deleted === false) throw new \RuntimeException('Unable to acknowledge synchronously completed WooCommerce return event.');
     }
 
