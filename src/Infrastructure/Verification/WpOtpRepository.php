@@ -26,7 +26,7 @@ final class WpOtpRepository implements OtpRepositoryInterface {
         // OtpAttempt timestamps are created/reconstituted in PHP's default
         // timezone. Compare using that same clock rather than MySQL NOW(),
         // whose server timezone may differ from the PHP/WordPress runtime.
-        $now = (new \\DateTimeImmutable())->format('Y-m-d H:i:s');
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
         $result = $this->db->query($this->db->prepare(
             "UPDATE {$this->t()} SET consumed_at=%s WHERE id=%s AND phone_e164=%s AND order_id=%s AND is_verified=1 AND consumed_at IS NULL AND expires_at>%s",
             $now,
