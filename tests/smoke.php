@@ -385,6 +385,7 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "pkstore_inventory_queue_audit") === false
     || strpos($queueOperatorSource, "'previous_status' => 'needs_review'") === false
     || strpos($queueOperatorSource, "'resulting_status' =>") === false
+    || substr_count($queueOperatorSource, "updated_at=%s") < 3
     || strpos($queueOperatorSource, "'START TRANSACTION'") === false
     || strpos($queueOperatorSource, "'ROLLBACK'") === false
     || strpos($queueOperatorSource, "strlen(trim(\$reason)) < 5") === false
