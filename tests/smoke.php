@@ -420,4 +420,35 @@ if (!is_string($orderQueueSource)
     throw new \RuntimeException('WooCommerce order queue workers must be fenced by persisted claim tokens.');
 }
 
+
+$posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
+$posEntitySource = file_get_contents($src . '/Domain/POS/Entity/POSOrder.php');
+$posRepositorySource = file_get_contents($src . '/Infrastructure/POS/WpPOSOrderRepository.php');
+$posInventoryHooks = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
+$posStockLifecycle = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+if (!is_string($posSyncSource)
+    || strpos($posSyncSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($posSyncSource, "_pkstore_pos_order_ref") === false
+    || strpos($posSyncSource, "_order_stock_reduced") === false
+    || strpos($posSyncSource, "get_woocommerce_currency() !== 'PKR'") === false
+    || strpos($posSyncSource, "payment_complete('POS-'") === false
+    || strpos($posSyncSource, "paidWooCommerceOrderMatches(") === false
+    || strpos($posSyncSource, "markSynced((int) $wcOrder->get_id())") === false
+    || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
+    || !is_string($posEntitySource)
+    || strpos($posEntitySource, "public ?int $wcOrderId") === false
+    || strpos($posEntitySource, "markSynced(int $wcOrderId)") === false
+    || !is_string($posRepositorySource)
+    || strpos($posRepositorySource, "wc_order_id'=>$o->wcOrderId") === false
+    || strpos($posRepositorySource, "SELECT product_id, sku, product_name AS name") === false
+    || !is_string($posInventoryHooks)
+    || strpos($posInventoryHooks, "_pkstore_pos_origin") === false
+    || strpos($posInventoryHooks, "junction_pos") === false
+    || !is_string($posStockLifecycle)
+    || strpos($posStockLifecycle, "findById((int) $item->get_meta('_pkstore_inventory_product_id', true))") === false
+    || strpos($posStockLifecycle, "findById((int) $item->get_meta('_pkstore_inventory_location_id', true))") === false
+    || strpos($posStockLifecycle, "$saleSource, $saleReference, $saleMovementType") === false) {
+    throw new \RuntimeException('POS-to-WooCommerce mirroring must be idempotent and preserve the single shared inventory deduction and original-location returns.');
+}
+
 echo "Smoke tests passed.\n";
