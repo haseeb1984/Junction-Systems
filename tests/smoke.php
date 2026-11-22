@@ -121,7 +121,7 @@ if (!method_exists(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::c
 $inventoryUseCaseSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($inventoryUseCaseSource)
     || strpos($inventoryUseCaseSource, 'WooCommerce order is unavailable for inventory ingestion.') === false
-    || strpos($inventoryUseCaseSource, 'Junction online inventory location is not configured.') === false) {
+    || strpos($inventoryUseCaseSource, 'No active Junction inventory locations are available for online order allocation.') === false) {
     throw new \RuntimeException('WooCommerce order inventory ingestion must fail closed when prerequisites are missing.');
 }
 if (!method_exists(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class, 'enqueue')
