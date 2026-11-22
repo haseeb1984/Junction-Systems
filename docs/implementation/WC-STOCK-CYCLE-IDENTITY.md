@@ -1,126 +1,73 @@
-# WooCommerce stock-cycle identity — engineering design
+# WooCommerce stock-cycle identity
 
 ## Problem
 
-Junction currently identifies an online sale movement with the WooCommerce order ID alone (\`reference_type=wc_order\`, \`reference_id=<order id>\`). That protects one stock reduction from duplicate hooks, but cannot distinguish a later genuine stock reduction after WooCommerce restored the earlier reduction on the same order.
+An order ID alone is not a sufficient idempotency key for WooCommerce stock. The same order can have a real stock reduction, a cancellation/refund restock, and a later real reduction. Each actual reduction pass must have its own immutable cycle identity.
 
-Do not derive a cycle from order status, \`date_paid\`, timestamps, or gateway transaction IDs. None is a universal stock-reduction identity across COD, manual payment, gateway retries, and order reopening.
-
-There is a related return-event collision: cancellation event keys currently use order ID, order-item ID, and restored quantity. A later legitimate restore of the same quantity for the same item can collide with the earlier event. Sale and return idempotency must both become cycle-aware.
+Do not infer cycles from order status, payment dates, timestamps, or gateway transaction IDs.
 
 ## Verified WooCommerce lifecycle signals
 
-- \`woocommerce_reduce_order_item_stock\` fires after WooCommerce actually reduces stock for an individual order item. The item has \`_reduced_stock\` metadata saved before the hook. Available since WooCommerce 7.6.0.
-- \`woocommerce_reduce_order_stock\` fires after the order's item-reduction loop.
-- \`woocommerce_restore_order_item_stock\` fires after an item is actually restored; WooCommerce deletes that item's \`_reduced_stock\` metadata before firing it. Available since WooCommerce 9.1.0.
-- \`woocommerce_restore_order_stock\` fires after the order-level restore loop.
-- Refund restocking is separate. WooCommerce tracks \`_restock_refunded_items\` and updates \`_reduced_stock\`; a payment refund without explicit restock is not a stock return.
+- `woocommerce_reduce_order_stock` fires after WooCommerce's item-reduction loop. Each reduced line has `_reduced_stock`.
+- `woocommerce_restore_order_item_stock` fires after an item is actually restored; WooCommerce removes its `_reduced_stock` metadata before the hook.
+- Explicit refund restocking is separate and is represented by `_restock_refunded_items`. A payment refund without the explicit restock hook is not an inventory return.
+- POS mirror orders are excluded from online cycle capture.
 
 Upstream references:
 - https://woocommerce.github.io/code-reference/files/woocommerce-includes-wc-stock-functions.html
 - https://github.com/woocommerce/woocommerce/blob/trunk/plugins/woocommerce/includes/wc-stock-functions.php
 - https://woocommerce.github.io/code-reference/files/woocommerce-includes-wc-order-functions.html
 
-## Required persistence model
+## Persisted model
 
-The implementation must use durable database records as the source of truth. WooCommerce order metadata may carry a convenience pointer, but must not be the only record of cycle identity.
+The implementation uses three InnoDB tables:
 
-### Cycle header
+- `pkstore_wc_stock_cycles`: order ID, UUID, per-order cycle number, state, reduction event key and lifecycle timestamps.
+- `pkstore_wc_stock_cycle_items`: immutable order-item/product/variation mapping, actual reduced quantity, refund cumulative baseline, allocation snapshot, and separate cancellation/refund returned counters.
+- `pkstore_wc_stock_cycle_events`: unique event identity, cycle/order/item, event kind, positive quantity delta, source hook, processing status, attempts, lease token and sanitized error.
 
-A dedicated \`pkstore_wc_stock_cycles\` table should contain:
+Cycle/item/event identity is protected by unique indexes verified by the migration runner. Cycle header states currently used are `reducing`, `active`, `restoring`, and `closed`.
 
-- primary key;
-- WooCommerce order ID;
-- immutable cycle UUID (unique);
-- monotonically increasing cycle number per order (unique with order ID);
-- state: \`reducing\`, \`active\`, \`partially_returned\`, \`closed\`, or \`needs_review\`;
-- immutable reduction event key;
-- created, activated, closed, and updated timestamps.
+Additional durable queue identity:
+- Sale queue migration 2.0.13 stores one queue row per (WooCommerce order, cycle UUID); legacy rows use a fixed zero UUID sentinel.
+- Return queue migration 2.0.11 stores the cycle UUID on each cancellation/refund event.
+- Migration 2.0.12 adds the per-cycle refund cumulative baseline.
 
-A unique key on (order ID, cycle number) and a unique key on cycle UUID are required. The current/active cycle must be selected under a database transaction and an order-scoped lock. Do not rely on a non-atomic read-then-write of order metadata.
+## Live processing now connected
 
-### Per-line cycle snapshot
+1. `InventoryHooks::onOrderStockReduced` listens to the actual order-level reduction hook, persists each positive `_reduced_stock` quantity first, then captures a cycle UUID and enqueues a cycle-specific sale job.
+2. Capture resolves variation mapping before parent mapping, records the WooCommerce refund cumulative baseline, snapshots the order-item mapping, and persists a reduction event under an order-scoped advisory lock.
+3. The sale queue worker binds retried captures to their cycle-specific queue row before processing. The cycle-aware sale worker allocates the captured quantity across active Junction locations, preferring the online location, locks stock rows in deterministic order, writes `wc_stock_cycle` ledger movements, saves per-cycle item metadata and allocation snapshots, and marks the reduction event processed transactionally.
+4. Cancellation and explicit refund hooks capture a cycle-bound return event before queueing. The durable return worker retries hook-time capture if it failed transiently, then applies only the actual return delta to the exact saved allocation locations.
+5. Refund cumulative values are converted to cycle-local quantities using the baseline captured at reduction time. This prevents a prior cycle's refund total from being applied again to a later cycle on the same order.
+6. A cycle closes only when every reduced item quantity has been fully restored by cancellation/refund movements. A new actual reduction after a prior cycle enters restoration receives a new UUID and a separate sale queue row.
+7. Duplicate sale queue generations for an already-processed restoring/closed cycle are acknowledged without another deduction. Return events require a durable hook-captured cycle event before ledger mutation.
 
-A \`pkstore_wc_stock_cycle_items\` table should contain:
+## Fail-closed boundaries and remaining limitations
 
-- cycle UUID and WooCommerce order-item ID;
-- WooCommerce parent product ID and variation ID;
-- resolved Junction inventory product ID and inventory location ID;
-- quantity actually reduced by WooCommerce for this cycle;
-- cumulative cancellation-restored quantity;
-- cumulative explicit-refund-restocked quantity;
-- created and updated timestamps.
+- If multiple cycles for the same order remain open, a *new* return hook is ambiguous. It is retained in the return queue and will move to `needs_review`; it is not assigned to whichever cycle happens to be newest.
+- If cycle capture or return capture cannot be persisted, the order/return is queued for retry. A failed return capture sets a per-cycle order-meta guard so a subsequent reduction cannot silently reuse the old active cycle. The worker retries capture; exhausted events require operator review.
+- Legacy rows without cycle identity continue through the legacy order-level path. The implementation does not fabricate historical UUIDs. A cycle-aware sale detects conflicting legacy movements and fails closed.
+- Cycle event rows are retained, but the current Sync Health UI focuses on the durable sale/return/stock queues; a dedicated cycle-event reconciliation view and periodic comparison against WooCommerce metadata are not yet implemented.
+- No runtime acceptance has yet been run against a real WooCommerce database, HPOS, supported WooCommerce versions, concurrent workers, or crash recovery. PHP lint and the dependency-free smoke suite are still pending consolidated execution.
+- Return event ambiguity, edited/deleted order items, changed mappings, inactive locations, missing cycle snapshots, and over-returns must remain operator-review cases rather than being silently reassigned.
+- The schema migration is protected by the existing pre-migration backup confirmation gate for upgrades. Host-level backup confirmation is an external hosting integration and has not been verified by this repository audit.
 
-Unique key: (cycle UUID, WooCommerce order-item ID). Store the resolved Junction product/location mapping at reduction time; do not re-resolve historical returns against a mapping that an operator may later change.
+## Required runtime acceptance
 
-### Durable lifecycle events
-
-A \`pkstore_wc_stock_cycle_events\` table should retain immutable event identity and processing state for reduction, cancellation restore, and explicit refund restock events:
-
-- unique event UUID / event key;
-- cycle UUID;
-- order ID and, where applicable, order-item ID;
-- event kind and positive quantity delta;
-- source hook and source metadata needed to audit the event;
-- status, attempts, next-attempt time, lease timestamp/token, sanitized last error;
-- created and processed timestamps.
-
-A callback must persist its event before returning. If persistence fails, log a critical error and leave a detectable reconciliation gap; never report it as accepted. Workers must use claim-token fencing, bounded retries, and a visible \`needs_review\` state. Event rows are retained after completion so a later cycle cannot reuse an earlier idempotency key.
-
-The initial durable storage contract is installed by migration 2.0.9: cycle headers, immutable per-line mapping snapshots, and retained lifecycle-event rows with claim-token fields. The migration verifies required columns and unique indexes after dbDelta, as well as table presence. An isolated `CaptureWooCommerceStockCycleUseCase` now snapshots actual `_reduced_stock` quantities, resolves variation-first Junction mappings, and transactionally persists the cycle header, immutable line snapshots, and reduction event under an order-scoped advisory lock. Duplicate callbacks reuse an identical open-cycle snapshot; a conflicting snapshot fails closed. **The capture service is deliberately not registered in the service container or called by WooCommerce hooks.** There is still no cycle-aware sale/return worker, so the live path continues using order/item-level references. The new tables and isolated capture service do not make repeated-cycle behavior safe or alter live stock behavior. Before wiring capture into hooks, implement cycle-aware workers and return binding, plus runtime verification of the migration and lifecycle.
-
-## Lifecycle and state transitions
-
-1. **Reduction begins.** Listen to the actual order-level reduction hook after WooCommerce's line-item loop. Under an order-scoped lock, inspect each line's persisted \`_reduced_stock\`. Ignore zero/missing reductions. Resolve variation mapping before parent fallback and snapshot only the quantities WooCommerce actually reduced.
-2. **Cycle creation.** If this is a new reduction pass, create a new UUID and cycle number and persist the immutable line snapshot plus a reduction event atomically. Duplicate callbacks for the same still-active reduction must resolve to the same cycle. A later reduction after the prior cycle is fully closed must create a new cycle.
-3. **Sale application.** Process the reduction event from its snapshot, not by re-reading mutable order lines. Ledger reference identity must include the cycle UUID (and line identity where movements are per-line). Commit the cycle's inventory movements and event completion consistently; a partially applied cycle must resume without duplicating committed movements.
-4. **Cancellation restore.** The per-item restore callback runs after WooCommerce removes \`_reduced_stock\`. Resolve the still-open cycle and its saved line snapshot under the same order lock, persist the return event with that cycle UUID and item ID, then let the worker apply only the actual positive stock delta. When all reduced quantities in that cycle have been returned, close it.
-5. **Explicit refund restock.** Capture the matching order-item identity and WooCommerce cumulative \`_restock_refunded_items\` value at hook time. Persist a cycle-bound event. Apply only the new actual restock delta, never the total refunded payment amount. A payment refund without the explicit restock hook creates no inventory return.
-6. **New reduction after restore.** Once a cycle is fully returned and closed, a subsequent actual reduction pass receives a new UUID, even though the WooCommerce order and line-item IDs are unchanged.
-7. **Reconciliation.** A periodic read-only detector compares WooCommerce reduction/restock metadata, cycle snapshots, and ledger references. It reports missing, ambiguous, or partially applied events for operator review. It must not invent a return from order status or payment-refund state.
-
-## Concurrency and edge cases that must fail closed
-
-- A cycle's reduction snapshot and its event must be committed atomically before a worker can process it.
-- A restore callback must bind to the cycle active when WooCommerce performed that restore. A delayed worker must never infer the cycle from whichever cycle happens to be active later.
-- Same-product duplicate order lines must retain distinct order-item identities; never aggregate away the identity needed to bind returns.
-- Partial refunds, multiple explicit restocks, partial cancellation, and mixed cancellation/refund returns must be bounded by the original reduced quantity for each line.
-- A refund hook without an unambiguous order-item identity must remain in \`needs_review\`; do not guess based on product ID alone.
-- Edited/deleted order items, changed product mappings, inactive locations, missing cycle snapshots, or returns exceeding the outstanding reduced quantity must be visible reconciliation cases, not silently reassigned.
-- POS mirror orders remain excluded from online sale ingestion. POS returns continue to use the immutable POS product/location/order reference and must not be attached to an online WooCommerce cycle.
-- Order-scoped locks must cover cycle selection and event persistence. Database transactions must use InnoDB tables. Worker lease fencing protects queue ownership but does not replace ledger-level idempotency.
-- Legacy orders that already have order-level movements cannot safely be assigned a fabricated historical cycle. Preserve their old references; new cycle-aware processing must detect and quarantine ambiguous legacy returns rather than double-credit stock.
-
-## Migration and rollout
-
-1. Add cycle tables and indexes in a new migration; do not rewrite existing stock movement references.
-2. Keep current order-level ingestion available only as an explicitly documented legacy path until the cycle-aware worker is ready. Do not run both paths for the same order.
-3. Introduce cycle-aware capture and worker processing behind a centrally controlled feature gate, default OFF until acceptance tests pass on supported WooCommerce versions and HPOS.
-4. Backfill no historical cycle UUIDs. Existing orders with unresolved reductions/restocks remain legacy and are reconciled manually.
-5. Enable for a controlled test store, compare cycle snapshots against WooCommerce stock metadata and Junction ledger, then enable more broadly only after runtime sign-off.
-6. Rollback must stop new cycle capture without deleting cycle/event/ledger history. It must never automatically reverse stock movements.
-
-## Required acceptance tests
-
-- First WooCommerce stock reduction creates exactly one cycle and immutable per-line snapshots.
-- Duplicate reduction callbacks map to the same cycle.
-- Cancellation restores the matching cycle once and closes it only when all line quantities are returned.
-- Reopening and genuinely reducing stock again creates a new UUID for the same order and item IDs.
-- A delayed callback from an earlier cycle cannot mutate a newer cycle.
-- A payment refund without explicit restock does not restore Junction stock.
-- Multiple partial refund restocks apply only each actual delta and never exceed the original reduced quantity.
-- Same-product duplicate order lines remain correctly attributable.
-- Variable products use explicit variation mapping before parent fallback; historical return uses the mapping snapshot.
-- Cancellation and refund returns in the same cycle cannot over-credit the line.
-- Failure to persist a callback is surfaced and detected by reconciliation.
-- Worker crash, lease expiry, duplicate callbacks, concurrent workers, changed mappings, legacy orders, and POS activity cannot double-apply or lose a cycle.
-- Migration works on both fresh installs and existing installs after the required backup gate.
+- First reduction creates one cycle and immutable line snapshots; duplicate hooks reuse the same cycle.
+- Cancellation before sale-worker execution still processes the original sale then its cycle-bound return.
+- Cancellation followed by a genuine re-reduction creates a new UUID and a separate queue row.
+- A delayed return for an earlier cycle cannot mutate a later cycle.
+- Payment refund without explicit stock restock never returns Junction stock.
+- Multiple partial refund restocks apply only each new cycle-local delta and never exceed reduced quantity.
+- Mixed cancellation/refund returns close the cycle only when all reduced quantities are restored.
+- Same-product duplicate order lines remain attributable by WooCommerce order-item ID.
+- Variation mapping is used before parent fallback; historical returns use the captured mapping.
+- Worker crash, stale lease, duplicate hook, concurrent workers, capture failure, ambiguous multiple-open-cycle returns, and legacy rows fail safely.
+- Fresh install and upgrade migrations succeed on supported MySQL/MariaDB versions after backup confirmation.
+- POS mirror orders never enter online cycle ingestion; POS returns restore the original POS location.
 
 ## Current status
 
-The cycle schema scaffolding is implemented in migration 2.0.9, and an isolated atomic capture service exists but remains unregistered and unwired. This document remains the operational design contract rather than evidence of a working cycle-aware path. Current sale and return idempotency remain order/item-level; no cycle-aware worker consumes the new event records, so repeated-cycle behavior is not safe. Do not enable repeated-cycle production behavior until atomic capture, cycle-bound sale/return workers, reconciliation, supported-version compatibility, schema-index verification, and runtime acceptance tests are complete.
-
-
-## Migration verification hardening
-
-Migration 2.0.9 now verifies each required stock-cycle unique index by inspecting the database's index metadata, checking that it is genuinely unique, and checking the exact ordered column list. Merely finding an index with the expected name is insufficient: a non-unique or incorrectly-shaped index would undermine event and cycle idempotency. The source smoke suite now guards these checks. Database execution and dbDelta behavior on supported MySQL/MariaDB versions remain unverified.
+Cycle-aware capture, sale processing, cancellation/refund binding, per-cycle queue identity, return-baseline handling, and cycle closure are now wired in the implementation branch. This is a source-level implementation, **not a runtime-verified release**. The remaining hard blockers are consolidated PHP/smoke/runtime acceptance, a cycle-event reconciliation surface/periodic detector, and handling ambiguous return hooks when multiple cycles for one order remain open. Do not treat repeated-cycle behavior as production-certified until the required runtime acceptance passes.
