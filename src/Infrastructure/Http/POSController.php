@@ -36,7 +36,7 @@ final class POSController {
             // row also protects the "no open session exists yet" case.
             $locationTable = $wpdb->prefix . 'pkstore_inventory_locations';
             $lockedLocation = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM {$locationTable} WHERE id=%d AND is_active=1 FOR UPDATE",
+                "SELECT id FROM {$locationTable} WHERE id=%d AND is_active=1 AND is_pos=1 FOR UPDATE",
                 $locationId
             ));
             if (!$lockedLocation) throw new \RuntimeException('POS location is unavailable.');
@@ -138,8 +138,10 @@ final class POSController {
         }
 
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
-        if (!$session || !$session->isOpen() || $session->locationId !== $locationId) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'The POS session is invalid or closed.'],409);
+        $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
+        if (!$session || !$session->isOpen() || $session->locationId !== $locationId
+            || !$location || !$location->isPos || !$location->isActive) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'The POS session or POS-enabled location is invalid or closed.'],409);
         }
         if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
             return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
