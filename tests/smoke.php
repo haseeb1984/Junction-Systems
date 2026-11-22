@@ -412,6 +412,8 @@ if (!is_string($orderQueueSource)
     || strpos($orderQueueSource, '$claimToken = wp_generate_uuid4()') === false
     || strpos($orderQueueSource, "'claim_token' => $claimToken") === false
     || strpos($orderQueueSource, 'function complete(int $id, string $generation, string $claimToken)') === false
+    || substr_count($orderQueueSource, 'generation<>%s AND claim_token=%s') !== 2
+    || strpos($orderQueueSource, 'SET status=%s, claimed_at=NULL, claim_token=NULL') === false
     || strpos($inventoryInstallerSource, 'claim_token CHAR(36) DEFAULT NULL') === false
     || strpos($migrationRunnerSource, "'2.0.6' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue']") === false
     || strpos($migrationRunnerSource, 'Required order queue claim-token column was not created.') === false) {
