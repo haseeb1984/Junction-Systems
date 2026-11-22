@@ -59,3 +59,13 @@ Online sales are enqueued from `woocommerce_reduce_order_stock`, after WooCommer
 ## Current status
 
 The source implementation now has cycle-aware capture, sale queue identity, per-cycle allocation/ledger processing, cycle-bound cancellation/refund queues, per-cycle refund baselines, and cycle closure. This is **not production sign-off**: consolidated PHP lint, smoke tests, DB migration tests, and the runtime acceptance matrix remain pending.
+
+
+### Synchronous shared-ledger path and POS safety
+
+- After WooCommerce confirms an actual stock reduction, Junction snapshots the reduced line quantities, captures a cycle UUID, persists the durable order-queue event, and applies the matching ledger deduction synchronously before the checkout request returns. The queue remains the crash/retry fallback; a successful synchronous commit acknowledges an unclaimed pending row.
+- Cancellation restores and explicit refund restocks follow the same pattern: capture the return event, enqueue it, apply the ledger return synchronously when its sale movement is present, and acknowledge the queue row only after a successful/idempotent apply. If the sale has not yet committed, the durable return queue waits and retries.
+- A new POS sale checks unresolved online reduction events and legacy order-queue rows before changing stock. If online reconciliation is incomplete, the API returns retryable HTTP 503; the POS client retains the same idempotency reference and retries rather than restoring its local stock cache or marking the sale rejected.
+- The POS client serializes offline-queue flushes, retries pending events every 30 seconds while a register session is active, and refuses to close a register while non-review offline sales remain pending.
+- POS-to-WooCommerce order mirroring is scheduled every five minutes. WordPress cron is traffic-driven unless the hosting environment invokes it reliably; production deployment must configure a real system cron for predictable queue recovery.
+- These paths have source-level smoke guards. They still require consolidated PHP/JS lint, database-backed concurrent-worker tests, and real WooCommerce checkout/cancellation/refund/POS acceptance before release.
