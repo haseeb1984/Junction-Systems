@@ -111,6 +111,8 @@ final class InventoryAdminController {
                 'queue_type' => $queueType,
                 'queue_id' => $queueId,
                 'action' => $action === 'retry_inventory_event' ? 'retry' : 'ignore',
+                'previous_status' => 'needs_review',
+                'resulting_status' => $action === 'retry_inventory_event' ? 'pending' : 'ignored',
                 'reason' => $reason,
                 'actor_id' => get_current_user_id(),
                 'created_at' => $now,
@@ -324,7 +326,7 @@ final class InventoryAdminController {
         $auditExists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($auditTable))) === $auditTable;
         if (!$auditExists) $missingQueues[] = 'operator audit';
         $operatorAudit = $auditExists ? ($wpdb->get_results(
-            "SELECT queue_type, queue_id, action, reason, actor_id, created_at
+            "SELECT queue_type, queue_id, action, previous_status, resulting_status, reason, actor_id, created_at
              FROM {$auditTable} ORDER BY id DESC LIMIT 50",
             ARRAY_A
         ) ?: []) : [];
