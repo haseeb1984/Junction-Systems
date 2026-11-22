@@ -686,7 +686,7 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, 'wp_safe_redirect($this->get_return_url($order))') === false
     || strpos($jazzCashSource, '$this->verifySignedResponse($b, $ik)') === false
     || strpos($jazzCashSource, '$order->payment_complete($txn)') === false
-    || strpos($jazzCashSource, "if ($responseCode === '157')") === false) {
+    || strpos($jazzCashSource, "if (\$responseCode === '157')") === false) {
     throw new \\RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
 }
 
