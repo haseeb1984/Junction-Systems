@@ -597,7 +597,9 @@ final class SyncWooCommerceStockUseCase {
         $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
         if (!$isPosOrder) {
             $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
-            if ($rawAllocations !== '' && $rawAllocations !== null) {
+            $rawCycleStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
+            if ($cycleUuid !== null || ($rawAllocations !== '' && $rawAllocations !== null)
+                || ($rawCycleStates !== '' && $rawCycleStates !== null)) {
                 return $this->applyAllocatedOnlineReturn($order, $item, 'cancellation', $quantity, null, $cycleUuid);
             }
         }
@@ -730,7 +732,9 @@ final class SyncWooCommerceStockUseCase {
         $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
         if (!$isPosOrder) {
             $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
-            if ($rawAllocations !== '' && $rawAllocations !== null) {
+            $rawCycleStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
+            if ($cycleUuid !== null || ($rawAllocations !== '' && $rawAllocations !== null)
+                || ($rawCycleStates !== '' && $rawCycleStates !== null)) {
                 return $this->applyAllocatedOnlineReturn(
                     $order,
                     $item,
