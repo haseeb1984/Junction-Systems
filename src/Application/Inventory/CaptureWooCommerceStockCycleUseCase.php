@@ -309,16 +309,18 @@ final class CaptureWooCommerceStockCycleUseCase {
                 throw new \RuntimeException('Unable to inspect existing WooCommerce stock cycles.');
             }
 
-            $openRefundCycle = $wpdb->get_var($wpdb->prepare(
-                "SELECT c.cycle_uuid FROM {$cyclesTable} c
-                 WHERE c.wc_order_id=%d AND c.state='restoring'
-                   AND EXISTS (SELECT 1 FROM {$eventsTable} e WHERE e.cycle_uuid=c.cycle_uuid AND e.event_kind='refund')
-                   AND NOT EXISTS (SELECT 1 FROM {$eventsTable} e WHERE e.cycle_uuid=c.cycle_uuid AND e.event_kind='cancellation')
-                 LIMIT 1",
+            // Never start a later reduction while any prior cycle is still
+            // restoring. Even a cancellation event may be waiting for its
+            // matching sale movement or return worker; allocating the next sale
+            // against that stale ledger could choose the wrong physical location.
+            $openRestoringCycle = $wpdb->get_var($wpdb->prepare(
+                "SELECT cycle_uuid FROM {$cyclesTable}
+                 WHERE wc_order_id=%d AND state='restoring'
+                 ORDER BY cycle_number ASC LIMIT 1",
                 $orderId
             ));
-            if ($wpdb->last_error !== '' || $openRefundCycle) {
-                throw new \RuntimeException('A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.');
+            if ($wpdb->last_error !== '' || $openRestoringCycle) {
+                throw new \\RuntimeException('A previous WooCommerce stock cycle is still restoring and must finish before another sale cycle can be captured.');
             }
 
             if (is_array($existing)) {
