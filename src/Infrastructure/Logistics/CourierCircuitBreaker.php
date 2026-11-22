@@ -5,6 +5,7 @@ use PkStore\Domain\Logistics\DTO\{ShipmentRequestDTO,ShipmentResultDTO};
 final class CourierCircuitBreaker {
     private const THRESH=5;private const COOL=300;private const PFX='pkstore_cb_';
     public function __construct(private readonly array $couriers){}
+    public function hasCouriers(): bool { return $this->couriers !== []; }
     public function bookWithFailover(ShipmentRequestDTO $s):ShipmentResultDTO{
         foreach($this->couriers as $c){
             $code=$c->getCourierCode();if($this->open($code))continue;
