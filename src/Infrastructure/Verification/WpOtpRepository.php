@@ -22,6 +22,25 @@ final class WpOtpRepository implements OtpRepositoryInterface {
         }
         return (int) $count;
     }
+    public function acquirePhoneSendLock(PakistanPhoneNumber $phone): void {
+        // Serialize the count + insert sequence per normalized phone number.
+        // Without this lock, concurrent checkout requests could all observe a
+        // count below the limit and exceed the three-send window.
+        $lockName = 'pkstore_otp_' . substr(hash('sha256', $phone->e164), 0, 48);
+        $acquired = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ($this->db->last_error !== '' || (int) $acquired !== 1) {
+            throw new \\RuntimeException('Unable to reserve the COD OTP send-rate window.');
+        }
+    }
+
+    public function releasePhoneSendLock(PakistanPhoneNumber $phone): void {
+        $lockName = 'pkstore_otp_' . substr(hash('sha256', $phone->e164), 0, 48);
+        $released = $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+        if ($this->db->last_error !== '' || (int) $released !== 1) {
+            throw new \\RuntimeException('Unable to release the COD OTP send-rate lock.');
+        }
+    }
+
     public function consumeVerifiedAttempt(string $attemptId, PakistanPhoneNumber $phone, string $sessionRef): bool {
         // OtpAttempt timestamps are created/reconstituted in PHP's default
         // timezone. Compare using that same clock rather than MySQL NOW(),
