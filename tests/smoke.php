@@ -681,6 +681,7 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "WC()->api_request_url('jazzcash_callback')") === false
     || strpos($jazzCashSource, "str_starts_with((string)\$key, 'pp')") === false
     || strpos($jazzCashSource, "\$key !== 'pp_SecureHash'") === false
+    || strpos($jazzCashSource, '!is_scalar($value)') === false
     || strpos($jazzCashSource, "'pp_ReturnURL'=>$callbackUrl") === false
     || strpos($jazzCashSource, 'wp_safe_redirect($this->get_return_url($order))') === false) {
     throw new \\RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
