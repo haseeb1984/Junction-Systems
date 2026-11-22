@@ -96,7 +96,19 @@ final class InventoryHooks {
                 return;
             }
 
-            $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, $cycleUuid);
+            $orderQueue = $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class);
+            $orderQueue->enqueue($orderId, $cycleUuid);
+
+            // Commit the shared ledger before this checkout request finishes.
+            // The durable queue remains the crash/retry fallback; an idempotent
+            // worker can safely replay the event if this synchronous pass fails.
+            try {
+                $this->c->make(\\PkStore\\Application\\Inventory\\SyncWooCommerceStockUseCase::class)
+                    ->onWooCommerceSale($orderId, $cycleUuid);
+                $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
+            } catch (\\Throwable $syncError) {
+                error_log('[PKStore Inventory] Synchronous online stock ingestion deferred to durable queue ('.get_class($syncError).').');
+            }
         } catch (\Throwable $error) {
             error_log('[PKStore Inventory] WooCommerce stock reduction hook could not enqueue inventory processing ('.get_class($error).').');
         }
