@@ -2,15 +2,22 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\WooCommerce;
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 
 final class ShippingRegistry {
-    public function __construct(private readonly ServiceContainer $container) {}
+    public function __construct(private readonly ServiceContainer $container, private readonly FeatureManager $features) {}
 
     public function register(): void {
         add_filter('woocommerce_shipping_methods', function(array $methods): array {
-            $methods['pkstore_tcs']      = \PkStore\Infrastructure\WooCommerce\Shipping\TcsShippingMethod::class;
-            $methods['pkstore_leopards'] = \PkStore\Infrastructure\WooCommerce\Shipping\LeopardsShippingMethod::class;
-            $methods['pkstore_trax']     = \PkStore\Infrastructure\WooCommerce\Shipping\TraxShippingMethod::class;
+            if ($this->features->isEnabled('courier_tcs')) {
+                $methods['pkstore_tcs'] = \PkStore\Infrastructure\WooCommerce\Shipping\TcsShippingMethod::class;
+            }
+            if ($this->features->isEnabled('courier_leopards')) {
+                $methods['pkstore_leopards'] = \PkStore\Infrastructure\WooCommerce\Shipping\LeopardsShippingMethod::class;
+            }
+            if ($this->features->isEnabled('courier_trax')) {
+                $methods['pkstore_trax'] = \PkStore\Infrastructure\WooCommerce\Shipping\TraxShippingMethod::class;
+            }
             return $methods;
         });
         add_action('woocommerce_payment_complete',             [$this, 'autoBookShipment']);
