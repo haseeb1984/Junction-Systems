@@ -15,11 +15,16 @@ final class POSController {
             $auth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
                 && FeatureManager::getInstance()->isEnabled('pos')
                 && FeatureManager::getInstance()->isEnabled('inventory');
+            // Queue synchronization processes every cashier's pending orders;
+            // it is an installation-wide operation, not a cashier capability.
+            $managerAuth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('manage_options'))
+                && FeatureManager::getInstance()->isEnabled('pos')
+                && FeatureManager::getInstance()->isEnabled('inventory');
             register_rest_route($ns,'/pos/session/open',      ['methods'=>'POST','callback'=>[$this,'openSession'],  'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/close',     ['methods'=>'POST','callback'=>[$this,'closeSession'], 'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/current',   ['methods'=>'GET', 'callback'=>[$this,'currentSession'],'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/sale',              ['methods'=>'POST','callback'=>[$this,'processSale'],  'permission_callback'=>$auth]);
-            register_rest_route($ns,'/pos/sync',              ['methods'=>'POST','callback'=>[$this,'syncQueue'],    'permission_callback'=>$auth]);
+            register_rest_route($ns,'/pos/sync',              ['methods'=>'POST','callback'=>[$this,'syncQueue'],    'permission_callback'=>$managerAuth]);
             register_rest_route($ns,'/pos/orders',            ['methods'=>'GET', 'callback'=>[$this,'listOrders'],   'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/receipt/whatsapp',  ['methods'=>'POST','callback'=>[$this,'sendWhatsApp'], 'permission_callback'=>$auth]);
         });
