@@ -198,6 +198,35 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
     }
 
+    public function reconcilePendingOrders(int $limit = 20): int {
+        if (!function_exists('wc_get_orders')) return 0;
+        $orders = wc_get_orders([
+            'limit' => max(1, min(100, $limit)),
+            'return' => 'objects',
+            'status' => ['pending', 'on-hold'],
+            'orderby' => 'date',
+            'order' => 'ASC',
+            'meta_query' => [[
+                'key' => '_pkstore_easypaisa_state',
+                'value' => ['pending', 'unknown'],
+                'compare' => 'IN',
+            ]],
+        ]);
+        if (!is_array($orders)) return 0;
+
+        $checked = 0;
+        foreach ($orders as $order) {
+            if (!($order instanceof \WC_Order)) continue;
+            $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
+            if ($orderRef === '') continue;
+            $status = $this->inquireTransactionStatus($orderRef);
+            if (!is_array($status)) continue;
+            $this->applyProviderStatus($order, $status);
+            $checked++;
+        }
+        return $checked;
+    }
+
     public function handleIpn(): void {
         $rawUrl = trim((string) wp_unslash($_GET['url'] ?? $_GET['URL'] ?? ''));
         $orderRef = (string) wp_unslash($_GET['orderId'] ?? '');
