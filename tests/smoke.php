@@ -778,14 +778,16 @@ if (!is_string($stockCycleCaptureSource)
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
-    || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false) {
+    || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false
+    || strpos($stockCycleCaptureSource, 'new \\\\RuntimeException') !== false) {
     throw new \\RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
 $stockSaleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'malformed actual stock-reduction quantity') === false
-    || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false) {
+    || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false
+    || strpos($stockSaleSource, 'new \\\\RuntimeException') !== false) {
     throw new \\RuntimeException('WooCommerce sale ingestion must reject malformed reduced-stock metadata.');
 }
 
