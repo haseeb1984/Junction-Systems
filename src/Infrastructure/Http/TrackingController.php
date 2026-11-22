@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Http;
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
 final class TrackingController {
     public function __construct(private readonly ServiceContainer $c, private readonly FeatureManager $features){}
