@@ -298,3 +298,11 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 ## Affiliate payout data minimization
 
 - The affiliate self-service dashboard API now masks the payout destination account, revealing only the final four characters. The full account remains stored for payout processing and is not returned in the ordinary affiliate dashboard response.
+
+
+## AI chat abuse controls
+
+- AI chat session IDs must be UUIDv4 values and messages are bounded to 2,000 characters.
+- Rate limits now apply both per chat session (20/hour) and per source IP (100/hour), with the IP stored only as an HMAC-derived transient key; a caller can no longer bypass the session quota simply by generating a new UUID.
+- Streaming responses now emit structured error events for rate limits/provider failures, and the browser surfaces those errors rather than silently treating `[DONE]` as a successful empty response.
+- Transient-based counters are best-effort under concurrent requests and behind shared reverse proxies; production acceptance should validate the Hostinger/proxy network path and adjust the IP quota if many customers share one egress IP.
