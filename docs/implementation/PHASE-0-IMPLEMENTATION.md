@@ -204,3 +204,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The courier failover pool is built from the same enabled-and-entitled courier set, so an unlicensed or locally disabled provider cannot be selected as a fallback.
 - If no courier is enabled for the installation, the booking retry records an order note and stops rather than treating an empty provider set as a temporary outage.
 - Added dependency-free source smoke guards. These have not yet run; checkout/shipping-zone and provider failover behavior still needs WooCommerce runtime acceptance.
+
+- Follow-up: TCS, Leopards and Trax webhook routes are now registered only for currently enabled/licensed providers and re-check the entitlement inside the handler before accepting any status update. This closes the remaining callback path when a courier feature is disabled. Source smoke guard added; provider callback runtime tests remain pending.
