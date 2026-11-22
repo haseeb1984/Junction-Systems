@@ -84,6 +84,10 @@ final class InventoryHooks {
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
             $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+            if ($cycleUuid !== '') {
+                $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
+                    ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $newStock - $oldStock);
+            }
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
                 (int) $order->get_id(), (int) $item->get_id(), $productId, $newStock - $oldStock, $cycleUuid !== '' ? $cycleUuid : null
             );
@@ -107,6 +111,10 @@ final class InventoryHooks {
             }
             if ($itemId === 0) $itemId = null; // ambiguous duplicate product lines remain queued for reconciliation
             $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+            if ($cycleUuid !== '') {
+                $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
+                    ->markReturnPending($order, (int) $itemId, 'refund', $delta, $cumulative);
+            }
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueRefund(
                 (int) $order->get_id(), $productId, $delta, $cumulative, $itemId, $cycleUuid !== '' ? $cycleUuid : null
             );
