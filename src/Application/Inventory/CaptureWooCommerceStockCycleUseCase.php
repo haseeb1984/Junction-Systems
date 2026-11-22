@@ -109,7 +109,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 $orderId
             ), ARRAY_A);
             if ($wpdb->last_error !== '') {
-                throw new \\RuntimeException('Unable to inspect existing WooCommerce stock cycles.');
+                throw new \RuntimeException('Unable to inspect existing WooCommerce stock cycles.');
             }
 
             if (is_array($existing)) {
@@ -120,7 +120,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                     (string) $existing['cycle_uuid']
                 ), ARRAY_A);
                 if ($wpdb->last_error !== '') {
-                    throw new \\RuntimeException('Unable to inspect existing WooCommerce stock-cycle lines.');
+                    throw new \RuntimeException('Unable to inspect existing WooCommerce stock-cycle lines.');
                 }
                 $existingSnapshot = [];
                 foreach (($existingItems ?: []) as $row) {
@@ -147,7 +147,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 $orderId
             ));
             if ($wpdb->last_error !== '' || !is_numeric($nextNumberValue)) {
-                throw new \\RuntimeException('Unable to inspect WooCommerce stock-cycle sequence.');
+                throw new \RuntimeException('Unable to inspect WooCommerce stock-cycle sequence.');
             }
             $nextNumber = (int) $nextNumberValue;
             if ($nextNumber < 1) {
