@@ -219,3 +219,12 @@ No cycle schema or cycle-aware processing has been enabled by this documentation
 - Idempotency lookup hardening: `WpStockRepository::hasMovementReference()` now throws on a database read error instead of interpreting a failed lookup as “movement not found”. This prevents an uncertain read from being followed by a duplicate sale/return deduction. Added source smoke guard; database fault-injection test remains pending.
 
 - Aggregate stock read hardening: WooCommerce stock publication now throws if the aggregate inventory query errors or returns a non-numeric result. A database read failure can no longer be misinterpreted as zero stock and push an incorrect `outofstock` value to the storefront. Source smoke guard added; DB fault-injection test remains pending.
+
+
+### Shared multi-location stock allocation and return provenance
+
+- Online WooCommerce sales now allocate each actually reduced order line from the shared active-location stock pool. The Online Store location is preferred when it has stock; remaining demand is allocated across other active locations in stable location-ID order. All product/location rows are locked in deterministic order, and an order fails closed when combined available stock is insufficient.
+- Each WooCommerce line stores an immutable Junction product/location/quantity allocation snapshot. Sale ledger movements are recorded per product/location, and replay requires the matching movement references; legacy order-level references without a saved allocation are not reallocated or deducted again.
+- Cancellation and explicit refund restocks for new online sales restore stock to the exact original locations using transactional per-line cumulative return counters. Refund-only payments still do not restore stock. POS mirrors retain their original POS-location return path.
+- The actual stock-reduction hook saves a durable per-line quantity snapshot before queueing asynchronous ingestion, so a cancellation that happens before the sale worker runs does not erase the only evidence of the original reduction.
+- Added source-level smoke guards. Runtime acceptance still must cover multiple locations, split allocations, insufficient combined stock, cancellation/refund replay, refund-before-sale ordering, and concurrent POS/online sales.
