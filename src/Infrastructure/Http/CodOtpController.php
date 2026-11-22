@@ -230,8 +230,13 @@ final class CodOtpController {
         );
     }
 
-    public function bindProofToOrder(int $orderId, array $postedData, \WC_Order $order): void {
-        if ($order->get_payment_method() !== 'cod' || $this->isDigitalOnlyOrder($order)) return;
+    public function bindProofToOrder(int $orderId, array $postedData = [], $order = null): void {
+        if (!($order instanceof \WC_Order)) {
+            $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
+        }
+        if (!($order instanceof \WC_Order)
+            || $order->get_payment_method() !== 'cod'
+            || $this->isDigitalOnlyOrder($order)) return;
 
         $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
         if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) return;
