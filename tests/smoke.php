@@ -483,6 +483,11 @@ if (!is_string($posSyncSource)
     || strpos($posSyncSource, "get_woocommerce_currency() !== 'PKR'") === false
     || strpos($posSyncSource, "payment_complete('POS-'") === false
     || strpos($posSyncSource, "paidWooCommerceOrderMatches(") === false
+    || strpos($posSyncSource, '$expectedAmounts[$key]') === false
+    || strpos($posSyncSource, '$actualAmounts[$key]') === false
+    || strpos($posSyncSource, '$item->get_subtotal()') === false
+    || strpos($posSyncSource, '$item->get_total()') === false
+    || strpos($posSyncSource, 'if (!$posOrder->getItems()) return false;') === false
     || strpos($posSyncSource, "_pkstore_inventory_product_id") === false
     || strpos($posSyncSource, "locationId !== \$posOrder->locationId") === false
     || strpos($posSyncSource, "hash_equals(\$posOrder->orderRef, \$posOrderRef)") === false
