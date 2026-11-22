@@ -183,6 +183,14 @@ final class SyncPOSQueueUseCase {
             if (!$added) {
                 throw new \RuntimeException('WooCommerce rejected a POS line item.');
             }
+            $lineItems = $wcOrder->get_items('line_item');
+            $lineItem = end($lineItems);
+            if (!$lineItem instanceof \WC_Order_Item_Product) {
+                throw new \RuntimeException('WooCommerce POS line item could not be reloaded.');
+            }
+            $lineItem->update_meta_data('_pkstore_inventory_product_id', $inventoryProduct->id);
+            $lineItem->update_meta_data('_pkstore_inventory_location_id', $posOrder->locationId);
+            $lineItem->update_meta_data('_pkstore_pos_order_ref', $posOrder->orderRef);
         }
 
         $wcOrder->set_discount_total(wc_format_decimal($posOrder->discountPkr, 0));
