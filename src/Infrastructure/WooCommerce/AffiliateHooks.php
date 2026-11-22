@@ -14,7 +14,7 @@ final class AffiliateHooks {
         add_shortcode('pkstore_affiliate_dashboard',[$this,'dashboardShortcode']);
     }
     public function trackRef(): void {
-        $code=sanitize_text_field($_GET['ref']??''');
+        $code = sanitize_text_field($_GET['ref'] ?? '');
         if(!empty($code))$this->c->make(TrackAffiliateClickUseCase::class)->execute($code);
     }
     public function recordCommission(int $orderId): void {
