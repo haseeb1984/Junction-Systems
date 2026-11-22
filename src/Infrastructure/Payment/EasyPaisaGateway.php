@@ -174,8 +174,8 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         if ((string) ($body['responseCode'] ?? '') !== '0000') {
             $responseCode = sanitize_text_field((string) ($body['responseCode'] ?? ''));
             $responseMessage = sanitize_text_field((string) ($body['responseDesc'] ?? ''));
-            if ($responseCode === '') {
-                $order->add_order_note('Easypaisa returned an unknown initiation response; status must be reconciled before another charge.');
+            if (!in_array($responseCode, ['0002', '0005', '0006', '0007', '0008', '0010', '0013', '0014'], true)) {
+                $order->add_order_note('Easypaisa returned a non-final or unknown initiation response; status must be reconciled before another charge.');
                 return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
             }
             $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
@@ -275,10 +275,11 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
 
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
-        if (!is_array($body) || (string) ($body['responseCode'] ?? '') !== '0000'
+        if (!is_array($body)
             || (string) ($body['orderId'] ?? '') !== $orderRef
             || (string) ($body['storeId'] ?? '') !== $storeId
-            || (string) ($body['accountNum'] ?? '') !== $accountNum) {
+            || (string) ($body['accountNum'] ?? '') !== $accountNum
+            || !in_array((string) ($body['responseCode'] ?? ''), ['0000', '0001', '0003', '0004', '0005', '0006', '0007', '0010'], true)) {
             $this->log->warning('Easypaisa transaction inquiry returned an unverified response.', [
                 'response_code' => is_array($body) ? sanitize_text_field((string) ($body['responseCode'] ?? 'unknown')) : 'invalid',
             ]);
@@ -288,6 +289,24 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
     }
 
     private function applyProviderStatus(\WC_Order $order, array $status): string {
+        $responseCode = (string) ($status['responseCode'] ?? '');
+        if ($responseCode !== '0000') {
+            if ($responseCode === '0001') return 'pending';
+            if ($responseCode === '0003') {
+                if (!$order->is_paid()) {
+                    $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
+                    $order->update_status('failed', 'Easypaisa inquiry reports that the transaction reference was not found.');
+                    return 'failed';
+                }
+                $order->add_order_note('Easypaisa inquiry reports an unknown transaction reference for an already-paid order. Manual reconciliation is required.');
+            } else {
+                $order->add_order_note('Easypaisa inquiry could not verify merchant/order details. Manual reconciliation is required.');
+            }
+            $order->update_meta_data('_pkstore_easypaisa_state', 'review');
+            $order->save();
+            return 'review';
+        }
+
         $expectedAmount = wc_format_decimal($order->get_meta('_pkstore_easypaisa_expected_amount'), 2, false);
         $reportedAmount = wc_format_decimal((string) ($status['transactionAmount'] ?? ''), 2, false);
         if ($expectedAmount === '' || $reportedAmount === '' || $expectedAmount !== $reportedAmount) {
