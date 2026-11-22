@@ -685,6 +685,8 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "'pp_ReturnURL'=>$callbackUrl") === false
     || strpos($jazzCashSource, 'wp_safe_redirect($this->get_return_url($order))') === false
     || strpos($jazzCashSource, '$this->verifySignedResponse($b, $ik)') === false
+    || strpos($jazzCashSource, "(string) (\$b['pp_TxnType'] ?? '') !== 'MWALLET'") === false
+    || strpos($jazzCashSource, "(\$payload['pp_TxnType'] ?? '') !== 'MWALLET'") === false
     || strpos($jazzCashSource, '$order->payment_complete($txn)') === false
     || strpos($jazzCashSource, "if (\$existingTxn !== '' && \$existingState !== 'failed')") === false
     || strpos($jazzCashSource, "'_pkstore_jazzcash_state', 'unknown'") === false
