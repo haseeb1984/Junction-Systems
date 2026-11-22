@@ -210,7 +210,7 @@ if (!is_string($inventoryHttpSource)
 if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, '$readAuth = fn()=>(current_user_can(\'manage_woocommerce\') || current_user_can(\'use_junction_pos\'))') === false
     || strpos($inventoryHttpSource, '$manageAuth = fn()=>current_user_can(\'manage_woocommerce\')') === false
-    || strpos($inventoryHttpSource, 'permission_callback'=>$manageAuth') === false
+    || strpos($inventoryHttpSource, "permission_callback'=>\$manageAuth") === false
     || strpos($inventoryHttpSource, '$this->c->make(LocationRepositoryInterface::class)->findPOS()') === false) {
     throw new \RuntimeException('POS cashiers must receive only read-only inventory access and POS-enabled locations.');
 }
