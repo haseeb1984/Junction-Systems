@@ -541,4 +541,18 @@ if (!is_string($stockCycleInstallerSource)
     throw new \RuntimeException('WooCommerce stock-cycle storage must be durable, uniquely keyed and version-migrated.');
 }
 
+
+$stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
+$stockCycleServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
+if (!is_string($stockCycleCaptureSource)
+    || strpos($stockCycleCaptureSource, 'GET_LOCK') === false
+    || strpos($stockCycleCaptureSource, 'RELEASE_LOCK') === false
+    || strpos($stockCycleCaptureSource, "_reduced_stock") === false
+    || strpos($stockCycleCaptureSource, 'wc_stock_cycle_items') === false
+    || strpos($stockCycleCaptureSource, 'wc_stock_cycle_events') === false
+    || strpos($stockCycleCaptureSource, "'woocommerce_reduce_order_stock'") === false
+    || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') === false) {
+    throw new \RuntimeException('WooCommerce stock-cycle capture must use actual reduction metadata, an order lock and durable snapshots.');
+}
+
 echo "Smoke tests passed.\n";
