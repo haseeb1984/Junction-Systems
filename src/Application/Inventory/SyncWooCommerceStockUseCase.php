@@ -40,6 +40,9 @@ final class SyncWooCommerceStockUseCase {
             throw new \InvalidArgumentException('WooCommerce stock-cycle identity is invalid.');
         }
 
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for stock-cycle sale.');
+        $cycleItemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
         $lines = [];
         $metadataCount = 0;
         foreach ($order->get_items('line_item') as $item) {
@@ -53,12 +56,26 @@ final class SyncWooCommerceStockUseCase {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
             }
 
+            $itemId = (int) $item->get_id();
             $wcProductId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
-            $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
-            $product ??= $this->productRepo->findByWcProductId($wcProductId);
+            $capturedLine = $wpdb->get_row($wpdb->prepare(
+                "SELECT inventory_product_id,wc_parent_product_id,wc_variation_id,reduced_quantity,refund_cumulative_baseline
+                 FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
+                $cycleUuid,
+                $itemId
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($capturedLine)) {
+                throw new \RuntimeException('WooCommerce order item has no immutable stock-cycle mapping snapshot.');
+            }
+            if ($itemId < 1 || (int) $capturedLine['wc_parent_product_id'] !== $wcProductId
+                || (int) $capturedLine['wc_variation_id'] !== $variationId
+                || (int) $capturedLine['reduced_quantity'] !== (int) $reducedStock) {
+                throw new \RuntimeException('WooCommerce order item changed after its stock-cycle mapping was captured.');
+            }
+            $product = $this->productRepo->findById((int) $capturedLine['inventory_product_id']);
             if (!$product || !$product->isActive) {
-                throw new \RuntimeException('Reduced WooCommerce product has no active Junction inventory mapping.');
+                throw new \RuntimeException('Captured Junction inventory product is unavailable or inactive.');
             }
 
             $rawStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
@@ -79,7 +96,10 @@ final class SyncWooCommerceStockUseCase {
 
             $lines[] = [
                 'item' => $item,
-                'item_id' => (int) $item->get_id(),
+                'item_id' => $itemId,
+                'wc_parent_product_id' => $wcProductId,
+                'wc_variation_id' => $variationId,
+                'captured_refund_baseline' => (int) $capturedLine['refund_cumulative_baseline'],
                 'product_id' => (int) $product->id,
                 'quantity' => (int) $reducedStock,
                 'states' => $states,
@@ -101,8 +121,7 @@ final class SyncWooCommerceStockUseCase {
             return ($aOnline <=> $bOnline) ?: ($a->id <=> $b->id);
         });
 
-        global $wpdb;
-        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+        if ($wpdb->query('START TRANSACTION') === false) {
             throw new \RuntimeException('Unable to start cycle-aware WooCommerce inventory transaction.');
         }
 
@@ -276,22 +295,24 @@ final class SyncWooCommerceStockUseCase {
                 }
             }
 
-            $cycleItemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
             $now = current_time('mysql');
             foreach ($lines as $line) {
                 $encoded = wp_json_encode($line['cycle_state']['allocations']);
                 if (!is_string($encoded)) throw new \RuntimeException('Unable to encode WooCommerce stock-cycle allocation snapshot.');
                 $firstLocationId = (int) $line['cycle_state']['allocations'][0]['location_id'];
                 $cycleItemRow = $wpdb->get_row($wpdb->prepare(
-                    "SELECT id,reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,refund_restored_quantity FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
+                    "SELECT id,inventory_product_id,wc_parent_product_id,wc_variation_id,reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,refund_restored_quantity FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d FOR UPDATE",
                     $cycleUuid,
                     $line['item_id']
                 ), ARRAY_A);
                 if ($wpdb->last_error !== '' || !is_array($cycleItemRow)) {
                     throw new \RuntimeException('Captured WooCommerce stock-cycle line is unavailable.');
                 }
-                if ((int) $cycleItemRow['reduced_quantity'] !== $line['quantity']) {
-                    throw new \RuntimeException('Captured stock-cycle quantity conflicts with the current WooCommerce reduction snapshot.');
+                if ((int) $cycleItemRow['inventory_product_id'] !== $line['product_id']
+                    || (int) $cycleItemRow['wc_parent_product_id'] !== $line['wc_parent_product_id']
+                    || (int) $cycleItemRow['wc_variation_id'] !== $line['wc_variation_id']
+                    || (int) $cycleItemRow['reduced_quantity'] !== $line['quantity']) {
+                    throw new \RuntimeException('Captured stock-cycle product mapping or quantity conflicts with the current WooCommerce order line.');
                 }
                 if (!$hasSnapshot) {
                     if ((int) $cycleItemRow['cancellation_restored_quantity'] !== 0
