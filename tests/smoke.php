@@ -504,6 +504,8 @@ if (!is_string($orderQueueSource)
     || strpos($orderQueueSource, 'cycle_uuid') === false
     || strpos($orderQueueSource, 'onWooCommerceSale($orderId, $cycleUuid') === false
     || strpos($orderQueueSource, 'bindCycleIdentity(') === false
+    || strpos($orderQueueSource, 'ensureActiveCycleMeta(') === false
+    || strpos($orderQueueSource, '_pkstore_wc_active_cycle_uuid') === false
     || strpos($orderQueueSource, 'recoverUnqueuedCycleSales') === false
     || strpos($orderQueueSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($orderQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
