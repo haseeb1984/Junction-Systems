@@ -312,14 +312,11 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             return null;
         }
 
-        $httpStatus = (int) wp_remote_retrieve_response_code($response);
-        if ($httpStatus < 200 || $httpStatus >= 300) return null;
-
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
         if (!is_array($body)
-            || (string) ($body['orderId'] ?? '') !== $orderRef
-            || (string) ($body['storeId'] ?? '') !== $storeId
-            || (string) ($body['accountNum'] ?? '') !== $accountNum
+            || !hash_equals($orderRef, (string) ($body['orderId'] ?? ''))
+            || !hash_equals($storeId, (string) ($body['storeId'] ?? ''))
+            || !hash_equals($accountNum, (string) ($body['accountNum'] ?? ''))
             || !in_array((string) ($body['responseCode'] ?? ''), ['0000', '0001', '0003', '0004', '0005', '0006', '0007', '0010'], true)) {
             $this->log->warning('Easypaisa transaction inquiry returned an unverified response.', [
                 'response_code' => is_array($body) ? sanitize_text_field((string) ($body['responseCode'] ?? 'unknown')) : 'invalid',
