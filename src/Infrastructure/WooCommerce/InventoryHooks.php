@@ -22,15 +22,15 @@ final class InventoryHooks {
     }
     public function onOrderStockReduced($order): void {
         try {
-            if (!($order instanceof \\WC_Order)) {
-                throw new \\InvalidArgumentException('Malformed WooCommerce stock-reduction event.');
+            if (!($order instanceof \WC_Order)) {
+                throw new \InvalidArgumentException('Malformed WooCommerce stock-reduction event.');
             }
             // Junction POS already deducted shared inventory; do not ingest its mirror.
             if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
             $orderId = (int) $order->get_id();
-            if ($orderId < 1) throw new \\InvalidArgumentException('Invalid WooCommerce order ID.');
+            if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to enqueue actual WooCommerce stock reduction ('.get_class($e).').');
         }
     }
