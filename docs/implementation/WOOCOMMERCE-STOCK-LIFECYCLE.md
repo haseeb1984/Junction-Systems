@@ -34,6 +34,7 @@ Online sales are enqueued from `woocommerce_reduce_order_stock`, after WooCommer
 - Stock-cycle migration 2.0.9 creates cycle, item and event tables; 2.0.11 adds allocation snapshots; 2.0.12 adds refund cumulative baselines.
 - Migration verification checks required columns and unique indexes. Existing-install migrations remain blocked unless the hosting integration confirms a recent pre-migration backup.
 - Sale, return and stock-sync workers use persisted claim tokens/generation fencing and bounded retry. Exhausted queue events move to `needs_review`.
+- Sale and return workers scan their durable cycle-event tables for pending events whose queue row is missing and recreate the queue row idempotently.
 - The cycle capture and processing services are registered and connected to the actual WooCommerce hooks and scheduled workers.
 
 ## Important limitations
