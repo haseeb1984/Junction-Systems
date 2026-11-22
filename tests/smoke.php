@@ -523,4 +523,19 @@ if (!is_string($posSyncSource)
     throw new \RuntimeException('POS-to-WooCommerce recovery must use valid PHP namespaces and verify trusted per-line origin metadata.');
 }
 
+
+$stockCycleInstallerSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+$stockCycleMigrationSource = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
+if (!is_string($stockCycleInstallerSource)
+    || strpos($stockCycleInstallerSource, 'pkstore_wc_stock_cycles') === false
+    || strpos($stockCycleInstallerSource, 'pkstore_wc_stock_cycle_items') === false
+    || strpos($stockCycleInstallerSource, 'pkstore_wc_stock_cycle_events') === false
+    || strpos($stockCycleInstallerSource, 'UNIQUE INDEX idx_cycle_uuid') === false
+    || strpos($stockCycleInstallerSource, 'UNIQUE INDEX idx_order_cycle') === false
+    || strpos($stockCycleInstallerSource, 'claim_token CHAR(36) DEFAULT NULL') === false
+    || strpos($stockCycleMigrationSource, "'2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles']") === false
+    || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.9', '>=')") === false) {
+    throw new \RuntimeException('WooCommerce stock-cycle storage must be durable, uniquely keyed and version-migrated.');
+}
+
 echo "Smoke tests passed.\n";
