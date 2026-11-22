@@ -68,7 +68,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         $signedPayload = array_filter(
             $payload,
-            static fn($key) => str_starts_with((string)$key, 'pp_') && $key !== 'pp_SecureHash',
+            static fn($key) => str_starts_with((string)$key, 'pp') && $key !== 'pp_SecureHash',
             ARRAY_FILTER_USE_KEY
         );
         ksort($signedPayload);
