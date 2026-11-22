@@ -715,8 +715,11 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
 }
 
 $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
+$aiChatUseCaseSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
-if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
+if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource) || !is_string($aiChatModuleSource)
+    || strpos($aiChatUseCaseSource, "function_exists('mb_substr')") === false
+    || strpos($aiChatUseCaseSource, 'substr($c,0,self::MAXCHARS)') === false
     || strpos($aiChatControllerSource, 'validSessionUuid(') === false
     || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
     || strpos($aiChatControllerSource, '$ipCount >= 100') === false
