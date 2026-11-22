@@ -19,10 +19,311 @@ final class SyncWooCommerceStockUseCase {
         });
     }
 
+    private function applyWooCommerceSaleCycle(\WC_Order $order, string $cycleUuid): void {
+        $orderId = (int) $order->get_id();
+        if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+            throw new \InvalidArgumentException('WooCommerce stock-cycle identity is invalid.');
+        }
+
+        $lines = [];
+        $metadataCount = 0;
+        foreach ($order->get_items('line_item') as $item) {
+            $reducedStock = $item->get_meta('_reduced_stock', true);
+            if ($reducedStock === '' || $reducedStock === null) {
+                $reducedStock = $item->get_meta('_pkstore_wc_reduced_stock_snapshot', true);
+            }
+            if ($reducedStock === '' || $reducedStock === null || (float) $reducedStock === 0.0) continue;
+            if (!is_numeric($reducedStock) || (float) $reducedStock < 0
+                || floor((float) $reducedStock) !== (float) $reducedStock) {
+                throw new \RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
+            }
+
+            $wcProductId = (int) $item->get_product_id();
+            $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+            $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
+            $product ??= $this->productRepo->findByWcProductId($wcProductId);
+            if (!$product || !$product->isActive) {
+                throw new \RuntimeException('Reduced WooCommerce product has no active Junction inventory mapping.');
+            }
+
+            $rawStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
+            $states = is_array($rawStates)
+                ? $rawStates
+                : (is_string($rawStates) ? json_decode($rawStates, true) : null);
+            if ($rawStates !== '' && $rawStates !== null && !is_array($states)) {
+                throw new \RuntimeException('WooCommerce order has malformed cycle allocation metadata.');
+            }
+            $states = is_array($states) ? $states : [];
+            $cycleState = $states[$cycleUuid] ?? null;
+            if ($cycleState !== null) {
+                if (!is_array($cycleState)) {
+                    throw new \RuntimeException('WooCommerce order has malformed cycle allocation state.');
+                }
+                $metadataCount++;
+            }
+
+            $lines[] = [
+                'item' => $item,
+                'item_id' => (int) $item->get_id(),
+                'product_id' => (int) $product->id,
+                'quantity' => (int) $reducedStock,
+                'states' => $states,
+                'cycle_state' => $cycleState,
+            ];
+        }
+        if (!$lines) throw new \RuntimeException('Captured WooCommerce stock cycle has no reduced order lines.');
+        if ($metadataCount !== 0 && $metadataCount !== count($lines)) {
+            throw new \RuntimeException('WooCommerce stock cycle has only a partial allocation snapshot.');
+        }
+        $hasSnapshot = $metadataCount === count($lines);
+
+        $locations = $this->locationRepo->findAll();
+        if (!$locations) throw new \RuntimeException('No active Junction inventory locations are available for online order allocation.');
+        $onlineLocation = $this->locationRepo->findOnline();
+        usort($locations, static function ($a, $b) use ($onlineLocation): int {
+            $aOnline = $onlineLocation && $a->id === $onlineLocation->id ? 0 : 1;
+            $bOnline = $onlineLocation && $b->id === $onlineLocation->id ? 0 : 1;
+            return ($aOnline <=> $bOnline) ?: ($a->id <=> $b->id);
+        });
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start cycle-aware WooCommerce inventory transaction.');
+        }
+
+        $products = array_values(array_unique(array_column($lines, 'product_id')));
+        sort($products, SORT_NUMERIC);
+        $stockLevels = [];
+        $allocationsByProductLocation = [];
+        try {
+            foreach ($products as $productId) {
+                foreach ($locations as $location) {
+                    $stockLevels[$productId][$location->id] = $this->stockRepo->getStock($productId, $location->id);
+                }
+            }
+
+            if ($hasSnapshot) {
+                foreach ($lines as &$line) {
+                    $state = $line['cycle_state'];
+                    $allocations = $state['allocations'] ?? null;
+                    if ((int) ($state['reduced_quantity'] ?? 0) !== $line['quantity']
+                        || !is_array($allocations) || !$allocations
+                        || (int) ($state['returned_quantity'] ?? 0) < 0
+                        || (int) ($state['refund_returned_quantity'] ?? 0) < 0
+                        || (int) ($state['cancellation_returned_quantity'] ?? 0) < 0
+                        || (int) ($state['returned_quantity'] ?? 0) !==
+                            (int) ($state['refund_returned_quantity'] ?? 0) + (int) ($state['cancellation_returned_quantity'] ?? 0)) {
+                        throw new \RuntimeException('Saved cycle allocation state does not reconcile to the reduction.');
+                    }
+                    $allocated = 0;
+                    foreach ($allocations as $allocation) {
+                        $productId = is_array($allocation) ? filter_var($allocation['product_id'] ?? null, FILTER_VALIDATE_INT) : false;
+                        $locationId = is_array($allocation) ? filter_var($allocation['location_id'] ?? null, FILTER_VALIDATE_INT) : false;
+                        $quantity = is_array($allocation) ? filter_var($allocation['quantity'] ?? null, FILTER_VALIDATE_INT) : false;
+                        if ($productId !== $line['product_id'] || !$locationId || $locationId < 1 || !$quantity || $quantity < 1
+                            || !isset($stockLevels[$productId][$locationId])) {
+                            throw new \RuntimeException('Saved cycle allocation references an invalid product or location.');
+                        }
+                        $allocated += $quantity;
+                        $allocationsByProductLocation[$productId][$locationId] =
+                            ($allocationsByProductLocation[$productId][$locationId] ?? 0) + $quantity;
+                    }
+                    if ($allocated !== $line['quantity']) {
+                        throw new \RuntimeException('Saved cycle location allocations do not match the captured reduction.');
+                    }
+                }
+                unset($line);
+            } else {
+                $available = [];
+                foreach ($stockLevels as $productId => $byLocation) {
+                    foreach ($byLocation as $locationId => $stock) {
+                        $available[$productId][$locationId] = $stock->getQuantity();
+                    }
+                }
+                foreach ($lines as &$line) {
+                    $remaining = $line['quantity'];
+                    $allocations = [];
+                    foreach ($locations as $location) {
+                        $locationId = $location->id;
+                        $onHand = $available[$line['product_id']][$locationId] ?? 0;
+                        if ($onHand < 1) continue;
+                        $take = min($remaining, $onHand);
+                        if ($take < 1) continue;
+                        $allocations[] = [
+                            'product_id' => $line['product_id'],
+                            'location_id' => $locationId,
+                            'quantity' => $take,
+                        ];
+                        $available[$line['product_id']][$locationId] -= $take;
+                        $allocationsByProductLocation[$line['product_id']][$locationId] =
+                            ($allocationsByProductLocation[$line['product_id']][$locationId] ?? 0) + $take;
+                        $remaining -= $take;
+                        if ($remaining === 0) break;
+                    }
+                    if ($remaining > 0) {
+                        throw new \DomainException('Combined Junction inventory is insufficient for the WooCommerce order.');
+                    }
+                    $line['cycle_state'] = [
+                        'reduced_quantity' => $line['quantity'],
+                        'allocations' => $allocations,
+                        'returned_quantity' => 0,
+                        'refund_returned_quantity' => 0,
+                        'cancellation_returned_quantity' => 0,
+                    ];
+                }
+                unset($line);
+            }
+
+            // Previous order-level references cannot be safely assigned to a new
+            // stock cycle. Stop rather than double-deduct legacy ledger entries.
+            foreach ($products as $productId) {
+                foreach ($locations as $location) {
+                    if ($this->stockRepo->hasMovementReference(
+                        (int) $productId, $location->id, 'wc_order', (string) $orderId, MovementType::OnlineSale
+                    ) || $this->stockRepo->hasMovementReference(
+                        (int) $productId, $location->id, 'wc_order', $orderId . ':' . $location->id, MovementType::OnlineSale
+                    )) {
+                        throw new \RuntimeException('A legacy WooCommerce sale exists without a verifiable stock-cycle identity.');
+                    }
+                }
+            }
+
+            foreach ($allocationsByProductLocation as $productId => $byLocation) {
+                foreach ($byLocation as $locationId => $quantity) {
+                    $referenceId = $cycleUuid . ':' . $locationId;
+                    $alreadyApplied = $this->stockRepo->hasMovementReference(
+                        (int) $productId, (int) $locationId, 'wc_stock_cycle', $referenceId, MovementType::OnlineSale
+                    );
+                    if ($hasSnapshot && !$alreadyApplied) {
+                        throw new \RuntimeException('Saved stock-cycle allocation has no matching ledger movement.');
+                    }
+                    if (!$hasSnapshot && $alreadyApplied) {
+                        throw new \RuntimeException('Stock-cycle ledger movement exists without its saved allocation snapshot.');
+                    }
+                    if (!$hasSnapshot) {
+                        $this->adjustStock->execute(
+                            (int) $productId,
+                            (int) $locationId,
+                            -$quantity,
+                            MovementType::OnlineSale,
+                            "WooCommerce order #{$orderId} cycle {$cycleUuid}",
+                            'wc_stock_cycle',
+                            $referenceId,
+                            false
+                        );
+                    }
+                }
+            }
+
+            $cycleItemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+            $now = current_time('mysql');
+            foreach ($lines as $line) {
+                $encoded = wp_json_encode($line['cycle_state']['allocations']);
+                if (!is_string($encoded)) throw new \RuntimeException('Unable to encode WooCommerce stock-cycle allocation snapshot.');
+                $firstLocationId = (int) $line['cycle_state']['allocations'][0]['location_id'];
+                $itemRowId = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
+                    $cycleUuid,
+                    $line['item_id']
+                ));
+                if ($wpdb->last_error !== '' || !$itemRowId) {
+                    throw new \RuntimeException('Captured WooCommerce stock-cycle line is unavailable.');
+                }
+                $updated = $wpdb->update($cycleItemsTable, [
+                    'inventory_location_id' => $firstLocationId,
+                    'allocation_snapshot' => $encoded,
+                    'updated_at' => $now,
+                ], [
+                    'cycle_uuid' => $cycleUuid,
+                    'wc_order_item_id' => $line['item_id'],
+                ]);
+                if ($updated === false) throw new \RuntimeException('Unable to persist stock-cycle allocation snapshot.');
+
+                if (!$hasSnapshot) {
+                    $line['states'][$cycleUuid] = $line['cycle_state'];
+                    $encodedStates = wp_json_encode($line['states']);
+                    if (!is_string($encodedStates)) throw new \RuntimeException('Unable to encode order item cycle state.');
+                    $line['item']->update_meta_data('_pkstore_inventory_cycle_states', $encodedStates);
+                    if ((int) $line['item']->save() !== $line['item_id']) {
+                        throw new \RuntimeException('Unable to persist order item cycle allocation state.');
+                    }
+                }
+            }
+
+            $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            $cycle = $wpdb->get_row($wpdb->prepare(
+                "SELECT state FROM {$cyclesTable} WHERE cycle_uuid=%s FOR UPDATE",
+                $cycleUuid
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($cycle) || $cycle['state'] === 'closed') {
+                throw new \RuntimeException('WooCommerce stock cycle is unavailable or already closed.');
+            }
+            if ($cycle['state'] === 'reducing') {
+                $updated = $wpdb->update($cyclesTable, [
+                    'state' => 'active',
+                    'activated_at' => $now,
+                    'updated_at' => $now,
+                ], ['cycle_uuid' => $cycleUuid, 'state' => 'reducing']);
+                if ($updated === false) throw new \RuntimeException('Unable to activate WooCommerce stock cycle.');
+            } elseif ($cycle['state'] !== 'active') {
+                throw new \RuntimeException('WooCommerce stock cycle is in an unsupported state.');
+            }
+
+            $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            $event = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,status FROM {$eventsTable} WHERE cycle_uuid=%s AND event_kind='reduction' FOR UPDATE",
+                $cycleUuid
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($event)) {
+                throw new \RuntimeException('WooCommerce stock-cycle reduction event is unavailable.');
+            }
+            if ($event['status'] !== 'processed') {
+                $updated = $wpdb->update($eventsTable, [
+                    'status' => 'processed',
+                    'claimed_at' => null,
+                    'claim_token' => null,
+                    'last_error' => '',
+                    'updated_at' => $now,
+                ], ['id' => (int) $event['id']]);
+                if ($updated === false) throw new \RuntimeException('Unable to acknowledge WooCommerce stock-cycle reduction event.');
+            }
+
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \RuntimeException('Unable to commit cycle-aware WooCommerce inventory ledger.');
+            }
+        } catch (\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            $this->log->error('Cycle-aware WooCommerce inventory ledger was rolled back; event must be retried.', [
+                'order_id' => $orderId,
+                'cycle_uuid' => $cycleUuid,
+                'error_class' => get_class($error),
+            ]);
+            throw $error;
+        }
+
+        foreach (array_keys($allocationsByProductLocation) as $productId) {
+            try {
+                $this->adjustStock->syncProductToWooCommerce((int) $productId);
+            } catch (\Throwable $error) {
+                $this->log->error('WooCommerce cycle sale committed; aggregate stock sync remains queued.', [
+                    'order_id' => $orderId,
+                    'cycle_uuid' => $cycleUuid,
+                    'product_id' => (int) $productId,
+                    'error_class' => get_class($error),
+                ]);
+            }
+        }
+    }
+
     private function applyWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) {
             throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
+        }
+        $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        if ($cycleUuid !== '') {
+            $this->applyWooCommerceSaleCycle($order, $cycleUuid);
+            return;
         }
         $lines = [];
         $metadataCount = 0;
