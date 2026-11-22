@@ -2,12 +2,29 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Http;
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\Logistics\DTO\TrackingStatus;
 use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier};
 final class ShippingWebhookHandler {
-    public function __construct(private readonly ServiceContainer $c){}
-    public function register():void{add_action('rest_api_init',function(){foreach(['tcs','leopards','trax']as $cc){register_rest_route('pkstore/v1',"/webhooks/{$cc}",['methods'=>'POST','callback'=>fn(\WP_REST_Request $r)=>$this->handle($r,$cc),'permission_callback'=>'__return_true']);}});}
+    public function __construct(private readonly ServiceContainer $c, private readonly FeatureManager $features){}
+    public function register():void{
+        add_action('rest_api_init',function(){
+            $featureMap=['tcs'=>'courier_tcs','leopards'=>'courier_leopards','trax'=>'courier_trax'];
+            foreach($featureMap as $cc=>$feature){
+                if(!$this->features->isEnabled($feature)) continue;
+                register_rest_route('pkstore/v1',"/webhooks/{$cc}",[
+                    'methods'=>'POST',
+                    'callback'=>fn(\WP_REST_Request $r)=>$this->handle($r,$cc),
+                    'permission_callback'=>'__return_true'
+                ]);
+            }
+        });
+    }
     public function handle(\WP_REST_Request $r,string $cc):\WP_REST_Response{
+        $featureMap=['tcs'=>'courier_tcs','leopards'=>'courier_leopards','trax'=>'courier_trax'];
+        if(!isset($featureMap[$cc]) || !$this->features->isEnabled($featureMap[$cc])) {
+            return new \\WP_REST_Response(['status'=>'disabled'],403);
+        }
         $payload=$r->get_json_params()??[];$headers=array_map(fn($v)=>is_array($v)?$v[0]:$v,$r->get_headers());
         $map=['tcs'=>TcsCourier::class,'leopards'=>LeopardsCourier::class,'trax'=>TraxCourier::class];
         $courier=$this->c->make($map[$cc]);
