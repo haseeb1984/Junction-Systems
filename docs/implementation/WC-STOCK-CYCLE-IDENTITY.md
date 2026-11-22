@@ -67,7 +67,7 @@ A \`pkstore_wc_stock_cycle_events\` table should retain immutable event identity
 
 A callback must persist its event before returning. If persistence fails, log a critical error and leave a detectable reconciliation gap; never report it as accepted. Workers must use claim-token fencing, bounded retries, and a visible \`needs_review\` state. Event rows are retained after completion so a later cycle cannot reuse an earlier idempotency key.
 
-These table names and fields are the target contract, not yet installed schema. Add them through monotonically versioned migrations and verify every required table, unique key, and column before advancing the DB version.
+The initial durable storage contract is now installed by migration 2.0.9: cycle headers, immutable per-line mapping snapshots, and retained lifecycle-event rows with claim-token fields. The migration verifies table presence; unique indexes are declared in dbDelta. This is schema scaffolding only. No hook writes to these tables and no worker consumes them yet. Before enabling capture, add runtime verification for the unique indexes and required columns, then implement atomic cycle creation and cycle-bound sale/return workers.
 
 ## Lifecycle and state transitions
 
@@ -118,4 +118,4 @@ These table names and fields are the target contract, not yet installed schema. 
 
 ## Current status
 
-This document is a design contract, not an implementation. Current sale and return idempotency remain order/item-level and do not safely support a second genuine stock-reduction cycle on the same WooCommerce order. Do not enable repeated-cycle production behavior until schema, capture, cycle-bound workers, reconciliation, supported-version compatibility, and runtime acceptance tests are complete.
+The cycle schema scaffolding is implemented in migration 2.0.9, but this document remains the operational design contract rather than evidence of a working cycle-aware path. Current sale and return idempotency remain order/item-level; the new tables are not yet connected to hooks or workers and do not make repeated-cycle behavior safe. Do not enable repeated-cycle production behavior until atomic capture, cycle-bound sale/return workers, reconciliation, supported-version compatibility, schema-index verification, and runtime acceptance tests are complete.
