@@ -227,3 +227,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added source smoke guards. Dashboard performance with high-volume order histories and HPOS/legacy parity still need runtime measurement.
 
 - Courier webhook idempotency: repeated provider callbacks with the same status no longer add duplicate order notes; status writes occur only when the normalized WooCommerce status actually changes.
+
+
+## Courier provider rejection failover
+
+- Courier failover now proceeds to the next enabled provider when a courier returns a structured unsuccessful booking result, not only when it throws a transport exception.
+- Provider failures contribute to the circuit-breaker threshold. A definitive rejection from every provider is surfaced as a failed booking with an operator-facing order note; transport failures or all-open circuits remain retryable.
+- Added source smoke guards. Provider sandbox rejection/failover and circuit reset timing still require runtime tests.
