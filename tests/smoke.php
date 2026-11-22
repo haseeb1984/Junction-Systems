@@ -575,6 +575,20 @@ if (!is_string($stockCycleCaptureSource)
     throw new \RuntimeException('WooCommerce stock-cycle capture must snapshot actual reductions atomically and remain disabled until cycle-aware workers are ready.');
 }
 
+$stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
+if (!is_string($stockCycleCaptureSource)
+    || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
+    || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false) {
+    throw new \\RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
+}
+
+$stockSaleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+if (!is_string($stockSaleSource)
+    || strpos($stockSaleSource, 'malformed actual stock-reduction quantity') === false
+    || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false) {
+    throw new \\RuntimeException('WooCommerce sale ingestion must reject malformed reduced-stock metadata.');
+}
+
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
 if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
