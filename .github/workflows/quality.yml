@@ -46,5 +46,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          php -r '$source = file_get_contents("templates/pos/pos-app.php"); preg_match_all("~<script\\b[^>]*>(.*?)</script>~is", $source, $matches); if (empty($matches[1])) { fwrite(STDERR, "POS inline script not found.\\n"); exit(1); } $javascript = implode("\\n", $matches[1]); $javascript = preg_replace("~<\\?(?:php|=).*?\\?>~s", "null", $javascript); file_put_contents(sys_get_temp_dir() . "/junction-pos-inline.js", $javascript);'
+          php -r '$source = file_get_contents("templates/pos/pos-app.php"); preg_match_all("~<script\\b[^>]*>(.*?)</script>~is", $source, $matches); if (empty($matches[1])) { fwrite(STDERR, "POS inline script not found.\n"); exit(1); } $javascript = implode("\n", $matches[1]); $javascript = preg_replace("~<\\?(?:php|=).*?\\?>~s", "null", $javascript); file_put_contents(sys_get_temp_dir() . "/junction-pos-inline.js", $javascript);'
           node --check "$(php -r 'echo sys_get_temp_dir() . "/junction-pos-inline.js";')"
