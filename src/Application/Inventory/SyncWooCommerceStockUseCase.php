@@ -316,8 +316,9 @@ final class SyncWooCommerceStockUseCase {
                 }
                 if (!$hasSnapshot) {
                     if ((int) $cycleItemRow['cancellation_restored_quantity'] !== 0
-                        || (int) $cycleItemRow['refund_restored_quantity'] !== 0) {
-                        throw new \RuntimeException('New WooCommerce stock cycle already contains return counters.');
+                        || (int) $cycleItemRow['refund_restored_quantity'] !== 0
+                        || (int) $line['captured_refund_baseline'] !== (int) $cycleItemRow['refund_cumulative_baseline']) {
+                        throw new \RuntimeException('New WooCommerce stock cycle baseline or return counters do not match its captured snapshot.');
                     }
                     $line['cycle_state']['refund_cumulative_baseline'] = (int) $cycleItemRow['refund_cumulative_baseline'];
                 } elseif ((int) $line['cycle_state']['refund_cumulative_baseline'] !== (int) $cycleItemRow['refund_cumulative_baseline']
