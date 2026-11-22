@@ -23,6 +23,9 @@ final class ShippingRegistry {
         add_filter('woocommerce_available_payment_gateways', [$this, 'filterGatewaysForDigital']);
         if ($this->hasEnabledCourier()) {
             add_action('woocommerce_payment_complete', [$this, 'autoBookShipment']);
+            // COD orders normally transition directly to processing and do not
+            // emit payment_complete, so they need the same idempotent booking trigger.
+            add_action('woocommerce_order_status_processing', [$this, 'autoBookShipment'], 10, 1);
             add_action('pkstore_tracking_sync_cron', [$this, 'syncTrackingUpdates']);
             if (!wp_next_scheduled('pkstore_tracking_sync_cron')) {
                 wp_schedule_event(time() + 300, 'hourly', 'pkstore_tracking_sync_cron');
