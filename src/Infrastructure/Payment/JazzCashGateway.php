@@ -16,6 +16,42 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         add_action('woocommerce_api_jazzcash_callback',[$this,'handleCallback']);
     }
     public function init_form_fields():void{$this->form_fields=['enabled'=>['title'=>'Enable/Disable','type'=>'checkbox','label'=>'Enable JazzCash','default'=>'yes'],'title'=>['title'=>'Title','type'=>'text','default'=>'JazzCash'],'description'=>['title'=>'Description','type'=>'textarea','default'=>'Pay via JazzCash Mobile Wallet or Debit Card']];}
+    public function payment_fields(): void {
+        if ($this->description) {
+            echo wpautop(wptexturize($this->description));
+        }
+        woocommerce_form_field('jazzcash_cnic_last6', [
+            'type' => 'text',
+            'label' => 'CNIC last 6 digits (JazzCash verification)',
+            'required' => true,
+            'class' => ['form-row-wide'],
+            'custom_attributes' => [
+                'inputmode' => 'numeric',
+                'pattern' => '[0-9]{6}',
+                'maxlength' => '6',
+                'autocomplete' => 'off',
+            ],
+        ], '');
+    }
+
+    public function validate_fields(): bool {
+        $cnic = isset($_POST['jazzcash_cnic_last6'])
+            ? trim((string) wc_clean(wp_unslash($_POST['jazzcash_cnic_last6'])))
+            : '';
+        $phone = isset($_POST['billing_phone'])
+            ? preg_replace('/\D+/', '', (string) wc_clean(wp_unslash($_POST['billing_phone'])))
+            : '';
+        if (!preg_match('/^[0-9]{6}$/', $cnic)) {
+            wc_add_notice('Enter the last 6 digits of your CNIC for JazzCash payment.', 'error');
+            return false;
+        }
+        if (!preg_match('/^03[0-9]{9}$/', (string) $phone)) {
+            wc_add_notice('Enter a valid Pakistani mobile number (03XXXXXXXXX) for JazzCash payment.', 'error');
+            return false;
+        }
+        return true;
+    }
+
     private function createSecureHash(array $fields, string $integrityKey): ?string {
         $signedFields = array_filter(
             $fields,
@@ -37,23 +73,36 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $expected = $this->createSecureHash($payload, $integrityKey);
         return $expected !== null && hash_equals($expected, $received);
     }
-    public function process_payment($order_id):array{
-        $order=wc_get_order($order_id);
-        if (!$order || $order->is_paid()) { wc_add_notice('This order cannot be paid through JazzCash.','error'); return ['result'=>'fail']; }
-        $existingTxn = (string) $order->get_meta('_pkstore_jazzcash_txn_ref');
-        $existingState = (string) $order->get_meta('_pkstore_jazzcash_state');
-        if ($existingTxn !== '' && $existingState !== 'failed') {
-            wc_add_notice('A JazzCash payment attempt is already awaiting confirmation. Do not retry until the previous transaction is reconciled.', 'error');
+    public function process_payment($order_id): array {
+        $order = wc_get_order($order_id);
+        if (!$order || $order->is_paid()) {
+            wc_add_notice('This order cannot be paid through JazzCash.', 'error');
             return ['result' => 'fail'];
         }
-        $mid=$this->cfg->get('JAZZCASH_MERCHANT_ID');$pass=$this->cfg->get('JAZZCASH_PASSWORD');$ik=$this->cfg->get('JAZZCASH_INTEGRITY_KEY');
-        if(!$mid||!$pass||!$ik){wc_add_notice('JazzCash not configured. Contact store admin.','error');return['result'=>'fail'];}
+
+        $mid = (string) $this->cfg->get('JAZZCASH_MERCHANT_ID');
+        $pass = (string) $this->cfg->get('JAZZCASH_PASSWORD');
+        $ik = (string) $this->cfg->get('JAZZCASH_INTEGRITY_KEY');
+        if ($mid === '' || $pass === '' || $ik === '') {
+            wc_add_notice('JazzCash is not configured. Contact the store administrator.', 'error');
+            return ['result' => 'fail'];
+        }
         if (get_woocommerce_currency() !== 'PKR') {
             wc_add_notice('JazzCash is available only when the store currency is PKR.', 'error');
             return ['result' => 'fail'];
         }
+
+        $cnic = isset($_POST['jazzcash_cnic_last6'])
+            ? trim((string) wc_clean(wp_unslash($_POST['jazzcash_cnic_last6'])))
+            : '';
+        $phone = preg_replace('/\D+/', '', (string) $order->get_billing_phone());
+        if (!preg_match('/^[0-9]{6}$/', $cnic) || !preg_match('/^03[0-9]{9}$/', $phone)) {
+            wc_add_notice('Valid JazzCash mobile number and CNIC last 6 digits are required.', 'error');
+            return ['result' => 'fail'];
+        }
+
         $formattedTotal = wc_format_decimal($order->get_total(), 2, false);
-        if (!is_string($formattedTotal) || !preg_match('/^(0|[1-9][0-9]*)\\.[0-9]{2}$/', $formattedTotal)) {
+        if (!is_string($formattedTotal) || !preg_match('/^(0|[1-9][0-9]*)\.[0-9]{2}$/', $formattedTotal)) {
             wc_add_notice('The order total cannot be represented as a JazzCash PKR amount.', 'error');
             return ['result' => 'fail'];
         }
@@ -65,79 +114,125 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             return ['result' => 'fail'];
         }
 
-        $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
-        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$now=time();$dt=wp_date('YmdHis',$now);$exp=wp_date('YmdHis',$now+1800);
-        // JazzCash requires a stable merchant-registered pp_ReturnURL on every
-        // request. The synchronous API response is verified below; this endpoint
-        // also accepts a signed POST if the merchant's provisioned flow returns one.
-        $callbackUrl = function_exists('WC') && WC() && method_exists(WC(), 'api_request_url')
-            ? WC()->api_request_url('jazzcash_callback')
-            : add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
-        $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_SubMerchantID'=>'','pp_Password'=>$pass,'pp_BankID'=>'','pp_ProductID'=>'','pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$callbackUrl,'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
-        $requestHash = $this->createSecureHash($pd, $ik);
-        if ($requestHash === null) {
-            wc_add_notice('JazzCash request could not be securely prepared.', 'error');
-            return ['result' => 'fail'];
-        }
-        $pd['pp_SecureHash'] = $requestHash;
-        $order->update_meta_data('_pkstore_jazzcash_txn_ref',$txn);
-        $order->update_meta_data('_pkstore_jazzcash_expected_amount',$amt);
-        $order->update_meta_data('_pkstore_jazzcash_merchant_id',$mid);
-        $order->update_meta_data('_pkstore_jazzcash_state', 'initiated');
-        $order->save();
-        $r=wp_remote_post($isSandbox?self::S:self::L,['timeout'=>15,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode($pd)]);
-        if(is_wp_error($r)){
-            $order->update_meta_data('_pkstore_jazzcash_state', 'unknown');
-            $order->add_order_note('JazzCash payment status is unknown because the gateway connection failed. Reconcile the transaction before retrying.');
-            $order->save();
-            wc_add_notice('Payment status could not be confirmed. Please contact the store before retrying.', 'error');
-            return ['result' => 'fail'];
-        }
-        $httpStatus = (int) wp_remote_retrieve_response_code($r);
-        $b = json_decode(wp_remote_retrieve_body($r), true);
-        $responseTxn = is_array($b) ? (string) ($b['pp_TxnRefNo'] ?? '') : '';
-        $responseAmount = is_array($b) ? (string) ($b['pp_Amount'] ?? '') : '';
-        $responseCurrency = is_array($b) ? (string) ($b['pp_TxnCurrency'] ?? '') : '';
-        $responseMerchant = is_array($b) ? (string) ($b['pp_MerchantID'] ?? '') : '';
-        if ($httpStatus < 200 || $httpStatus >= 300 || !is_array($b)
-            || !$this->verifySignedResponse($b, $ik)
-            || !hash_equals($txn, $responseTxn)
-            || !hash_equals($amt, $responseAmount)
-            || $responseCurrency !== 'PKR'
-            || (string) ($b['pp_TxnType'] ?? '') !== 'MWALLET'
-            || !hash_equals((string) $mid, $responseMerchant)) {
-            $order->update_meta_data('_pkstore_jazzcash_state', 'unknown');
-            $order->add_order_note('JazzCash response could not be verified. Reconcile the transaction before retrying.');
-            $order->save();
-            wc_add_notice('JazzCash could not verify the payment response. Please contact the store before retrying.', 'error');
+        $isSandbox = $this->cfg->get('JAZZCASH_SANDBOX', '0') === '1';
+        $txn = 'T' . gmdate('YmdHis') . (string) random_int(10000, 99999);
+        $amount = str_pad($minorUnits, 12, '0', STR_PAD_LEFT);
+        $txnDateTime = date('YmdHis');
+        $expiryDateTime = date('YmdHis', strtotime('+30 minutes'));
+        $callbackUrl = add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
+        $payload = [
+            'pp_Version' => '2.0',
+            'pp_TxnType' => 'MWALLET',
+            'pp_Language' => 'EN',
+            'pp_MerchantID' => $mid,
+            'pp_SubMerchantID' => '',
+            'pp_Password' => $pass,
+            'pp_TxnRefNo' => $txn,
+            'pp_Amount' => $amount,
+            'pp_TxnCurrency' => 'PKR',
+            'pp_TxnDateTime' => $txnDateTime,
+            'pp_BillReference' => (string) $order_id,
+            'pp_Description' => 'Order #' . (int) $order_id,
+            'pp_TxnExpiryDateTime' => $expiryDateTime,
+            'pp_ReturnURL' => $callbackUrl,
+            'pp_MobileNumber' => $phone,
+            'pp_CNIC' => $cnic,
+        ];
+
+        try {
+            $payload['pp_SecureHash'] = $this->calculateSecureHash($payload);
+        } catch (\Throwable $hashError) {
+            $this->log->error('JazzCash request signature could not be generated.', [
+                'error_class' => get_class($hashError),
+            ]);
+            wc_add_notice('JazzCash payment could not be prepared. Please contact the store administrator.', 'error');
             return ['result' => 'fail'];
         }
 
-        $responseCode = (string) ($b['pp_ResponseCode'] ?? '');
+        $order->update_meta_data('_pkstore_jazzcash_txn_ref', $txn);
+        $order->update_meta_data('_pkstore_jazzcash_expected_amount', $amount);
+        $order->update_meta_data('_pkstore_jazzcash_merchant_id', $mid);
+        $order->update_meta_data('_pkstore_jazzcash_txn_datetime', $txnDateTime);
+        $order->update_meta_data('_pkstore_jazzcash_expiry_datetime', $expiryDateTime);
+        $order->update_status('pending', 'Awaiting JazzCash mobile wallet confirmation.');
+        $order->save();
+
+        $response = wp_remote_post($isSandbox ? self::S : self::L, [
+            'timeout' => 20,
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => wp_json_encode($payload),
+        ]);
+        if (is_wp_error($response)) {
+            $order->add_order_note('JazzCash request could not reach the payment service.');
+            wc_add_notice('Payment connection failed. Please try again.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        $body = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (!is_array($body)) {
+            $order->add_order_note('JazzCash returned an unreadable payment response.');
+            wc_add_notice('JazzCash returned an invalid response. Please try again.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        if (!$this->verifySecureHash($body)
+            || (string) ($body['pp_TxnRefNo'] ?? '') !== $txn
+            || (string) ($body['pp_Amount'] ?? '') !== $amount
+            || (string) ($body['pp_MerchantID'] ?? '') !== $mid
+            || (string) ($body['pp_TxnCurrency'] ?? '') !== 'PKR'
+            || (string) ($body['pp_BillReference'] ?? '') !== (string) $order_id
+            || (isset($body['pp_TxnDateTime']) && (string) $body['pp_TxnDateTime'] !== $txnDateTime)) {
+            $order->add_order_note('JazzCash response rejected: signature or transaction details did not match the initiated payment.');
+            wc_add_notice('JazzCash could not verify the payment response. Please contact the store administrator.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        $responseCode = (string) ($body['pp_ResponseCode'] ?? '');
         if ($responseCode === '000') {
-            $order->update_meta_data('_pkstore_jazzcash_state', 'paid');
-            $order->save();
-            if (!$order->is_paid()) {
-                $order->payment_complete($txn);
-                $order->add_order_note('JazzCash payment confirmed by signed API response. TxID: ' . $txn);
-            }
+            $retrievalReference = sanitize_text_field((string) ($body['pp_RetrievalReferenceNo'] ?? ''));
+            $order->payment_complete($txn);
+            $order->add_order_note('JazzCash payment confirmed.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
         if ($responseCode === '157') {
-            $order->update_meta_data('_pkstore_jazzcash_state', 'pending_confirmation');
-            $order->save();
-            $order->update_status('pending', 'JazzCash wallet payment is awaiting customer confirmation.');
-            wc_add_notice('Please approve the payment request in your JazzCash app. Your order will remain pending until confirmation.', 'notice');
+            $order->add_order_note('JazzCash payment is pending customer/provider confirmation.');
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
-        $order->update_meta_data('_pkstore_jazzcash_state', 'failed');
-        $order->save();
-        $order->update_status('failed', 'JazzCash payment was declined. Response code: ' . sanitize_text_field($responseCode));
-        wc_add_notice('JazzCash payment was not completed. Please try another payment method.', 'error');
+        $message = sanitize_text_field((string) ($body['pp_ResponseMessage'] ?? 'Payment was declined.'));
+        $order->update_status('failed', 'JazzCash payment failed: ' . $message);
+        wc_add_notice('JazzCash payment failed. ' . $message, 'error');
         return ['result' => 'fail'];
     }
+
+    private function calculateSecureHash(array $payload): string {
+        $secret = (string) $this->cfg->get('JAZZCASH_INTEGRITY_KEY');
+        if ($secret === '') throw new \RuntimeException('JazzCash integrity key is not configured.');
+
+        $fields = array_filter(
+            $payload,
+            static fn($key): bool => str_starts_with(strtolower((string) $key), 'pp')
+                && strtolower((string) $key) !== 'pp_securehash',
+            ARRAY_FILTER_USE_KEY
+        );
+        ksort($fields, SORT_STRING);
+        $message = $secret . '&' . implode('&', array_map('strval', array_values($fields)));
+        $encoded = iconv('UTF-8', 'ISO-8859-1', $message);
+        if ($encoded === false) throw new \RuntimeException('JazzCash signature contains characters outside the required encoding.');
+        return strtoupper(hash_hmac('sha256', $encoded, $secret));
+    }
+
+    private function verifySecureHash(array $payload): bool {
+        $received = strtoupper((string) ($payload['pp_SecureHash'] ?? ''));
+        if ($received === '') return false;
+        try {
+            return hash_equals($this->calculateSecureHash($payload), $received);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public function handleCallback():void{
         $payload = wp_unslash($_POST);
         $ik = $this->cfg->get('JAZZCASH_INTEGRITY_KEY');
