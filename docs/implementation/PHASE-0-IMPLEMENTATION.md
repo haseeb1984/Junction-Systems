@@ -383,3 +383,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added a source smoke guard; staging acceptance must exercise COD, online payment, and duplicate status/payment hooks against courier sandboxes.
 
 - Courier booking now runs only for `processing` orders and skips orders carrying Junction's inventory-sync hold marker. The retry worker re-checks both conditions immediately before provider calls, so a scheduled action cannot book a shipment after an order is cancelled, put on hold, or held for unresolved stock-ledger reconciliation. When a held order is safely restored to processing, the normal processing hook schedules booking again.
+
+
+## POS/inventory API migration readiness gate
+
+- Review found that storefront purchases were blocked while the cycle-aware schema migration was incomplete, but authenticated POS and inventory REST endpoints could still register and run against the old schema.
+- POS session/sale/sync routes and inventory read/manage routes now require database schema version `2.0.13` in their permission callbacks, in addition to the existing central feature entitlement and WordPress capability checks. A blocked backup-gated upgrade therefore cannot leave staff APIs operating on an incomplete schema.
+- Added source smoke guards. Runtime acceptance must cover fresh install, existing-store backup gate, partial migration failure and recovery.
