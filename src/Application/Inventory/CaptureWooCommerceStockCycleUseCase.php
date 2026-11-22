@@ -135,7 +135,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 if (is_array($existingEvent) && $existingEvent['status'] === 'processed') {
                     if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge existing cycle return event.');
                     $order->delete_meta_data($failedMetaKey);
-                    $order->save();
+                    if ((int) $order->save() !== $orderId) throw new \\RuntimeException('Unable to clear recovered cycle return capture marker.');
                     return;
                 }
                 if ($cycle['state'] === 'closed') {
@@ -196,7 +196,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         }
 
         $order->delete_meta_data($failedMetaKey);
-        $order->save();
+        if ((int) $order->save() !== $orderId) throw new \\RuntimeException('Unable to clear recovered cycle return capture marker.');
     }
 
     private function captureLocked(\WC_Order $order, int $orderId): string {
