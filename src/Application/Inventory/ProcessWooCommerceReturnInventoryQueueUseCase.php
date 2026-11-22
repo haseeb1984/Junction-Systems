@@ -59,7 +59,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 $cycleUuid = $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null;
                 if ($cycleUuid !== null) {
                     $itemId = $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : 0;
-                    if ($itemId < 1) throw new \\RuntimeException('Cycle-bound return event has no WooCommerce order item.');
+                    if ($itemId < 1) throw new \RuntimeException('Cycle-bound return event has no WooCommerce order item.');
                     $this->cycleCapture->markReturnPending(
                         $order,
                         $itemId,
