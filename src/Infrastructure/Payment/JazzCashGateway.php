@@ -180,7 +180,11 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         $message = sanitize_text_field((string) ($body['pp_ResponseMessage'] ?? 'Payment was declined.'));
-        $order->update_status('failed', 'JazzCash payment failed: ' . $message);
+        $freshOrder = wc_get_order($order_id);
+        if ($freshOrder && !$freshOrder->is_paid()
+            && !in_array($freshOrder->get_status(), ['cancelled', 'refunded'], true)) {
+            $freshOrder->update_status('failed', 'JazzCash payment failed: ' . $message);
+        }
         wc_add_notice('JazzCash payment failed. ' . $message, 'error');
         return ['result' => 'fail'];
     }
