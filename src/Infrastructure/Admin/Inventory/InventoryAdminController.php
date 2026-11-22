@@ -85,23 +85,23 @@ final class InventoryAdminController {
                 if ($queueType === 'sales' || $queueType === 'stock') {
                     $updated = $wpdb->query($wpdb->prepare(
                         "UPDATE {$table} SET status='pending', generation=%s, attempts=0,
-                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error=''
+                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
                          WHERE id=%d AND status='needs_review'",
-                        wp_generate_uuid4(), $now, $queueId
+                        wp_generate_uuid4(), $now, $now, $queueId
                     ));
                 } else {
                     $updated = $wpdb->query($wpdb->prepare(
                         "UPDATE {$table} SET status='pending', attempts=0,
-                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error=''
+                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
                          WHERE id=%d AND status='needs_review'",
-                        $now, $queueId
+                        $now, $now, $queueId
                     ));
                 }
             } else {
                 $updated = $wpdb->query($wpdb->prepare(
-                    "UPDATE {$table} SET status='ignored', claimed_at=NULL, claim_token=NULL
+                    "UPDATE {$table} SET status='ignored', claimed_at=NULL, claim_token=NULL, updated_at=%s
                      WHERE id=%d AND status='needs_review'",
-                    $queueId
+                    $now, $queueId
                 ));
             }
 
