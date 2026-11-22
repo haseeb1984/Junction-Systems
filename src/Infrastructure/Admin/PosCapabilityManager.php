@@ -26,8 +26,14 @@ final class PosCapabilityManager {
                 'read' => true,
                 'use_junction_pos' => true,
             ]);
-        } elseif (!$cashier->has_cap('use_junction_pos')) {
-            $cashier->add_cap('use_junction_pos');
+        } else {
+            foreach (array_keys($cashier->capabilities) as $capability) {
+                if (!in_array($capability, ['read', 'use_junction_pos'], true)) {
+                    $cashier->remove_cap($capability);
+                }
+            }
+            if (!$cashier->has_cap('read')) $cashier->add_cap('read');
+            if (!$cashier->has_cap('use_junction_pos')) $cashier->add_cap('use_junction_pos');
         }
     }
 
