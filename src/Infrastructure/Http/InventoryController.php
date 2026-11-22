@@ -18,11 +18,11 @@ final class InventoryController {
             $barcodeAuth = fn()=>$manageAuth() && FeatureManager::getInstance()->isEnabled('barcode_labels');
             register_rest_route($ns, '/inventory/products',         ['methods'=>'GET', 'callback'=>[$this,'listProducts'],     'permission_callback'=>$readAuth]);
             register_rest_route($ns, '/inventory/products',         ['methods'=>'POST','callback'=>[$this,'createProduct'],    'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/products/(?P<id>\d+)', ['methods'=>'GET', 'callback'=>[$this,'getProduct'],   'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/products/(?P<id>\d+)', ['methods'=>'GET', 'callback'=>[$this,'getProduct'],   'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/search',           ['methods'=>'GET', 'callback'=>[$this,'searchProduct'],    'permission_callback'=>$readAuth]);
             register_rest_route($ns, '/inventory/barcode/(?P<barcode>[A-Za-z0-9\-]+)', ['methods'=>'GET','callback'=>[$this,'lookupBarcode'],'permission_callback'=>$readAuth]);
             register_rest_route($ns, '/inventory/stock/adjust',     ['methods'=>'POST','callback'=>[$this,'adjustStock'],     'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>$readAuth]);
             if (FeatureManager::getInstance()->isEnabled('barcode_labels')) {
                 register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>$barcodeAuth]);
