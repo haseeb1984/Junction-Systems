@@ -166,7 +166,7 @@ final class InventoryController {
             return new \WP_REST_Response(['success'=>false,'message'=>'Barcode labels are not available on the current package.'],403);
         }
         try { $barcode=$this->c->make(GenerateBarcodeUseCase::class)->execute((int)$req->get_param('id')); return new \WP_REST_Response(['success'=>true,'barcode'=>$barcode],200);
-        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],404); }
+        } catch (\Throwable) { return new \WP_REST_Response(['success'=>false,'message'=>'Barcode generation could not be completed.'],422); }
     }
     public function lowStock(\WP_REST_Request $req): \WP_REST_Response {
         $products = $this->c->make(InventoryProductRepositoryInterface::class)->findBelowReorderPoint();
