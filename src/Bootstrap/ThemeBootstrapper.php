@@ -147,8 +147,18 @@ final class ThemeBootstrapper {
             add_filter('bloginfo', fn($output,$show)=>$show==='name'?$name:$output, 10, 2);
         // Inject GA4 client_id cookie into order meta
         add_action('woocommerce_checkout_order_processed', function(int $orderId): void {
-            $clientId = sanitize_text_field($_COOKIE['_ga'] ?? '');
-            if ($clientId) update_post_meta($orderId,'_ga4_client_id',$clientId);
+            $cookie = sanitize_text_field(wp_unslash($_COOKIE['_ga'] ?? ''));
+            $clientId = '';
+            if (preg_match('/^GA\d+\.\d+\.(\d+\.\d+)$/', $cookie, $matches) === 1) {
+                $clientId = $matches[1];
+            }
+            if ($clientId === '') return;
+
+            $order = wc_get_order($orderId);
+            if ($order instanceof \WC_Order) {
+                $order->update_meta_data('_ga4_client_id', $clientId);
+                $order->save_meta_data();
+            }
         });
     }
 
