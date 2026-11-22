@@ -602,6 +602,8 @@ $courierCircuitBreakerSource = file_get_contents($src . '/Infrastructure/Logisti
 if (!is_string($courierCircuitBreakerSource)
     || strpos($courierCircuitBreakerSource, '$lastFailure = null') === false
     || strpos($courierCircuitBreakerSource, '$providerException = false') === false
+    || strpos($courierCircuitBreakerSource, '$transientProviderFailure = false') === false
+    || strpos($courierCircuitBreakerSource, 'HTTP error:') === false
     || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
     || strpos($courierCircuitBreakerSource, '$this->fail($code);') === false) {
     throw new \\RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
