@@ -245,7 +245,7 @@ final class InventoryAdminController {
     }
 
     public function stockLog(): void {
-        if (!current_user_can('manage_options')) wp_die('Unauthorized.');
+        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
         $movements = $wpdb->get_results(
@@ -336,7 +336,7 @@ final class InventoryAdminController {
     }
 
     public function purchaseOrders(): void {
-        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
         $pos = $wpdb->get_results(
