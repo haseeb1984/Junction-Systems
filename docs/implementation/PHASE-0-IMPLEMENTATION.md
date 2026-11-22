@@ -275,3 +275,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The proof attempt ID and verification timestamp are attached to the newly created COD order through WooCommerce CRUD. The consumed OTP row is then linked to the created order ID for audit. Client-side verified state remains UX only; server-side checkout validation is authoritative.
 - Added migration 2.0.10 for `consumed_at` and `consumed_order_id`, including fresh-install schema and existing-install backup-gated migration. Client JavaScript no longer sends or reads `order_id`.
 - Runtime acceptance still needs classic checkout guest/customer sessions, changed billing phone, session expiry, concurrent checkout replay, digital-only carts, and WooCommerce Checkout Blocks (if supported by the product) tested. Checkout Blocks support is not claimed by the current classic-checkout hooks.
+
+- COD exemption is deliberately limited to carts/orders whose every product is WooCommerce `virtual`. A downloadable-but-shippable product is still physical and cannot bypass OTP.
