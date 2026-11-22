@@ -16,16 +16,32 @@ final class SendCodOtpUseCase {
             throw new \InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
         }
         $phone=new PakistanPhoneNumber($rawPhone);
-        $since=new \DateTimeImmutable('-'.self::MINS.' minutes');
-        if($this->repo->countRecentSendsByPhone($phone,$since)>=self::MAX)
-            throw new RateLimitExceededException($since->modify('+'.self::MINS.' minutes'));
-        $this->repo->invalidatePrevious($phone,$orderId);
-        $code=$this->otp();
-        $attempt=OtpAttempt::create($phone,$code,$orderId);
-        $this->repo->save($attempt);
-        try { $this->sms->send($phone,sprintf(self::TPL,$code)); }
-        catch(SmsProviderException $e){ $this->repo->invalidatePrevious($phone,$orderId); throw $e; }
-        finally { $code=str_repeat('0',self::LEN); unset($code); }
+        $this->repo->acquirePhoneSendLock($phone);
+        $code = null;
+        try {
+            $since = new \\DateTimeImmutable('-' . self::MINS . ' minutes');
+            if ($this->repo->countRecentSendsByPhone($phone, $since) >= self::MAX) {
+                throw new RateLimitExceededException($since->modify('+' . self::MINS . ' minutes'));
+            }
+
+            $this->repo->invalidatePrevious($phone, $orderId);
+            $code = $this->otp();
+            $attempt = OtpAttempt::create($phone, $code, $orderId);
+            $this->repo->save($attempt);
+
+            try {
+                $this->sms->send($phone, sprintf(self::TPL, $code));
+            } catch (SmsProviderException $error) {
+                $this->repo->invalidatePrevious($phone, $orderId);
+                throw $error;
+            }
+        } finally {
+            if (is_string($code)) {
+                $code = str_repeat('0', self::LEN);
+                unset($code);
+            }
+            $this->repo->releasePhoneSendLock($phone);
+        }
     }
     private function otp():string { return str_pad((string)random_int((int)('1'.str_repeat('0',self::LEN-1)),(int)str_repeat('9',self::LEN)),self::LEN,'0',STR_PAD_LEFT); }
 }
