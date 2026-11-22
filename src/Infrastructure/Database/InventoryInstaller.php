@@ -218,6 +218,7 @@ final class InventoryInstaller {
         dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_order_inventory_queue (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             wc_order_id BIGINT UNSIGNED NOT NULL,
+            cycle_uuid CHAR(36) NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
             generation CHAR(36) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
             attempts INT UNSIGNED NOT NULL DEFAULT 0,
@@ -228,10 +229,27 @@ final class InventoryInstaller {
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
-            UNIQUE INDEX idx_wc_order (wc_order_id),
+            UNIQUE INDEX idx_order_cycle (wc_order_id, cycle_uuid),
             INDEX idx_due (status, next_attempt_at),
             INDEX idx_claimed (status, claimed_at)
         ) ENGINE=InnoDB {$cs};");
+    }
+
+    public static function installWooCommerceOrderInventoryQueueCycleIdentity(): void {
+        self::installWooCommerceOrderInventoryQueue();
+        global $wpdb;
+        $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        $legacyIndex = $wpdb->get_var($wpdb->prepare(
+            'SHOW INDEX FROM ' . $table . ' WHERE Key_name = %s',
+            'idx_wc_order'
+        ));
+        if ($wpdb->last_error !== '') {
+            throw new \RuntimeException('Unable to inspect legacy WooCommerce order queue index.');
+        }
+        if ($legacyIndex) {
+            $result = $wpdb->query("ALTER TABLE {$table} DROP INDEX idx_wc_order");
+            if ($result === false) throw new \RuntimeException('Unable to replace legacy WooCommerce order queue index.');
+        }
     }
 
     public static function installWooCommerceReturnInventoryQueue(): void {
