@@ -562,7 +562,9 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     || strpos($trackingControllerSource, "isEnabled('courier_trax')") === false
     || strpos($shippingRegistryLifecycleSource, 'wc_get_orders([') === false
     || strpos($shippingRegistryLifecycleSource, "'paginate' => true") === false
-    || strpos($shippingRegistryLifecycleSource, "'return' => 'objects'") === false) {
+    || strpos($shippingRegistryLifecycleSource, "'return' => 'objects'") === false
+    || strpos($shippingRegistryLifecycleSource, "'wc-delivery-failed'") === false
+    || strpos($shippingRegistryLifecycleSource, "'wc-on-hold'") === false) {
     throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
