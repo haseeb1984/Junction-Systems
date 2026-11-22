@@ -102,6 +102,35 @@ final class SyncWooCommerceStockUseCase {
                 }
             }
 
+            $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            $cycleHeader = $wpdb->get_row($wpdb->prepare(
+                "SELECT state FROM {$cyclesTable} WHERE cycle_uuid=%s AND wc_order_id=%d FOR UPDATE",
+                $cycleUuid,
+                $orderId
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($cycleHeader)) {
+                throw new \RuntimeException('WooCommerce stock-cycle header is unavailable.');
+            }
+            $reductionEvent = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,status FROM {$eventsTable} WHERE cycle_uuid=%s AND event_kind='reduction' FOR UPDATE",
+                $cycleUuid
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($reductionEvent)) {
+                throw new \RuntimeException('WooCommerce stock-cycle reduction event is unavailable.');
+            }
+            if ($cycleHeader['state'] === 'closed' && $reductionEvent['status'] === 'processed') {
+                if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge completed WooCommerce stock cycle.');
+                return;
+            }
+            if ($cycleHeader['state'] === 'closed'
+                || ($cycleHeader['state'] === 'restoring' && $reductionEvent['status'] === 'processed')) {
+                throw new \RuntimeException('WooCommerce stock cycle is already restoring or closed; this sale belongs to another cycle.');
+            }
+            if (!in_array($cycleHeader['state'], ['reducing', 'active', 'restoring'], true)) {
+                throw new \RuntimeException('WooCommerce stock cycle is in an unsupported state.');
+            }
+
             if ($hasSnapshot) {
                 foreach ($lines as &$line) {
                     $state = $line['cycle_state'];
