@@ -30,6 +30,15 @@ final class InventoryHooks {
             $orderId = (int) $order->get_id();
             if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
 
+            // Capture a durable per-order reduction cycle before the async worker.
+            // The cycle UUID distinguishes a genuine re-sale after a prior
+            // cancellation/refund has fully restored the previous cycle.
+            $cycleUuid = $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)->capture($order);
+            $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+            if ((int) $order->save() !== $orderId) {
+                throw new \RuntimeException('Unable to persist WooCommerce stock-cycle identity.');
+            }
+
             // Preserve proof of the actual reduction at hook time. WooCommerce
             // removes _reduced_stock when it restores an item, but the async
             // Junction sale worker may not run until after that restore callback.
