@@ -70,7 +70,7 @@ final class SettingsManager{
     }
     private function getSectionKeys(string $s):array{return match($s){
         'jazzcash'=>['JAZZCASH_MERCHANT_ID'=>false,'JAZZCASH_PASSWORD'=>true,'JAZZCASH_INTEGRITY_KEY'=>true,'JAZZCASH_SANDBOX'=>false],
-        'easypaisa'=>['EASYPAISA_STORE_ID'=>false,'EASYPAISA_HASH_KEY'=>true,'EASYPAISA_SANDBOX'=>false],
+        'easypaisa'=>['EASYPAISA_USERNAME'=>true,'EASYPAISA_PASSWORD'=>true,'EASYPAISA_STORE_ID'=>false,'EASYPAISA_ACCOUNT_NUMBER'=>false,'EASYPAISA_HASH_KEY'=>true,'EASYPAISA_SANDBOX'=>false],
         'tcs'=>['TCS_API_KEY'=>true,'TCS_ACCOUNT_NUMBER'=>false,'TCS_WEBHOOK_SECRET'=>true,'TCS_SANDBOX_MODE'=>false],
         'leopards'=>['LEOPARDS_API_KEY'=>true,'LEOPARDS_API_PASSWORD'=>true,'LEOPARDS_SANDBOX_MODE'=>false],
         'trax'=>['TRAX_API_TOKEN'=>true,'TRAX_SENDER_ID'=>false,'TRAX_WEBHOOK_SECRET'=>true,'TRAX_SANDBOX_MODE'=>false],
@@ -83,7 +83,7 @@ final class SettingsManager{
     private static function isSensitiveKey(string $key): bool {
         static $keys = [
             'JAZZCASH_PASSWORD','JAZZCASH_INTEGRITY_KEY',
-            'EASYPAISA_HASH_KEY','TCS_API_KEY','TCS_WEBHOOK_SECRET',
+            'EASYPAISA_USERNAME','EASYPAISA_PASSWORD','EASYPAISA_HASH_KEY','TCS_API_KEY','TCS_WEBHOOK_SECRET',
             'LEOPARDS_API_KEY','LEOPARDS_API_PASSWORD','TRAX_API_TOKEN',
             'TRAX_WEBHOOK_SECRET','WHATSAPP_TOKEN','WHATSAPP_VERIFY_TOKEN','WHATSAPP_APP_SECRET','TWILIO_AUTH_TOKEN','LOCAL_SMS_API_KEY',
             'GEMINI_API_KEY',
