@@ -22,10 +22,18 @@ final class ShippingRegistry {
         });
         add_action('woocommerce_payment_complete',             [$this, 'autoBookShipment']);
         add_filter('woocommerce_available_payment_gateways',   [$this, 'filterGatewaysForDigital']);
-        add_action('pkstore_tracking_sync_cron',               [$this, 'syncTrackingUpdates']);
-        if (!wp_next_scheduled('pkstore_tracking_sync_cron')) {
-            wp_schedule_event(time() + 300, 'hourly', 'pkstore_tracking_sync_cron');
+        if ($this->hasEnabledCourier()) {
+            add_action('pkstore_tracking_sync_cron', [$this, 'syncTrackingUpdates']);
+            if (!wp_next_scheduled('pkstore_tracking_sync_cron')) {
+                wp_schedule_event(time() + 300, 'hourly', 'pkstore_tracking_sync_cron');
+            }
         }
+    }
+
+    private function hasEnabledCourier(): bool {
+        return $this->features->isEnabled('courier_tcs')
+            || $this->features->isEnabled('courier_leopards')
+            || $this->features->isEnabled('courier_trax');
     }
 
     public function autoBookShipment(int $orderId): void {
@@ -53,7 +61,7 @@ final class ShippingRegistry {
     }
 
     public function syncTrackingUpdates(): void {
-        if (!function_exists('wc_get_orders')) return;
+        if (!$this->hasEnabledCourier() || !function_exists('wc_get_orders')) return;
 
         // Use WooCommerce's order abstraction rather than querying wp_posts:
         // HPOS stores orders outside the posts table.
