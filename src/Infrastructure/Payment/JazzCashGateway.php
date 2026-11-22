@@ -59,8 +59,9 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
         $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$dt=date('YmdHis');$exp=date('YmdHis',strtotime('+30 minutes'));
-        // JazzCash POSTs transaction results to pp_ReturnURL. The callback
-        // endpoint must receive that POST before the customer is redirected.
+        // JazzCash requires a stable merchant-registered pp_ReturnURL on every
+        // request. The synchronous API response is verified below; this endpoint
+        // also accepts a signed POST if the merchant's provisioned flow returns one.
         $callbackUrl = function_exists('WC') && WC() && method_exists(WC(), 'api_request_url')
             ? WC()->api_request_url('jazzcash_callback')
             : add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
