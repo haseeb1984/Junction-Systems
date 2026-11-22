@@ -596,6 +596,15 @@ if (!is_string($shippingWebhookSource)
     throw new \\RuntimeException('Courier webhooks must be unavailable when the corresponding licensed feature is disabled.');
 }
 
+$courierCircuitBreakerSource = file_get_contents($src . '/Infrastructure/Logistics/CourierCircuitBreaker.php');
+if (!is_string($courierCircuitBreakerSource)
+    || strpos($courierCircuitBreakerSource, '$lastFailure = null') === false
+    || strpos($courierCircuitBreakerSource, '$providerException = false') === false
+    || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
+    || strpos($courierCircuitBreakerSource, '$this->fail($code);') === false) {
+    throw new \\RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
+}
+
 $shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
 $servicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $courierRetrySource = file_get_contents($src . '/Application/Logistics/BookShipmentUseCase.php');
