@@ -103,7 +103,7 @@ final class InventoryHooks {
             // The durable queue remains the crash/retry fallback; an idempotent
             // worker can safely replay the event if this synchronous pass fails.
             try {
-                $this->c->make(\PkStore\\Application\\Inventory\\SyncWooCommerceStockUseCase::class)
+                $this->c->make(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class)
                     ->onWooCommerceSale($orderId, $cycleUuid);
                 $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
             } catch (\Throwable $syncError) {
