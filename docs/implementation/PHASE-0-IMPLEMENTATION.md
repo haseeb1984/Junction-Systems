@@ -247,3 +247,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Repaired malformed PHP in the logistics and OTP audit list-table renderers, including duration styling, endpoint rendering, relative-time output, and correct WordPress sortable-column header structure.
 - OTP order links now use `WC_Order::get_edit_order_url()` so they work with HPOS as well as legacy order storage.
 - The rewritten list-table sources were independently syntax-checked with PHP 8.4; full repository lint remains pending the consolidated CI run.
+
+- JazzCash callback signature follow-up: response verification now includes every `pp*` field except `pp_SecureHash`, including optional `ppmpf_*` and `ppmbf_*` fields. The older filter only included `pp_` and could reject a valid callback (or fail to authenticate optional fields). This follows the JazzCash Merchant Integration Guide v4.2, §14.2, which specifies all PP fields in the HMAC input. The merchant must register the exact stable `pp_ReturnURL` with JazzCash before live processing.
