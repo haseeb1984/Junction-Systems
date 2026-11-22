@@ -379,6 +379,8 @@ $queueOperatorMigration = file_get_contents($src . '/Infrastructure/Database/Mig
 if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "retry_inventory_event") === false
     || strpos($queueOperatorSource, "ignore_inventory_event") === false
+    || strpos($queueOperatorSource, "confirm_ignore") === false
+    || strpos($queueOperatorTemplate, "confirm_ignore") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
     || strpos($queueOperatorSource, "pkstore_inventory_queue_audit") === false
     || strpos($queueOperatorSource, "'previous_status' => 'needs_review'") === false
