@@ -22,26 +22,12 @@ final class InventoryHooks {
     }
     public function onOrderStockReduced($order): void {
         try {
-            if (!($order instanceof \WC_Order)) {
-                throw new \InvalidArgumentException('Malformed WooCommerce stock-reduction event.');
-            }
-            // Junction POS already deducted shared inventory; do not ingest its mirror.
-            if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
+            if (!($order instanceof \WC_Order) || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
             $orderId = (int) $order->get_id();
             if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
 
-            // Capture a durable per-order reduction cycle before the async worker.
-            // The cycle UUID distinguishes a genuine re-sale after a prior
-            // cancellation/refund has fully restored the previous cycle.
-            $cycleUuid = $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)->capture($order);
-            $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
-            if ((int) $order->save() !== $orderId) {
-                throw new \RuntimeException('Unable to persist WooCommerce stock-cycle identity.');
-            }
-
-            // Preserve proof of the actual reduction at hook time. WooCommerce
-            // removes _reduced_stock when it restores an item, but the async
-            // Junction sale worker may not run until after that restore callback.
+            // Preserve the actual reduction first. WooCommerce may remove its
+            // _reduced_stock metadata when cancellation/refund restores stock.
             $capturedLines = 0;
             foreach ($order->get_items('line_item') as $item) {
                 $reduced = $item->get_meta('_reduced_stock', true);
@@ -60,11 +46,36 @@ final class InventoryHooks {
             if ((int) $order->save() !== $orderId) {
                 throw new \RuntimeException('Unable to persist WooCommerce stock-reduction snapshot version.');
             }
+
+            try {
+                // Capture a durable per-order reduction cycle. The cycle UUID
+                // distinguishes a genuine re-sale after a fully restored cycle.
+                $cycleUuid = $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)->capture($order);
+                $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+                if ((int) $order->save() !== $orderId) {
+                    throw new \RuntimeException('Unable to persist WooCommerce stock-cycle identity.');
+                }
+            } catch (\Throwable $captureError) {
+                // Still enqueue the captured quantity so a failed cycle capture
+                // becomes visible in Sync Health instead of silently losing stock.
+                // If an older active cycle exists, its UUID remains on the order;
+                // the worker will fail closed on a conflicting snapshot.
+                $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
+                $this->log->critical('WooCommerce stock-cycle capture failed; order was queued for safe reconciliation.', [
+                    'order_id' => $orderId,
+                    'error_class' => get_class($captureError),
+                ]);
+                return;
+            }
+
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
-        } catch (\Throwable $e) {
-            error_log('[PKStore Inventory] Unable to enqueue actual WooCommerce stock reduction ('.get_class($e).').');
+        } catch (\Throwable $error) {
+            $this->log->error('WooCommerce stock reduction hook could not enqueue inventory processing.', [
+                'error_class' => get_class($error),
+            ]);
         }
     }
+
     public function onOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
         try {
             if (!($order instanceof \WC_Order) || !is_object($item) || !method_exists($item, 'get_id')) {
