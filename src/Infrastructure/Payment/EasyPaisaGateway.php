@@ -199,11 +199,14 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         if ($rawUrl !== '') {
             $parsed = wp_parse_url($rawUrl);
+            $scheme = strtolower((string) ($parsed['scheme'] ?? ''));
             $host = strtolower((string) ($parsed['host'] ?? ''));
+            $port = isset($parsed['port']) ? (int) $parsed['port'] : 443;
             $allowedHosts = ['easypaystg.easypaisa.com.pk', 'easypay.easypaisa.com.pk'];
             $path = (string) ($parsed['path'] ?? '');
             $segments = array_values(array_filter(explode('/', trim($path, '/')), 'strlen'));
-            if (!in_array($host, $allowedHosts, true) || strpos($path, '/order-status/') === false || count($segments) < 2) {
+            if ($scheme !== 'https' || $port !== 443 || !in_array($host, $allowedHosts, true)
+                || strpos($path, '/order-status/') === false || count($segments) < 2) {
                 status_header(400);
                 exit;
             }
