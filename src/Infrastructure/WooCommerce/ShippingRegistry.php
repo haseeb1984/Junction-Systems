@@ -42,6 +42,9 @@ final class ShippingRegistry {
     public function autoBookShipment(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) return;
+        if ($order->get_status() !== 'processing'
+            || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
+
         // POS mirror orders are already fulfilled at the register and must
         // never enter the customer courier-booking workflow.
         if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
