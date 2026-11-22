@@ -29,6 +29,7 @@ final class MigrationRunner {
         '2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles'],
         '2.0.10' => [Installer::class, 'addOtpConsumptionColumns'],
         '2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
+        '2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
     ];
 
 
@@ -183,6 +184,10 @@ final class MigrationRunner {
             $cycleItems = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
             $allocationSnapshot = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $cycleItems . ' LIKE %s', 'allocation_snapshot'));
             if (!$allocationSnapshot) throw new \RuntimeException('Required stock-cycle allocation snapshot column was not created.');
+            if (version_compare($version, '2.0.12', '>=')) {
+                $refundBaseline = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $cycleItems . ' LIKE %s', 'refund_cumulative_baseline'));
+                if (!$refundBaseline) throw new \\RuntimeException('Required stock-cycle refund baseline column was not created.');
+            }
         }
 
         if (version_compare($version, '2.0.9', '>=')) {
