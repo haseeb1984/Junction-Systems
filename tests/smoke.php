@@ -841,7 +841,8 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
-    || strpos($stockCycleCaptureSource, 'Previous WooCommerce stock cycle is still restoring') === false
+    || strpos($stockCycleCaptureSource, 'A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.') === false
+    || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
     || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') === false
