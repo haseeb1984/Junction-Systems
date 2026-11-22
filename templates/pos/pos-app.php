@@ -5,7 +5,7 @@
  * Access: yourstore.pk/wp-admin/admin.php?page=pkstore-pos
  */
 defined('ABSPATH') || exit;
-if (!current_user_can('manage_woocommerce') && !current_user_can('edit_posts')) wp_die('Unauthorized.');
+if (!current_user_can('use_junction_pos')) wp_die('Unauthorized.');
 $restUrl   = rest_url('pkstore/v1');
 $nonce     = wp_create_nonce('wp_rest');
 $storeName = get_bloginfo('name');
