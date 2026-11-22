@@ -487,7 +487,12 @@ if (!is_string($returnQueueSource)
 $orderQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
 if (!is_string($orderQueueSource)
     || strpos($orderQueueSource, 'claim_token=NULL') === false
-    || strpos($orderQueueSource, 'enqueue(int $orderId, ?string $cycleUuid = null)') === false\n    || strpos($orderQueueSource, 'cycle_uuid') === false\n    || strpos($orderQueueSource, 'onWooCommerceSale($orderId, $cycleUuid') === false\n    || strpos($inventoryInstallerSource, 'cycle_uuid CHAR(36) NOT NULL DEFAULT') === false\n    || strpos($inventoryInstallerSource, 'UNIQUE INDEX idx_order_cycle (wc_order_id, cycle_uuid)') === false\n    || strpos($migrationRunnerSource, "'2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity']") === false
+    || strpos($orderQueueSource, 'enqueue(int $orderId, ?string $cycleUuid = null)') === false
+    || strpos($orderQueueSource, 'cycle_uuid') === false
+    || strpos($orderQueueSource, 'onWooCommerceSale($orderId, $cycleUuid') === false
+    || strpos($inventoryInstallerSource, 'cycle_uuid CHAR(36) NOT NULL DEFAULT') === false
+    || strpos($inventoryInstallerSource, 'UNIQUE INDEX idx_order_cycle (wc_order_id, cycle_uuid)') === false
+    || strpos($migrationRunnerSource, "'2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity']") === false
     || strpos($orderQueueSource, 'claim_token=%s') === false
     || strpos($orderQueueSource, '$claimToken = wp_generate_uuid4()') === false
     || strpos($orderQueueSource, "'claim_token' => $claimToken") === false
