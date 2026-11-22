@@ -270,6 +270,8 @@ final class InventoryInstaller {
             queue_type VARCHAR(20) NOT NULL,
             queue_id BIGINT UNSIGNED NOT NULL,
             action VARCHAR(20) NOT NULL,
+            previous_status VARCHAR(20) NOT NULL,
+            resulting_status VARCHAR(20) NOT NULL,
             reason TEXT NOT NULL,
             actor_id BIGINT UNSIGNED NOT NULL,
             created_at DATETIME NOT NULL,
