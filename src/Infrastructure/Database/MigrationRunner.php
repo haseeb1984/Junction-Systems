@@ -26,6 +26,7 @@ final class MigrationRunner {
         '2.0.6' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
         '2.0.7' => [InventoryInstaller::class, 'installInventoryQueueAudit'],
         '2.0.8' => [InventoryInstaller::class, 'installStockSyncQueue'],
+        '2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles'],
     ];
 
 
@@ -152,6 +153,11 @@ final class MigrationRunner {
         }
 
         if (version_compare($version, '2.0.7', '>=')) $required[] = 'pkstore_inventory_queue_audit';
+        if (version_compare($version, '2.0.9', '>=')) {
+            $required[] = 'pkstore_wc_stock_cycles';
+            $required[] = 'pkstore_wc_stock_cycle_items';
+            $required[] = 'pkstore_wc_stock_cycle_events';
+        }
         if (version_compare($version, '2.0.8', '>=')) {
             $stockQueue = $wpdb->prefix . 'pkstore_wc_stock_sync';
             $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $stockQueue . ' LIKE %s', 'claim_token'));
