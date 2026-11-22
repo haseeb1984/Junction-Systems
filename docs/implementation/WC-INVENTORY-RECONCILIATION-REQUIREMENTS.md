@@ -95,3 +95,6 @@ These controls are intentionally not available for aggregate stock-sync jobs bec
 The product-level WooCommerce stock-sync outbox now uses a persisted UUID `claim_token` for each worker claim. Stale-claim recovery clears the token; completion/retry and newer-generation release require the exact token. This prevents a worker whose ten-minute lease expired from deleting or rescheduling a row reclaimed by another worker. Migration 2.0.8 adds and verifies the token column.
 
 With this fencing in place, Sync Health now offers reason-required Retry for `needs_review` stock-sync rows as well. Ignore is deliberately unavailable for stock-sync events: dropping an aggregate stock snapshot could leave WooCommerce divergent from Junction's multi-location ledger. Retry only queues a fresh read of the authoritative current ledger snapshot; it does not change Junction stock. Source-level smoke guards are present, but runtime multi-worker and stale-lease tests remain outstanding.
+
+
+Ignore-action safety note: the UI and server require the operator to affirm that the event is not a Junction-managed stock movement or is a duplicate, in addition to providing a reason. This is an accountable human decision recorded in the audit log, not automatic proof; operators must verify the source event before confirming.
