@@ -119,7 +119,8 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                         $kind,
                         $quantity,
                         $kind === 'refund' ? (int) $job['cumulative_quantity'] : null,
-                        $cycleUuid
+                        $cycleUuid,
+                        $productId
                     );
                 }
                 if ($kind === 'cancellation') {
