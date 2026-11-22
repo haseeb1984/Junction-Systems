@@ -566,6 +566,14 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
+$trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
+if (!$trackingStatus->canAdvanceFrom('shipped')
+    || $trackingStatus->canAdvanceFrom('out-for-delivery')
+    || $trackingStatus->canAdvanceFrom('completed')
+    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')) {
+    throw new \\RuntimeException('Courier tracking must reject stale status regressions and preserve terminal order states.');
+}
+
 $shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/ShippingWebhookHandler.php');
 if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'isEnabled($featureMap[$cc])') === false
