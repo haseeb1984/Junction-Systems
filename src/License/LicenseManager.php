@@ -129,15 +129,16 @@ final class LicenseManager {
 
         $limits = is_array($data['limits'] ?? null) ? $data['limits'] : [];
         $providerConfig = is_array($data['provider_config'] ?? null) ? $data['provider_config'] : [];
-        $limit = (int) ($limits['groq_api_keys'] ?? 0);
+        $rawLimit = $limits['groq_api_keys'] ?? null;
+        $limit = is_int($rawLimit) ? $rawLimit : 0;
         $groq = is_array($providerConfig['groq'] ?? null) ? $providerConfig['groq'] : [];
-        if ($limit < 1 || !$groq) {
+        if ($limit < 1 || $limit > 100 || !$groq) {
             return ['keys' => [], 'model' => '', 'limit' => max(0, $limit)];
         }
 
         $rawKeys = $groq['api_keys'] ?? [];
         $model = is_string($groq['model'] ?? null) ? trim($groq['model']) : '';
-        if (!is_array($rawKeys) || !array_is_list($rawKeys) || $model === '') {
+        if (!is_array($rawKeys) || !array_is_list($rawKeys) || $model === '' || strlen($model) > 128) {
             return ['keys' => [], 'model' => '', 'limit' => $limit];
         }
 
@@ -338,50 +339,9 @@ final class LicenseManager {
             }
         }
 
-        if ($action !== 'deactivate') {
-            $this->validateProviderConfig($data['data']);
-        }
-
         return $data;
     }
 
-    private function validateProviderConfig(array $license): void {
-        if (isset($license['limits'])) {
-            if (!is_array($license['limits'])) {
-                throw new LicenseInvalidException('License server returned invalid provider limits.');
-            }
-            if (isset($license['limits']['groq_api_keys'])
-                && (!is_int($license['limits']['groq_api_keys'])
-                    || $license['limits']['groq_api_keys'] < 0
-                    || $license['limits']['groq_api_keys'] > 100)) {
-                throw new LicenseInvalidException('License server returned an invalid Groq key limit.');
-            }
-        }
-
-        if (!isset($license['provider_config'])) return;
-        if (!is_array($license['provider_config'])) {
-            throw new LicenseInvalidException('License server returned invalid provider configuration.');
-        }
-        $groq = $license['provider_config']['groq'] ?? null;
-        if ($groq === null) return;
-        if (!is_array($groq)) {
-            throw new LicenseInvalidException('License server returned invalid Groq configuration.');
-        }
-        if (isset($groq['model'])
-            && (!is_string($groq['model']) || trim($groq['model']) === '' || strlen($groq['model']) > 128)) {
-            throw new LicenseInvalidException('License server returned an invalid Groq model.');
-        }
-        if (isset($groq['api_keys'])) {
-            if (!is_array($groq['api_keys']) || !array_is_list($groq['api_keys']) || count($groq['api_keys']) > 100) {
-                throw new LicenseInvalidException('License server returned an invalid Groq key pool.');
-            }
-            foreach ($groq['api_keys'] as $apiKey) {
-                if (!is_string($apiKey) || trim($apiKey) === '' || strlen($apiKey) > 512) {
-                    throw new LicenseInvalidException('License server returned an invalid Groq API key entry.');
-                }
-            }
-        }
-    }
 
     // ── Lockout ─────────────────────────────────────────────────
 
