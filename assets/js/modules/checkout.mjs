@@ -94,7 +94,7 @@ async function handleVerifyOtp(codSection, placeOrderBtn) {
         enableButton(verifyBtn);
         if (e instanceof ApiError) {
             if      (e.code==='otp_expired')     { showMessage(codSection,'کوڈ کی میعاد ختم۔ Resend a new code.','error'); lockOtpForm(codSection); }
-            else if (e.code==='replay_rejected')  showSuccess(codSection, placeOrderBtn);
+            else if (e.code==='replay_rejected')  { state.isVerified=true; showSuccess(codSection, placeOrderBtn); }
             else if (e.code==='invalid_otp') {
                 otpInput.value=''; otpInput.focus();
                 const rem = parseInt(e.message.match(/\d+/)?.[0]||'0',10);
