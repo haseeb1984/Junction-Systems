@@ -97,7 +97,11 @@ final class ProcessPOSSaleUseCase {
             }
             $this->orderRepo->saveItems($orderId, $enriched);
 
-            foreach ($enriched as $item) {
+            // Lock product/location rows in a stable order shared with online
+            // multi-location allocation to reduce cross-channel deadlock risk.
+            $stockAdjustments = $enriched;
+            usort($stockAdjustments, static fn(array $a, array $b): int => $a['product_id'] <=> $b['product_id']);
+            foreach ($stockAdjustments as $item) {
                 // Any stock shortage or persistence error aborts the entire sale.
                 $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef, false);
             }
