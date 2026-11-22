@@ -950,7 +950,7 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, '/initiate-ma-transaction') === false
     || strpos($easyPaisaSource, '/inquire-transaction') === false
     || strpos($easyPaisaSource, "'transactionType' => 'MA'") === false
-    || strpos($easyPaisaSource, "'Credentials' => base64_encode($username . ':' . $password)") === false
+    || strpos($easyPaisaSource, "'Credentials' => base64_encode(\$username . ':' . \$password)") === false
     || strpos($easyPaisaSource, "transactionStatus === 'PAID'") === false
     || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
     || strpos($easyPaisaSource, 'applyProviderStatus(') === false
