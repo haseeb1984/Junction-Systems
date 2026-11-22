@@ -119,3 +119,8 @@ The initial durable storage contract is now installed by migration 2.0.9: cycle 
 ## Current status
 
 The cycle schema scaffolding is implemented in migration 2.0.9, but this document remains the operational design contract rather than evidence of a working cycle-aware path. Current sale and return idempotency remain order/item-level; the new tables are not yet connected to hooks or workers and do not make repeated-cycle behavior safe. Do not enable repeated-cycle production behavior until atomic capture, cycle-bound sale/return workers, reconciliation, supported-version compatibility, schema-index verification, and runtime acceptance tests are complete.
+
+
+## Migration verification hardening
+
+Migration 2.0.9 now verifies each required stock-cycle unique index by inspecting the database's index metadata, checking that it is genuinely unique, and checking the exact ordered column list. Merely finding an index with the expected name is insufficient: a non-unique or incorrectly-shaped index would undermine event and cycle idempotency. The source smoke suite now guards these checks. Database execution and dbDelta behavior on supported MySQL/MariaDB versions remain unverified.
