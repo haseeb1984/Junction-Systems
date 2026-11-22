@@ -206,3 +206,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added dependency-free source smoke guards. These have not yet run; checkout/shipping-zone and provider failover behavior still needs WooCommerce runtime acceptance.
 
 - Follow-up: TCS, Leopards and Trax webhook routes are now registered only for currently enabled/licensed providers and re-check the entitlement inside the handler before accepting any status update. This closes the remaining callback path when a courier feature is disabled. Source smoke guard added; provider callback runtime tests remain pending.
+
+
+## Courier tracking runtime follow-up
+
+- Tracking endpoint now only queries courier providers enabled by both local configuration and central entitlements.
+- Replaced the direct `wp_posts` order query and unhandled Action Scheduler event with an actual hourly tracking worker using `wc_get_orders()` pagination. This supports HPOS and legacy order storage, advances through batches of 100 active shipments, and applies status/COD-delivery updates from the provider response.
+- Added source smoke guards. Live provider API, Action Scheduler/WP-Cron timing, custom order status, and HPOS runtime tests remain outstanding.
