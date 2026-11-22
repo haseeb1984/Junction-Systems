@@ -34,13 +34,30 @@ final class InventoryController {
         $repo   = $this->c->make(InventoryProductRepositoryInterface::class);
         $stockRepo = $this->c->make(StockRepositoryInterface::class);
         $products = $repo->findAll($limit, $offset, $search);
-        return new \WP_REST_Response(['success'=>true,'total'=>$repo->countAll(),'products'=>array_map(fn($p)=>['id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,'cost_price'=>$p->costPricePkr,'sale_price'=>$p->salePricePkr,'total_stock'=>$stockRepo->getTotalStock($p->id),'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'has_barcode'=>$p->hasBarcode(),'wc_product_id'=>$p->wcProductId],$products)],200);
+        $canViewCosts = current_user_can('manage_options');
+        $rows = array_map(function ($p) use ($stockRepo, $canViewCosts): array {
+            $row = [
+                'id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,
+                'name'=>$p->name,'category'=>$p->category,'sale_price'=>$p->salePricePkr,
+                'total_stock'=>$stockRepo->getTotalStock($p->id),'reorder_point'=>$p->reorderPoint,
+                'unit'=>$p->unit,'has_barcode'=>$p->hasBarcode(),'wc_product_id'=>$p->wcProductId,
+            ];
+            if ($canViewCosts) $row['cost_price'] = $p->costPricePkr;
+            return $row;
+        }, $products);
+        return new \WP_REST_Response(['success'=>true,'total'=>$repo->countAll(),'products'=>$rows],200);
     }
     public function getProduct(\WP_REST_Request $req): \WP_REST_Response {
         $p = $this->c->make(InventoryProductRepositoryInterface::class)->findById((int)$req->get_param('id'));
         if (!$p) return new \WP_REST_Response(['success'=>false,'message'=>'Product not found.'],404);
         $movements = $this->c->make(StockRepositoryInterface::class)->getMovements($p->id, 20);
-        return new \WP_REST_Response(['success'=>true,'product'=>['id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,'cost_price'=>$p->costPricePkr,'sale_price'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'total_stock'=>$this->c->make(StockRepositoryInterface::class)->getTotalStock($p->id)],'movements'=>$movements],200);
+        $productData = [
+            'id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'name'=>$p->name,
+            'category'=>$p->category,'sale_price'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,
+            'unit'=>$p->unit,'total_stock'=>$this->c->make(StockRepositoryInterface::class)->getTotalStock($p->id),
+        ];
+        if (current_user_can('manage_options')) $productData['cost_price'] = $p->costPricePkr;
+        return new \WP_REST_Response(['success'=>true,'product'=>$productData,'movements'=>$movements],200);
     }
     public function searchProduct(\WP_REST_Request $req): \WP_REST_Response {
         $q    = sanitize_text_field($req->get_param('q') ?? '');
@@ -61,7 +78,7 @@ final class InventoryController {
         $sku   = sanitize_text_field($req->get_param('sku') ?? '');
         $name  = sanitize_text_field($req->get_param('name') ?? '');
         if (empty($sku)||empty($name)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU and name required.'],422);
-        $costPrice = $req->get_param('cost_price') ?? 0;
+        $costPrice = current_user_can('manage_options') ? ($req->get_param('cost_price') ?? 0) : 0;
         $salePrice = $req->get_param('sale_price') ?? 0;
         $reorderPoint = $req->get_param('reorder_point') ?? 5;
         $wcProductRaw = $req->get_param('wc_product_id');
@@ -115,7 +132,7 @@ final class InventoryController {
         }
 
         if (($type === MovementType::PurchaseReceive || $type === MovementType::Opening) && $quantity < 1) {
-            return new \\WP_REST_Response(['success'=>false,'message'=>'Purchase receipts and opening stock must add a positive quantity.'],422);
+            return new \WP_REST_Response(['success'=>false,'message'=>'Purchase receipts and opening stock must add a positive quantity.'],422);
         }
         if ($type === MovementType::Damage && $quantity > -1) {
             return new \\WP_REST_Response(['success'=>false,'message'=>'Damage/loss must reduce stock using a negative quantity.'],422);
