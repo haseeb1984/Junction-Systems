@@ -52,6 +52,7 @@ Additional durable queue identity:
 - No runtime acceptance has yet been run against a real WooCommerce database, HPOS, supported WooCommerce versions, concurrent workers, or crash recovery. PHP lint and the dependency-free smoke suite are still pending consolidated execution.
 - Return event ambiguity, edited/deleted order items, changed mappings, inactive locations, missing cycle snapshots, and over-returns must remain operator-review cases rather than being silently reassigned.
 - The schema migration is protected by the existing pre-migration backup confirmation gate for upgrades. Host-level backup confirmation is an external hosting integration and has not been verified by this repository audit.
+- WooCommerce lifecycle hooks and storefront purchasing remain paused until database version 2.0.13 is reached. This avoids accepting online orders while the cycle-aware shared POS/store ledger schema is unavailable.
 
 ## Required runtime acceptance
 
