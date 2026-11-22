@@ -384,7 +384,10 @@ final class SyncWooCommerceStockUseCase {
                     'updated_at' => $now,
                 ], ['cycle_uuid' => $cycleUuid, 'state' => 'reducing']);
                 if ($updated === false) throw new \RuntimeException('Unable to activate WooCommerce stock cycle.');
-            } elseif ($cycle['state'] !== 'active') {
+            } elseif (!in_array($cycle['state'], ['active', 'restoring'], true)) {
+                // A cancellation/refund callback may arrive before the sale
+                // worker. Keep the cycle in restoring state while the original
+                // reduction is committed; the return worker waits for that sale.
                 throw new \RuntimeException('WooCommerce stock cycle is in an unsupported state.');
             }
 
