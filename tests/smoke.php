@@ -568,6 +568,17 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
+$adminMenuSource = file_get_contents($src . '/Infrastructure/Admin/AdminMenuController.php');
+$dashboardTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/dashboard.php');
+if (!is_string($adminMenuSource) || !is_string($dashboardTemplateSource)
+    || strpos($adminMenuSource, 'admin_post_pkstore_bust_dashboard_cache') === false
+    || strpos($adminMenuSource, "check_admin_referer('pkstore_bust_dashboard_cache')") === false
+    || strpos($adminMenuSource, "isset($_GET['bust_cache'])") !== false
+    || strpos($dashboardTemplateSource, "wp_nonce_field('pkstore_bust_dashboard_cache')") === false
+    || strpos($dashboardTemplateSource, 'name="action" value="pkstore_bust_dashboard_cache"') === false) {
+    throw new \\RuntimeException('Dashboard cache invalidation must use a capability-checked, nonce-protected POST action.');
+}
+
 $dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
 if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, 'wc_get_orders(') === false
