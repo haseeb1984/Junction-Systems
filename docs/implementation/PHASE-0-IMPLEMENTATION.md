@@ -213,3 +213,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Tracking endpoint now only queries courier providers enabled by both local configuration and central entitlements.
 - Replaced the direct `wp_posts` order query and unhandled Action Scheduler event with an actual hourly tracking worker using `wc_get_orders()` pagination. This supports HPOS and legacy order storage, advances through batches of 100 active shipments, and applies status/COD-delivery updates from the provider response.
 - Added source smoke guards. Live provider API, Action Scheduler/WP-Cron timing, custom order status, and HPOS runtime tests remain outstanding.
+
+- Follow-up: courier webhook order matching no longer queries `wp_postmeta` directly. It now resolves the tracking reference through `wc_get_orders()` with the provider-specific tracking metadata and refuses ambiguous duplicate matches, preserving HPOS compatibility and avoiding updates to an arbitrary order.
