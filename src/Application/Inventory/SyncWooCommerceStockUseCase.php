@@ -297,7 +297,7 @@ final class SyncWooCommerceStockUseCase {
         if (!$isPosOrder) {
             $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
             if ($rawAllocations !== '' && $rawAllocations !== null) {
-                return $this->applyAllocatedOnlineReturn($order, $item, 'cancellation', $quantity, null);
+                return $this->applyAllocatedOnlineReturn($order, $item, 'cancellation', $quantity, null, $cycleUuid);
             }
         }
         $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
@@ -435,7 +435,8 @@ final class SyncWooCommerceStockUseCase {
                     $item,
                     'refund',
                     $newStock - $oldStock,
-                    $eventCumulative
+                    $eventCumulative,
+                    $cycleUuid
                 );
             }
         }
@@ -531,7 +532,8 @@ final class SyncWooCommerceStockUseCase {
         $item,
         string $kind,
         int $quantity,
-        ?int $refundCumulative
+        ?int $refundCumulative,
+        ?string $cycleUuid = null
     ): bool {
         if (!in_array($kind, ['cancellation', 'refund'], true)
             || !is_object($item) || !method_exists($item, 'get_id') || $quantity < 1) {
