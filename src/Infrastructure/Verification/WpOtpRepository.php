@@ -29,7 +29,7 @@ final class WpOtpRepository implements OtpRepositoryInterface {
         $lockName = 'pkstore_otp_' . substr(hash('sha256', $phone->e164), 0, 48);
         $acquired = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ($this->db->last_error !== '' || (int) $acquired !== 1) {
-            throw new \\RuntimeException('Unable to reserve the COD OTP send-rate window.');
+            throw new \RuntimeException('Unable to reserve the COD OTP send-rate window.');
         }
     }
 
@@ -37,7 +37,7 @@ final class WpOtpRepository implements OtpRepositoryInterface {
         $lockName = 'pkstore_otp_' . substr(hash('sha256', $phone->e164), 0, 48);
         $released = $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         if ($this->db->last_error !== '' || (int) $released !== 1) {
-            throw new \\RuntimeException('Unable to release the COD OTP send-rate lock.');
+            throw new \RuntimeException('Unable to release the COD OTP send-rate lock.');
         }
     }
 
