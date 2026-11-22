@@ -155,7 +155,7 @@ final class MigrationRunner {
         if (version_compare($version, '2.0.8', '>=')) {
             $stockQueue = $wpdb->prefix . 'pkstore_wc_stock_sync';
             $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $stockQueue . ' LIKE %s', 'claim_token'));
-            if (!$claimToken) throw new \\RuntimeException('Required stock sync queue claim-token column was not created.');
+            if (!$claimToken) throw new \RuntimeException('Required stock sync queue claim-token column was not created.');
         }
 
         foreach ($required as $suffix) {
