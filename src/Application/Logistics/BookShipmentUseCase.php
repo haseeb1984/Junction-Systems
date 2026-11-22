@@ -15,6 +15,10 @@ final class BookShipmentUseCase {
     }
     public function retryForOrder(int $orderId):void {
         $order=wc_get_order($orderId); if(!($order instanceof \WC_Order))return;
+        if (!$this->cb->hasCouriers()) {
+            $order->add_order_note('[PK Store] Courier booking was not attempted because no courier is enabled by the current package and store settings.');
+            return;
+        }
         $s=$this->buildDto($order); if($s===null)return;
         $r=$this->execute($s);
         if($r->success) $order->add_order_note('[PK Store] Courier booked on retry. Tracking: '.$r->trackingNumber);
