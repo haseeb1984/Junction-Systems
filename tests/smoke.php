@@ -537,7 +537,11 @@ if (!is_string($stockCycleInstallerSource)
     || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.9', '>=')") === false
     || strpos($stockCycleMigrationSource, 'SHOW INDEX FROM ') === false
     || strpos($stockCycleMigrationSource, 'idx_cycle_order_item') === false
-    || strpos($stockCycleMigrationSource, 'idx_event_key') === false) {
+    || strpos($stockCycleMigrationSource, 'idx_event_key') === false
+    || strpos($stockCycleMigrationSource, 'verifyUniqueIndex(') === false
+    || strpos($stockCycleMigrationSource, "['wc_order_id', 'cycle_number']") === false
+    || strpos($stockCycleMigrationSource, "['cycle_uuid', 'wc_order_item_id']") === false
+    || strpos($stockCycleMigrationSource, "['Non_unique'] ?? 1") === false) {
     throw new \RuntimeException('WooCommerce stock-cycle storage must be durable, uniquely keyed and version-migrated.');
 }
 
