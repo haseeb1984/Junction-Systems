@@ -170,7 +170,7 @@ final class MigrationRunner {
                     $columnName
                 ));
                 if (!$column) {
-                    throw new \\RuntimeException('Required COD OTP consumption column was not created.');
+                    throw new \RuntimeException('Required COD OTP consumption column was not created.');
                 }
             }
         }
