@@ -69,3 +69,5 @@ The source implementation now has cycle-aware capture, sale queue identity, per-
 - The POS client serializes offline-queue flushes, retries pending events every 30 seconds while a register session is active, and refuses to close a register while non-review offline sales remain pending.
 - POS-to-WooCommerce order mirroring is scheduled every five minutes. WordPress cron is traffic-driven unless the hosting environment invokes it reliably; production deployment must configure a real system cron for predictable queue recovery.
 - These paths have source-level smoke guards. They still require consolidated PHP/JS lint, database-backed concurrent-worker tests, and real WooCommerce checkout/cancellation/refund/POS acceptance before release.
+
+- A late refund restock after an earlier cancellation/restock of the same order line is ambiguous because WooCommerce exposes cumulative refunded-restock metadata without the original stock-cycle identity. Junction fails closed and sends this event to operator review instead of crediting a newer sale cycle. This is intentionally conservative; the operator must reconcile the return before treating the stock as available.
