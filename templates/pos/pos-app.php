@@ -449,6 +449,15 @@ const POS = {
     async closeSession() {
         const closingCash = parseInt(document.getElementById('pos-closing-cash').value)||0;
         try {
+            const queuedBeforeClose = (await DB.getAll('queue')).filter(item => item.status !== 'needs_review');
+            if (queuedBeforeClose.length) {
+                await this.flushOfflineQueue();
+                const stillPending = (await DB.getAll('queue')).filter(item => item.status !== 'needs_review');
+                if (stillPending.length) {
+                    this.toast('Cannot close this register yet: sync the pending offline sales first.');
+                    return;
+                }
+            }
             const r = await this.api('/pos/session/close','POST',{session_id:this.sessionId,closing_cash:closingCash});
             const variance = r.cash_variance;
             document.getElementById('pos-endday-modal').classList.remove('active');
