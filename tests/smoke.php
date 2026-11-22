@@ -540,6 +540,15 @@ if (!is_string($orderQueueSource)
 }
 
 
+if (strpos($bootstrapSource, "wp_schedule_event(time() + 90, 'pkstore_five_minutes', 'pkstore_process_pos_order_sync')") === false
+    || strpos($bootstrapSource, "add_action('pkstore_process_pos_order_sync'") === false
+    || strpos($bootstrapSource, "SyncPOSQueueUseCase::class)->execute()") === false
+    || strpos($posHttpSource, "'/pos/sync'") === false
+    || strpos($posHttpSource, "'permission_callback'=>\$managerAuth") === false
+    || strpos($posHttpSource, '$managerAuth = fn()') === false) {
+    throw new \\RuntimeException('Committed POS sales must mirror to WooCommerce automatically, and global sync must remain manager-only.');
+}
+
 $posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
 $posEntitySource = file_get_contents($src . '/Domain/POS/Entity/POSOrder.php');
 $posRepositorySource = file_get_contents($src . '/Infrastructure/POS/WpPOSOrderRepository.php');
