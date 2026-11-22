@@ -345,6 +345,7 @@ if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false
     || strpos($migrationRunnerSource, 'Unable to determine whether this is an existing Junction installation.') === false
     || strpos($migrationRunnerSource, 'Never interpret a failed schema probe as a fresh install') === false
+    || strpos($migrationRunnerSource, "\$wpdb->esc_like(\$wpdb->prefix . 'pkstore_') . '%'") === false
     || strpos($migrationRunnerSource, "'2.0.10' => [Installer::class, 'addOtpConsumptionColumns']") === false
     || strpos($migrationRunnerSource, "'consumed_at', 'consumed_order_id'") === false
     || strpos($migrationRunnerSource, 'Any Junction-owned table means this is an existing installation.') === false
