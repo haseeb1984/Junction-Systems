@@ -233,59 +233,77 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
     }
 
-    public function handleCallback():void{
-        $payload = wp_unslash($_POST);
-        $ik = $this->cfg->get('JAZZCASH_INTEGRITY_KEY');
-        $receivedHash = (string)($payload['pp_SecureHash'] ?? '');
-        $orderId = absint($payload['pp_BillReference'] ?? 0);
+    public function handleCallback(): void {
+        $payload = !empty($_POST) ? wp_unslash($_POST) : [];
+        if (!is_array($payload) || !$payload) {
+            $rawBody = file_get_contents('php://input');
+            $decoded = is_string($rawBody) ? json_decode($rawBody, true) : null;
+            $payload = is_array($decoded) ? $decoded : [];
+        }
 
-        if (!$ik || !$receivedHash || !$orderId) {
+        if (!$this->verifySecureHash($payload)) {
             status_header(400);
             exit;
         }
 
-        if (!$this->verifySignedResponse($payload, $ik)) {
+        $billReference = (string) ($payload['pp_BillReference'] ?? '');
+        if ($billReference === '' || !ctype_digit($billReference)) {
             status_header(400);
             exit;
         }
-
+        $orderId = absint($billReference);
         $order = wc_get_order($orderId);
         if (!$order) {
             status_header(404);
             exit;
         }
 
-        $txnRef = (string)($payload['pp_TxnRefNo'] ?? '');
-        $amount = (string)($payload['pp_Amount'] ?? '');
-        $currency = (string)($payload['pp_TxnCurrency'] ?? '');
-        $merchant = (string)($payload['pp_MerchantID'] ?? '');
-        $expectedTxn = (string)$order->get_meta('_pkstore_jazzcash_txn_ref');
-        $expectedAmount = (string)$order->get_meta('_pkstore_jazzcash_expected_amount');
-        $expectedMerchant = (string)$order->get_meta('_pkstore_jazzcash_merchant_id');
+        $txnRef = (string) ($payload['pp_TxnRefNo'] ?? '');
+        $amount = (string) ($payload['pp_Amount'] ?? '');
+        $currency = (string) ($payload['pp_TxnCurrency'] ?? '');
+        $merchant = (string) ($payload['pp_MerchantID'] ?? '');
+        $txnDateTime = (string) ($payload['pp_TxnDateTime'] ?? '');
+        $responseCode = (string) ($payload['pp_ResponseCode'] ?? '');
+        $expectedTxn = (string) $order->get_meta('_pkstore_jazzcash_txn_ref');
+        $expectedAmount = (string) $order->get_meta('_pkstore_jazzcash_expected_amount');
+        $expectedMerchant = (string) $order->get_meta('_pkstore_jazzcash_merchant_id');
+        $expectedDateTime = (string) $order->get_meta('_pkstore_jazzcash_txn_datetime');
 
-        if (!$expectedTxn || !$expectedAmount || !$expectedMerchant
+        if ($expectedTxn === '' || $expectedAmount === '' || $expectedMerchant === '' || $expectedDateTime === ''
             || !hash_equals($expectedTxn, $txnRef)
             || !hash_equals($expectedAmount, $amount)
             || !hash_equals($expectedMerchant, $merchant)
+            || !hash_equals($expectedDateTime, $txnDateTime)
             || $currency !== 'PKR'
-            || ($payload['pp_TxnType'] ?? '') !== 'MWALLET'
-            || ($payload['pp_ResponseCode'] ?? '') !== '000') {
+            || (string) $billReference !== (string) $orderId
+            || !in_array($responseCode, ['000', '157'], true)) {
             $order->add_order_note('JazzCash callback rejected: transaction details did not match the initiated payment.');
             status_header(400);
             exit;
         }
 
-        // Replayed callbacks must not complete or mutate an already paid order.
-        $order->update_meta_data('_pkstore_jazzcash_state', 'paid');
-        $order->save();
-        if (!$order->is_paid()) {
-            $order->payment_complete($txnRef);
-            $order->add_order_note('JazzCash payment confirmed. TxID: ' . $txnRef);
+        if ($order->is_paid()) {
+            status_header(200);
+            echo 'OK';
+            exit;
         }
 
-        // Return the customer to the normal WooCommerce receipt after the
-        // signed transaction response has been verified and applied.
-        wp_safe_redirect($this->get_return_url($order));
+        if (in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
+            $order->add_order_note('JazzCash callback received for an order that is already cancelled or refunded; manual reconciliation is required.');
+            status_header(409);
+            exit;
+        }
+
+        if ($responseCode === '000') {
+            $retrievalReference = sanitize_text_field((string) ($payload['pp_RetrievalReferenceNo'] ?? ''));
+            $order->payment_complete($txnRef);
+            $order->add_order_note('JazzCash payment confirmed by callback.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
+        } else {
+            $order->update_status('pending', 'JazzCash payment remains pending customer/provider confirmation.');
+        }
+
+        status_header(200);
+        echo 'OK';
         exit;
     }
 }
