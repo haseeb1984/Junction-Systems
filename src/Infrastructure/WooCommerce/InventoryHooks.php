@@ -90,6 +90,8 @@ final class InventoryHooks {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
                         ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $newStock - $oldStock);
                 } catch (\Throwable $captureError) {
+                    $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
+                    $order->save();
                     $this->log->critical('WooCommerce cancellation cycle capture failed; queued return will require review.', [
                         'order_id' => (int) $order->get_id(),
                         'order_item_id' => (int) $item->get_id(),
@@ -125,6 +127,8 @@ final class InventoryHooks {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
                         ->markReturnPending($order, (int) $itemId, 'refund', $delta, $cumulative);
                 } catch (\Throwable $captureError) {
+                    $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
+                    $order->save();
                     $this->log->critical('WooCommerce refund cycle capture failed; queued return will require review.', [
                         'order_id' => (int) $order->get_id(),
                         'order_item_id' => (int) $itemId,
