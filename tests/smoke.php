@@ -791,8 +791,20 @@ if (!is_string($themeBootstrapperSource)
 
 $codOtpControllerSource = file_get_contents($src . '/Infrastructure/Http/CodOtpController.php');
 $otpRepositorySource = file_get_contents($src . '/Infrastructure/Verification/WpOtpRepository.php');
+$otpSendUseCaseSource = file_get_contents($src . '/Application/Verification/SendCodOtpUseCase.php');
+$otpRepositoryInterfaceSource = file_get_contents($src . '/Domain/Verification/Repository/OtpRepositoryInterface.php');
 $otpCheckoutJsSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/checkout.mjs');
-if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !is_string($otpCheckoutJsSource)
+if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource)
+    || !is_string($otpSendUseCaseSource) || !is_string($otpRepositoryInterfaceSource) || !is_string($otpCheckoutJsSource)
+    || strpos($otpSendUseCaseSource, 'acquirePhoneSendLock($phone)') === false
+    || strpos($otpSendUseCaseSource, 'releasePhoneSendLock($phone)') === false
+    || strpos($otpSendUseCaseSource, 'countRecentSendsByPhone($phone, $since)') === false
+    || strpos($otpRepositorySource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($otpRepositorySource, 'SELECT RELEASE_LOCK(%s)') === false
+    || strpos($otpRepositorySource, 'Unable to reserve the COD OTP send-rate window.') === false
+    || strpos($otpRepositorySource, 'Unable to release the COD OTP send-rate lock.') === false
+    || strpos($otpRepositoryInterfaceSource, 'acquirePhoneSendLock(') === false
+    || strpos($otpRepositoryInterfaceSource, 'releasePhoneSendLock(') === false
     || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_create_order') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_order_processed') === false
