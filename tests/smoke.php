@@ -591,6 +591,19 @@ if (!is_string($posSyncSource)
 }
 
 
+$posSaleSource = file_get_contents($src . '/Application/POS/ProcessPOSSaleUseCase.php');
+$orderInventoryQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
+if (!is_string($posSaleSource) || !is_string($orderInventoryQueueSource)
+    || strpos($posInventoryHooks, '->onWooCommerceSale($orderId, $cycleUuid)') === false
+    || strpos($posInventoryHooks, 'acknowledgeCompleted($orderId, $cycleUuid)') === false
+    || strpos($orderInventoryQueueSource, 'public function acknowledgeCompleted(') === false
+    || strpos($posSaleSource, 'assertNoPendingOnlineStockReductions();') === false
+    || strpos($posSaleSource, "event_kind='reduction' AND status<>'processed'") === false
+    || strpos($posSaleSource, "q.status IN ('pending','processing','needs_review')") === false
+    || strpos($posSaleSource, 'Online store sales are still being reconciled.') === false) {
+    throw new \\RuntimeException('Online stock must reach the shared ledger before checkout returns, and POS must pause while online reductions remain unresolved.');
+}
+
 if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
     || strpos($posSyncSource, "_pkstore_inventory_product_id") === false
     || strpos($posSyncSource, "get_discount_total()") === false
