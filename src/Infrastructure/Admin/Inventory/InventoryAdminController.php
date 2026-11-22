@@ -45,6 +45,10 @@ final class InventoryAdminController {
         if ($action === 'generate_barcodes' && !$features->isEnabled('barcode_labels')) {
             wp_die('Barcode labels are not available on the current package.');
         }
+        if (in_array($action, ['retry_inventory_event', 'ignore_inventory_event'], true)) {
+            $this->handleInventoryEventAction($action);
+            return;
+        }
         match($action) {
             'add_product'     => $this->handleAddProduct(),
             'adjust_stock'    => $this->handleAdjustStock(),
@@ -52,6 +56,75 @@ final class InventoryAdminController {
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
             default            => null,
         };
+    }
+
+    private function handleInventoryEventAction(string $action): void {
+        global $wpdb;
+        $queueType = sanitize_key($_POST['queue_type'] ?? '');
+        $queueId = filter_var($_POST['queue_id'] ?? null, FILTER_VALIDATE_INT);
+        $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+        if (!in_array($queueType, ['sales', 'returns'], true) || $queueId === false || $queueId < 1
+            || strlen(trim($reason)) < 5 || strlen($reason) > 1000) {
+            $this->redirect('pkstore-inventory-events', 'error', 'A valid event and an operator reason of at least 5 characters are required.');
+            return;
+        }
+
+        $table = $wpdb->prefix . ($queueType === 'sales'
+            ? 'pkstore_wc_order_inventory_queue'
+            : 'pkstore_wc_return_inventory_queue');
+        $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
+        $now = current_time('mysql');
+        if ($wpdb->query('START TRANSACTION') === false) {
+            $this->redirect('pkstore-inventory-events', 'error', 'Could not start the queue action.');
+            return;
+        }
+
+        try {
+            if ($action === 'retry_inventory_event') {
+                if ($queueType === 'sales') {
+                    $updated = $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table} SET status='pending', generation=%s, attempts=0,
+                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error=''
+                         WHERE id=%d AND status='needs_review'",
+                        wp_generate_uuid4(), $now, $queueId
+                    ));
+                } else {
+                    $updated = $wpdb->query($wpdb->prepare(
+                        "UPDATE {$table} SET status='pending', attempts=0,
+                         next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error=''
+                         WHERE id=%d AND status='needs_review'",
+                        $now, $queueId
+                    ));
+                }
+            } else {
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE {$table} SET status='ignored', claimed_at=NULL, claim_token=NULL
+                     WHERE id=%d AND status='needs_review'",
+                    $queueId
+                ));
+            }
+
+            if ($updated !== 1) {
+                throw new \\RuntimeException('Queue event is no longer in needs_review state.');
+            }
+            $inserted = $wpdb->insert($auditTable, [
+                'queue_type' => $queueType,
+                'queue_id' => $queueId,
+                'action' => $action === 'retry_inventory_event' ? 'retry' : 'ignore',
+                'reason' => $reason,
+                'actor_id' => get_current_user_id(),
+                'created_at' => $now,
+            ]);
+            if ($inserted !== 1) throw new \\RuntimeException('Could not append the operator audit record.');
+            if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Could not commit the queue action.');
+        } catch (\\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            error_log('[PKStore Inventory] Queue operator action failed ('.get_class($error).').');
+            $this->redirect('pkstore-inventory-events', 'error', 'The queue action was not completed. Refresh and inspect the event.');
+            return;
+        }
+
+        $this->redirect('pkstore-inventory-events', 'updated', 'Queue action saved with an audit record.');
     }
 
     private function handleAddProduct(): void {
@@ -220,7 +293,7 @@ final class InventoryAdminController {
         }
 
         $salesEvents = $available['sales'] ? ($wpdb->get_results(
-            "SELECT 'WooCommerce sale' AS event, CONCAT('#',wc_order_id) AS reference,
+            "SELECT id, 'WooCommerce sale' AS event, CONCAT('#',wc_order_id) AS reference,
                     'Order-level inventory ingestion' AS details, status, attempts,
                     next_attempt_at, claimed_at, last_error, created_at
              FROM {$tables['sales']} ORDER BY updated_at DESC LIMIT 100",
@@ -228,7 +301,7 @@ final class InventoryAdminController {
         ) ?: []) : [];
 
         $returnEvents = $available['returns'] ? ($wpdb->get_results(
-            "SELECT CONCAT('WooCommerce ',event_kind,' restock') AS event,
+            "SELECT id, CONCAT('WooCommerce ',event_kind,' restock') AS event,
                     CONCAT('#',wc_order_id) AS reference,
                     CONCAT('Item ',COALESCE(wc_order_item_id,'—'),' · Product ',wc_product_id,' · Qty ',quantity) AS details,
                     status, attempts, next_attempt_at, claimed_at, last_error, created_at
@@ -246,6 +319,13 @@ final class InventoryAdminController {
              ORDER BY q.updated_at DESC LIMIT 100",
             ARRAY_A
         ) ?: []) : [];
+
+        $operatorAudit = $wpdb->get_results(
+            "SELECT queue_type, queue_id, action, reason, actor_id, created_at
+             FROM {$wpdb->prefix}pkstore_inventory_queue_audit
+             ORDER BY id DESC LIMIT 50",
+            ARRAY_A
+        ) ?: [];
 
         include PKSTORE_DIR.'/templates/admin/inventory/inventory-events.php';
     }
