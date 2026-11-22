@@ -72,8 +72,9 @@ final class InventoryHooks {
             }
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
+            $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
-                (int) $order->get_id(), (int) $item->get_id(), $productId, $newStock - $oldStock
+                (int) $order->get_id(), (int) $item->get_id(), $productId, $newStock - $oldStock, $cycleUuid !== '' ? $cycleUuid : null
             );
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to persist cancellation restock event ('.get_class($e).').');
@@ -94,8 +95,9 @@ final class InventoryHooks {
                 else $itemId = 0;
             }
             if ($itemId === 0) $itemId = null; // ambiguous duplicate product lines remain queued for reconciliation
+            $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueRefund(
-                (int) $order->get_id(), $productId, $delta, $cumulative, $itemId
+                (int) $order->get_id(), $productId, $delta, $cumulative, $itemId, $cycleUuid !== '' ? $cycleUuid : null
             );
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to persist refund restock event ('.get_class($e).').');
