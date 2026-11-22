@@ -55,6 +55,11 @@ final class SyncWooCommerceStockUseCase {
                 || floor((float) $reducedStock) !== (float) $reducedStock) {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
             }
+            $orderedQuantity = $item->get_quantity();
+            if (!is_numeric($orderedQuantity) || floor((float) $orderedQuantity) !== (float) $orderedQuantity
+                || (int) $orderedQuantity !== (int) $reducedStock) {
+                throw new \RuntimeException('WooCommerce order item quantity changed after its stock reduction.');
+            }
 
             $itemId = (int) $item->get_id();
             $wcProductId = (int) $item->get_product_id();
