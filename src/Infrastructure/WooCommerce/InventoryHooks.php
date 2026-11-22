@@ -157,7 +157,13 @@ final class InventoryHooks {
                 $parentId = (int) $item->get_product_id();
                 $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
                 if ($productId !== $parentId && $productId !== $variationId) continue;
-                $cumulative += (int) $item->get_meta('_restock_refunded_items', true);
+                $rawCumulative = $item->get_meta('_restock_refunded_items', true);
+                if ($rawCumulative === '' || $rawCumulative === null) $rawCumulative = 0;
+                if (!is_numeric($rawCumulative) || (int) $rawCumulative < 0
+                    || floor((float) $rawCumulative) !== (float) $rawCumulative) {
+                    throw new \InvalidArgumentException('WooCommerce refund cumulative restock metadata is invalid.');
+                }
+                $cumulative += (int) $rawCumulative;
                 if ($itemId === null) $itemId = (int) $item->get_id();
                 else $itemId = 0;
             }
