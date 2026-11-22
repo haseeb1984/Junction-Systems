@@ -439,6 +439,8 @@ if (!is_string($posSyncSource)
     || strpos($posSyncSource, "WooCommerce POS order has no persisted ID.") === false
     || strpos($posSyncSource, "markSynced((int) \$wcOrder->get_id())") === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
+    || strpos($posSyncSource, "update_meta_data('_reduced_stock', \$quantity)") === false
+    || strpos($posSyncSource, "get_meta('_reduced_stock', true)") === false
     || !is_string($posEntitySource)
     || strpos($posEntitySource, "public ?int \$wcOrderId") === false
     || strpos($posEntitySource, "markSynced(int \$wcOrderId)") === false
