@@ -360,3 +360,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 
 - AI chat input sanitization now falls back to byte-safe `substr` when the optional PHP `mbstring` extension is unavailable. The controller already validates length with the same extension fallback; the use case no longer fatals on otherwise supported PHP installations without mbstring. Added a source smoke guard.
+
+
+## AI chat provider-cost rate-limit serialization
+
+- The existing per-session (20/hour) and per-IP (100/hour) counters used transient read/increment/write operations that could race under concurrent requests. AI chat now acquires both IP and session advisory locks in a deterministic order before checking/updating the counters.
+- If the database lock or either counter persistence fails, the request is rate-limited rather than sent to the AI provider without a reliable cap. Locks are released in `finally`, and only an HMAC-derived IP key is used for the IP counter.
+- Added source-level smoke guards; concurrent request/load tests remain pending runtime acceptance.
