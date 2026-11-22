@@ -30,6 +30,7 @@ final class MigrationRunner {
         '2.0.10' => [Installer::class, 'addOtpConsumptionColumns'],
         '2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
         '2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
+        '2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity'],
     ];
 
 
@@ -187,6 +188,20 @@ final class MigrationRunner {
             if (version_compare($version, '2.0.12', '>=')) {
                 $refundBaseline = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $cycleItems . ' LIKE %s', 'refund_cumulative_baseline'));
                 if (!$refundBaseline) throw new \\RuntimeException('Required stock-cycle refund baseline column was not created.');
+            }
+        }
+
+        if (version_compare($version, '2.0.13', '>=')) {
+            $orderQueue = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+            $cycleUuid = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $orderQueue . ' LIKE %s', 'cycle_uuid'));
+            if (!$cycleUuid) throw new \RuntimeException('Required order queue cycle identity column was not created.');
+            self::verifyUniqueIndex($orderQueue, 'idx_order_cycle', ['wc_order_id', 'cycle_uuid']);
+            $legacyIndex = $wpdb->get_var($wpdb->prepare(
+                'SHOW INDEX FROM ' . $orderQueue . ' WHERE Key_name = %s',
+                'idx_wc_order'
+            ));
+            if ($wpdb->last_error !== '' || $legacyIndex) {
+                throw new \RuntimeException('Legacy order-only queue index was not replaced by the cycle identity index.');
             }
         }
 
