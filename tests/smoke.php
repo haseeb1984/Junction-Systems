@@ -436,8 +436,8 @@ if (!is_string($posSyncSource)
     || strpos($posSyncSource, "markSynced((int) $wcOrder->get_id())") === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
     || !is_string($posEntitySource)
-    || strpos($posEntitySource, "public ?int $wcOrderId") === false
-    || strpos($posEntitySource, "markSynced(int $wcOrderId)") === false
+    || strpos($posEntitySource, "public ?int \$wcOrderId") === false
+    || strpos($posEntitySource, "markSynced(int \$wcOrderId)") === false
     || !is_string($posRepositorySource)
     || strpos($posRepositorySource, "wc_order_id'=>$o->wcOrderId") === false
     || strpos($posRepositorySource, "SELECT product_id, sku, product_name AS name") === false
@@ -447,7 +447,7 @@ if (!is_string($posSyncSource)
     || !is_string($posStockLifecycle)
     || strpos($posStockLifecycle, "findById((int) $item->get_meta('_pkstore_inventory_product_id', true))") === false
     || strpos($posStockLifecycle, "findById((int) $item->get_meta('_pkstore_inventory_location_id', true))") === false
-    || strpos($posStockLifecycle, "$saleSource, $saleReference, $saleMovementType") === false) {
+    || strpos($posStockLifecycle, "\$saleSource, \$saleReference, \$saleMovementType") === false) {
     throw new \RuntimeException('POS-to-WooCommerce mirroring must be idempotent and preserve the single shared inventory deduction and original-location returns.');
 }
 
