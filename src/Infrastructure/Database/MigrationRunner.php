@@ -23,6 +23,7 @@ final class MigrationRunner {
         '2.0.3' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
         '2.0.4' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue'],
         '2.0.5' => [InventoryInstaller::class, 'installWooCommerceReturnInventoryQueue'],
+        '2.0.6' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue'],
     ];
 
 
@@ -141,6 +142,11 @@ final class MigrationRunner {
             $returnQueue = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
             $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $returnQueue . ' LIKE %s', 'claim_token'));
             if (!$claimToken) throw new \RuntimeException('Required return queue claim-token column was not created.');
+        }
+        if (version_compare($version, '2.0.6', '>=')) {
+            $orderQueue = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+            $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $orderQueue . ' LIKE %s', 'claim_token'));
+            if (!$claimToken) throw new \RuntimeException('Required order queue claim-token column was not created.');
         }
 
         foreach ($required as $suffix) {
