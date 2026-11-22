@@ -761,7 +761,8 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !
     || strpos($otpRepositorySource, 'expires_at>NOW()') !== false
     || strpos($otpRepositorySource, 'Unable to verify recent COD OTP send limits.') === false
     || strpos($otpRepositorySource, 'A failed rate-limit lookup must not be treated as zero sends.') === false
-    || strpos($otpRepositorySource, 'WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC LIMIT 1') === false
+    || strpos($otpRepositorySource, 'Unable to invalidate previous COD OTP attempts.') === false
+    || strpos($otpRepositorySource, 'WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC, expires_at DESC LIMIT 1') === false
     || strpos($otpCheckoutJsSource, 'order_id: state.orderId') !== false
     || strpos($otpCheckoutJsSource, 'state.orderId') !== false) {
     throw new \RuntimeException('COD OTP must be session-bound, single-use and enforced by server-side checkout validation.');
