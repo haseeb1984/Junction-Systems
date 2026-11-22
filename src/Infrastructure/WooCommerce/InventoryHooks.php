@@ -51,6 +51,7 @@ final class InventoryHooks {
         echo '<div class="notice notice-error"><p>Junction inventory integration is paused: database migration 2.0.13 is not complete. Confirm the required pre-migration hosting backup so the cycle-aware POS/online stock ledger can be upgraded safely.</p></div>';
     }
     public function onOrderStockReduced($order): void {
+        $orderId = 0;
         try {
             if (!($order instanceof \WC_Order) || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
             $orderId = (int) $order->get_id();
@@ -86,24 +87,34 @@ final class InventoryHooks {
                     throw new \RuntimeException('Unable to persist WooCommerce stock-cycle identity.');
                 }
             } catch (\Throwable $captureError) {
-                // Still enqueue the captured quantity so a failed cycle capture
-                // becomes visible in Sync Health instead of silently losing stock.
-                // If an older active cycle exists, its UUID remains on the order;
-                // the worker will fail closed on a conflicting snapshot.
-                $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)
-                    ->enqueue($orderId, null);
+                // A legacy sentinel queue row remains visible and blocks POS
+                // sales until the cycle can be safely reconstructed.
+                $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, null);
                 error_log('[PKStore Inventory] WooCommerce stock-cycle capture failed; order queued for review ('.get_class($captureError).').');
                 return;
             }
 
-            $orderQueue = $this->c->make(SyncWooCommerceStockUseCase::class)
-                    ->onWooCommerceSale($orderId, $cycleUuid);
+            $orderQueue = $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class);
+            $orderQueue->enqueue($orderId, $cycleUuid);
+
+            // Commit the shared ledger before this checkout request finishes.
+            // The durable queue remains the crash/retry fallback; an idempotent
+            // worker can safely replay the event if this synchronous pass fails.
+            try {
+                $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId, $cycleUuid);
                 $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
             } catch (\Throwable $syncError) {
                 error_log('[PKStore Inventory] Synchronous online stock ingestion deferred to durable queue ('.get_class($syncError).').');
             }
         } catch (\Throwable $error) {
-            error_log('[PKStore Inventory] WooCommerce stock reduction hook could not enqueue inventory processing ('.get_class($error).').');
+            if ($orderId > 0) {
+                try {
+                    $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, null);
+                } catch (\Throwable $queueError) {
+                    error_log('[PKStore Inventory] WooCommerce stock reduction fallback queue also failed ('.get_class($queueError).').');
+                }
+            }
+            error_log('[PKStore Inventory] WooCommerce stock reduction hook could not complete ingestion ('.get_class($error).').');
         }
     }
 
