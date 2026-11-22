@@ -37,6 +37,8 @@ final class ShippingRegistry {
         }
         if (function_exists('as_schedule_single_action')) {
             as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',['order_id'=>$orderId],'pkstore-logistics');
+        } elseif (!wp_next_scheduled('pkstore_retry_courier_booking', [$orderId])) {
+            wp_schedule_single_event(time()+10,'pkstore_retry_courier_booking',[$orderId]);
         }
     }
 
