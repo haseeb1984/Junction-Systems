@@ -381,3 +381,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Courier auto-booking previously listened only to `woocommerce_payment_complete`. WooCommerce's standard Cash on Delivery gateway normally moves COD orders to `processing` without firing that hook, so COD orders could miss automatic courier booking.
 - Added the `woocommerce_order_status_processing` trigger. Both hooks use the existing unique Action Scheduler/WP-Cron event and per-order booking lock, so paid online orders do not create duplicate bookings when both hooks fire.
 - Added a source smoke guard; staging acceptance must exercise COD, online payment, and duplicate status/payment hooks against courier sandboxes.
+
+- Courier booking now runs only for `processing` orders and skips orders carrying Junction's inventory-sync hold marker. The retry worker re-checks both conditions immediately before provider calls, so a scheduled action cannot book a shipment after an order is cancelled, put on hold, or held for unresolved stock-ledger reconciliation. When a held order is safely restored to processing, the normal processing hook schedules booking again.
