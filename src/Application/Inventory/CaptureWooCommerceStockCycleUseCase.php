@@ -293,6 +293,14 @@ final class CaptureWooCommerceStockCycleUseCase {
                 if ($wpdb->last_error !== '' || $pendingReturn) {
                     throw new \RuntimeException('Previous WooCommerce stock cycle has an unprocessed return event.');
                 }
+                $returnQueueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+                $pendingQueueReturn = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$returnQueueTable} WHERE cycle_uuid=%s LIMIT 1",
+                    (string) $existing['cycle_uuid']
+                ));
+                if ($wpdb->last_error !== '' || $pendingQueueReturn) {
+                    throw new \RuntimeException('Previous WooCommerce stock cycle still has a queued return event.');
+                }
                 $existingItems = $wpdb->get_results($wpdb->prepare(
                     "SELECT wc_order_item_id, wc_parent_product_id, wc_variation_id,
                             inventory_product_id, inventory_location_id, reduced_quantity, refund_cumulative_baseline
