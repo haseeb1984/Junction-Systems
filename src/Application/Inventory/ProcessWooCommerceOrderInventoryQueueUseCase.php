@@ -102,21 +102,20 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             try {
                 $cycleUuid = (string) ($job['cycle_uuid'] ?? self::LEGACY_CYCLE_UUID);
                 $claimToken = (string) ($job['claim_token'] ?? '');
-                if ($cycleUuid === self::LEGACY_CYCLE_UUID) {
-                    $order = wc_get_order($orderId);
-                    if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable.');
-                    if ((string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
-                        $cycleUuid = $this->cycleCapture->capture($order);
-                        $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
-                        if ((int) $order->save() !== $orderId) {
-                            throw new \RuntimeException('Unable to persist retried WooCommerce stock-cycle identity.');
-                        }
-                        if (!$this->bindCycleIdentity($id, $orderId, $generation, $claimToken, $cycleUuid)) {
-                            continue;
-                        }
-                    } else {
-                        $cycleUuid = self::LEGACY_CYCLE_UUID;
+                $order = wc_get_order($orderId);
+                if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable.');
+                if ($cycleUuid === self::LEGACY_CYCLE_UUID
+                    && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+                    $cycleUuid = $this->cycleCapture->capture($order);
+                    $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+                    if ((int) $order->save() !== $orderId) {
+                        throw new \RuntimeException('Unable to persist retried WooCommerce stock-cycle identity.');
                     }
+                    if (!$this->bindCycleIdentity($id, $orderId, $generation, $claimToken, $cycleUuid)) {
+                        continue;
+                    }
+                } elseif ($cycleUuid !== self::LEGACY_CYCLE_UUID) {
+                    $this->ensureActiveCycleMeta($order, $orderId, $cycleUuid);
                 }
                 $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
                 $this->complete($id, $generation, $claimToken);
@@ -142,6 +141,41 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
 
         return $result;
+    }
+
+    private function ensureActiveCycleMeta(\WC_Order $order, int $orderId, string $cycleUuid): void {
+        $currentCycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        if ($currentCycleUuid === $cycleUuid) return;
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle metadata recovery.');
+        $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+        $targetNumber = $wpdb->get_var($wpdb->prepare(
+            "SELECT cycle_number FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s",
+            $orderId,
+            $cycleUuid
+        ));
+        if ($wpdb->last_error !== '' || !is_numeric($targetNumber)) {
+            throw new \RuntimeException('WooCommerce stock-cycle identity is unavailable for order metadata recovery.');
+        }
+
+        $currentNumber = 0;
+        if ($currentCycleUuid !== '') {
+            $currentNumber = $wpdb->get_var($wpdb->prepare(
+                "SELECT cycle_number FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s",
+                $orderId,
+                $currentCycleUuid
+            ));
+            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect current WooCommerce stock-cycle metadata.');
+            $currentNumber = is_numeric($currentNumber) ? (int) $currentNumber : 0;
+        }
+
+        if ((int) $targetNumber >= $currentNumber) {
+            $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+            if ((int) $order->save() !== $orderId) {
+                throw new \RuntimeException('Unable to persist active WooCommerce stock-cycle metadata.');
+            }
+        }
     }
 
     private function bindCycleIdentity(int $id, int $orderId, string $generation, string $claimToken, string $cycleUuid): bool {
