@@ -89,7 +89,9 @@
 <tr><th><label for="name">Name *</label></th><td><input type="text" id="name" name="name" class="regular-text" required placeholder="Red Shirt Large"></td></tr>
 <tr><th><label for="barcode">Barcode</label></th><td><input type="text" id="barcode" name="barcode" class="regular-text" placeholder="Leave blank to auto-generate"></td></tr>
 <tr><th><label for="category">Category</label></th><td><input type="text" id="category" name="category" class="regular-text" placeholder="Clothing"></td></tr>
+<?php if(current_user_can('manage_options')):?>
 <tr><th><label for="cost_price">Cost Price (PKR)</label></th><td><input type="number" id="cost_price" name="cost_price" class="small-text" min="0" value="0"></td></tr>
+<?php endif;?>
 <tr><th><label for="sale_price">Sale Price (PKR) *</label></th><td><input type="number" id="sale_price" name="sale_price" class="small-text" min="0" value="0" required></td></tr>
 <tr><th><label for="reorder_point">Reorder Point</label></th><td><input type="number" id="reorder_point" name="reorder_point" class="small-text" min="0" value="5"><p class="description">Alert when stock falls to this level</p></td></tr>
 <tr><th><label for="unit">Unit</label></th><td><select id="unit" name="unit"><option value="piece">Piece</option><option value="kg">KG</option><option value="litre">Litre</option><option value="box">Box</option><option value="pair">Pair</option><option value="set">Set</option></select></td></tr>
