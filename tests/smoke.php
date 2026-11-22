@@ -808,13 +808,17 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "'ROLLBACK'") === false
     || strpos($stockCycleCaptureSource, '$wpdb->last_error') === false
     || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
+    || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
-    || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') !== false
+    || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') === false
+    || strpos($stockCycleHooksSource, '_pkstore_wc_active_cycle_uuid') === false
     || !is_string($stockCycleServicesSource)
-    || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') !== false) {
-    throw new \RuntimeException('WooCommerce stock-cycle capture must snapshot actual reductions atomically and remain disabled until cycle-aware workers are ready.');
+    || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') === false) {
+    throw new \RuntimeException('WooCommerce stock-cycle capture must be wired to the real reduction hook and registered with the cycle-aware ledger workers.');
 }
+
+
 
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 if (!is_string($stockCycleCaptureSource)
