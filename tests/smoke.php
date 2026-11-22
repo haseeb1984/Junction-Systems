@@ -611,13 +611,22 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
 $inventoryControllerSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
 $inventoryAdminSource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
 $inventoryTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/inventory/inventory.php');
+$locationRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpLocationRepository.php');
+$locationTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/inventory/locations.php');
 if (!is_string($inventoryControllerSource) || !is_string($inventoryAdminSource) || !is_string($inventoryTemplateSource)
+    || !is_string($locationRepositorySource) || !is_string($locationTemplateSource)
     || strpos($inventoryControllerSource, 'if ($canViewCosts) $row[\'cost_price\'] = $p->costPricePkr') === false
     || strpos($inventoryControllerSource, 'if (current_user_can(\'manage_options\')) $productData[\'cost_price\']') === false
+    || strpos($inventoryControllerSource, '->findPOS()') === false
     || strpos($inventoryAdminSource, 'current_user_can(\'manage_options\') ? filter_var($_POST[\'cost_price\']') === false
     || strpos($inventoryAdminSource, 'add_submenu_page(\'pkstore-operations\',\'Purchase Orders\',\'🚚 Purchase Orders\',\'manage_options\'') === false
+    || strpos($inventoryAdminSource, 'isEnabled(\'multi_location\')') === false
+    || strpos($inventoryAdminSource, 'handleAddLocation()') === false
+    || strpos($locationRepositorySource, 'public function create(string $name, string $type, string $address, bool $isPos): int') === false
+    || strpos($locationTemplateSource, 'pkstore_inventory_action') === false
+    || strpos($locationTemplateSource, 'Add Location') === false
     || strpos($inventoryTemplateSource, 'if(current_user_can(\'manage_options\')):') === false) {
-    throw new \RuntimeException('Inventory cost and purchase-order financial data must be administrator-only.');
+    throw new \RuntimeException('Inventory cost and purchase-order financial data must be administrator-only, and Enterprise locations must be package-gated.');
 }
 
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
