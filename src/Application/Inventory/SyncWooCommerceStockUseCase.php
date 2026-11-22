@@ -129,7 +129,7 @@ final class SyncWooCommerceStockUseCase {
             $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
             $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
             $cycleHeader = $wpdb->get_row($wpdb->prepare(
-                "SELECT state FROM {$cyclesTable} WHERE cycle_uuid=%s AND wc_order_id=%d FOR UPDATE",
+                "SELECT state,cycle_number FROM {$cyclesTable} WHERE cycle_uuid=%s AND wc_order_id=%d FOR UPDATE",
                 $cycleUuid,
                 $orderId
             ), ARRAY_A);
@@ -142,6 +142,18 @@ final class SyncWooCommerceStockUseCase {
             ), ARRAY_A);
             if ($wpdb->last_error !== '' || !is_array($reductionEvent)) {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction event is unavailable.');
+            }
+            $earlierPendingCycle = $wpdb->get_var($wpdb->prepare(
+                "SELECT c.cycle_uuid
+                 FROM {$cyclesTable} c
+                 INNER JOIN {$eventsTable} e ON e.cycle_uuid=c.cycle_uuid AND e.event_kind='reduction'
+                 WHERE c.wc_order_id=%d AND c.cycle_number<%d AND e.status<>'processed'
+                 LIMIT 1",
+                $orderId,
+                (int) $cycleHeader['cycle_number']
+            ));
+            if ($wpdb->last_error !== '' || $earlierPendingCycle) {
+                throw new \RuntimeException('An earlier WooCommerce stock-cycle sale must be processed first.');
             }
             if (in_array($cycleHeader['state'], ['restoring', 'closed'], true)
                 && $reductionEvent['status'] === 'processed') {
