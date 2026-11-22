@@ -83,8 +83,10 @@ foreach (['junction_pos', 'inventory_management', 'whatsapp_api', 'quickbooks_sy
         throw new \RuntimeException('Basic package entitlement is missing: ' . $required);
     }
 }
-if (in_array('mailchimp', $basic, true)) {
-    throw new \RuntimeException('Mailchimp must remain a Standard package extra.');
+if (in_array('mailchimp', $basic, true)
+    || in_array('postex_courier', $basic, true)
+    || in_array('rider_courier', $basic, true)) {
+    throw new \RuntimeException('Standard package extras must not leak into Basic.');
 }
 
 
