@@ -42,7 +42,7 @@ final class ThemeBootstrapper {
             (new CodOtpController($this->c))->register();
 
         // ── Couriers ─────────────────────────────────────────────
-        (new ShippingWebhookHandler($this->c))->register();
+        (new ShippingWebhookHandler($this->c, $this->fm))->register();
 
         // ── Affiliate System ──────────────────────────────────────
         if ($this->fm->isEnabled('affiliate_system')) {
