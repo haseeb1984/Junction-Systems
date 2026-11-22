@@ -1,0 +1,247 @@
+<?php
+declare(strict_types=1);
+namespace PkStore\Infrastructure\AI;
+
+use PkStore\Domain\AI\AiProviderInterface;
+use PkStore\Domain\AI\Exception\AiProviderException;
+use PkStore\Domain\AI\ValueObject\{ChatRequest, ChatResponse};
+use PkStore\License\LicenseManager;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Groq OpenAI-compatible chat bridge.
+ *
+ * Credentials and the resolved per-install key limit are provisioned by the
+ * central licensing service. LicenseManager keeps the complete provider
+ * configuration inside its encrypted license cache; no customer-facing key
+ * editor or plaintext option is introduced on the store installation.
+ */
+final class GroqBridge implements AiProviderInterface {
+    private const API = 'https://api.groq.com/openai/v1/chat/completions';
+    private const NETWORK_COOLDOWN = 30;
+    private const SERVER_COOLDOWN = 60;
+    private const INVALID_KEY_COOLDOWN = 21600;
+
+    public function __construct(
+        private readonly LoggerInterface $log,
+        private readonly LicenseManager $license
+    ) {}
+
+    public function getProviderName(): string {
+        return 'Groq';
+    }
+
+    public function getModelName(): string {
+        $config = $this->license->getGroqProviderConfig();
+        return $config['model'] !== '' ? $config['model'] : 'groq-unconfigured';
+    }
+
+    public function estimateTokens(string $text): int {
+        $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+        return (int) ceil($length / 4);
+    }
+
+    public function chat(ChatRequest $request): ChatResponse {
+        $config = $this->configuration();
+        $keys = $this->orderedKeys($config['keys']);
+        $lastStatus = 0;
+
+        foreach ($keys as $key) {
+            if ($this->isCoolingDown($key)) continue;
+
+            $response = wp_remote_post(self::API, [
+                'timeout' => 30,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'Bearer ' . $key,
+                ],
+                'body' => wp_json_encode([
+                    'model' => $config['model'],
+                    'messages' => array_map(static fn($message) => $message->toArray(), $request->messages),
+                    'max_tokens' => $request->maxTokens,
+                    'temperature' => $request->temperature,
+                    'stream' => false,
+                ]),
+            ]);
+
+            if (is_wp_error($response)) {
+                $this->coolDown($key, self::NETWORK_COOLDOWN);
+                $this->log->warning('Groq key temporarily skipped after a transport failure.', [
+                    'key_fingerprint' => $this->fingerprint($key),
+                ]);
+                continue;
+            }
+
+            $status = (int) wp_remote_retrieve_response_code($response);
+            $lastStatus = $status;
+            if ($status === 429) {
+                $this->coolDown($key, $this->retryAfter($response));
+                continue;
+            }
+            if ($status === 401 || $status === 403) {
+                $this->coolDown($key, self::INVALID_KEY_COOLDOWN);
+                $this->log->warning('Groq rejected a provisioned key; it has been temporarily disabled.', [
+                    'key_fingerprint' => $this->fingerprint($key),
+                    'http_status' => $status,
+                ]);
+                continue;
+            }
+            if ($status >= 500) {
+                $this->coolDown($key, self::SERVER_COOLDOWN);
+                continue;
+            }
+            if ($status < 200 || $status >= 300) {
+                throw new AiProviderException('Groq rejected the chat request (HTTP ' . $status . ').');
+            }
+
+            $body = json_decode(wp_remote_retrieve_body($response), true);
+            if (!is_array($body) || !is_array($body['choices'] ?? null)) {
+                throw new AiProviderException('Groq returned an invalid chat response.');
+            }
+
+            $content = trim((string) ($body['choices'][0]['message']['content'] ?? ''));
+            if ($content === '') {
+                throw new AiProviderException('Groq returned an empty chat response.');
+            }
+
+            $usage = is_array($body['usage'] ?? null) ? $body['usage'] : [];
+            return new ChatResponse(
+                $content,
+                (int) ($usage['prompt_tokens'] ?? 0),
+                (int) ($usage['completion_tokens'] ?? 0),
+                (string) ($body['choices'][0]['finish_reason'] ?? 'unknown'),
+                (string) ($body['model'] ?? $config['model'])
+            );
+        }
+
+        $this->log->warning('No provisioned Groq key is currently available.', [
+            'configured_keys' => count($keys),
+            'last_http_status' => $lastStatus,
+        ]);
+        throw new AiProviderException('All configured Groq keys are temporarily unavailable, rate-limited or invalid. Please try again shortly.');
+    }
+
+    public function streamChat(ChatRequest $request): \Generator {
+        $config = $this->configuration();
+        $keys = $this->orderedKeys($config['keys']);
+
+        if (!function_exists('curl_init')) {
+            $response = $this->chat($request);
+            yield $response->content;
+            return;
+        }
+
+        foreach ($keys as $key) {
+            if ($this->isCoolingDown($key)) continue;
+
+            $buffer = '';
+            $curl = curl_init(self::API);
+            curl_setopt_array($curl, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => wp_json_encode([
+                    'model' => $config['model'],
+                    'messages' => array_map(static fn($message) => $message->toArray(), $request->messages),
+                    'max_tokens' => $request->maxTokens,
+                    'temperature' => $request->temperature,
+                    'stream' => true,
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $key,
+                ],
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_RETURNTRANSFER => false,
+                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$buffer): int {
+                    $buffer .= $chunk;
+                    return strlen($chunk);
+                },
+            ]);
+
+            curl_exec($curl);
+            $error = curl_error($curl);
+            $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_close($curl);
+
+            if ($error !== '') {
+                $this->coolDown($key, self::NETWORK_COOLDOWN);
+                continue;
+            }
+            if ($status === 429) {
+                $this->coolDown($key, 300);
+                continue;
+            }
+            if ($status === 401 || $status === 403) {
+                $this->coolDown($key, self::INVALID_KEY_COOLDOWN);
+                continue;
+            }
+            if ($status >= 500) {
+                $this->coolDown($key, self::SERVER_COOLDOWN);
+                continue;
+            }
+            if ($status < 200 || $status >= 300) {
+                throw new AiProviderException('Groq rejected the streaming request (HTTP ' . $status . ').');
+            }
+
+            $yielded = false;
+            foreach (explode("\n", $buffer) as $line) {
+                if (!str_starts_with($line, 'data: ')) continue;
+                $data = trim(substr($line, 6));
+                if ($data === '[DONE]') break;
+                $chunk = json_decode($data, true);
+                $delta = $chunk['choices'][0]['delta']['content'] ?? '';
+                if (is_string($delta) && $delta !== '') {
+                    $yielded = true;
+                    yield $delta;
+                }
+            }
+            if (!$yielded) {
+                throw new AiProviderException('Groq returned an empty streaming response.');
+            }
+            return;
+        }
+
+        throw new AiProviderException('All configured Groq keys are temporarily unavailable, rate-limited or invalid. Please try again shortly.');
+    }
+
+    /** @return array{keys: string[], model: string} */
+    private function configuration(): array {
+        $config = $this->license->getGroqProviderConfig();
+        if (empty($config['keys']) || empty($config['model'])) {
+            throw new AiProviderException('Groq is not configured for this installation. Contact Junction support.');
+        }
+        return ['keys' => $config['keys'], 'model' => $config['model']];
+    }
+
+    /** @param string[] $keys
+     *  @return string[]
+     */
+    private function orderedKeys(array $keys): array {
+        if (count($keys) > 1) {
+            $offset = wp_rand(0, count($keys) - 1);
+            $keys = array_merge(array_slice($keys, $offset), array_slice($keys, 0, $offset));
+        }
+        return $keys;
+    }
+
+    private function fingerprint(string $key): string {
+        return substr(hash('sha256', $key), 0, 12);
+    }
+
+    private function cooldownKey(string $key): string {
+        return 'pkstore_groq_key_cooldown_' . $this->fingerprint($key);
+    }
+
+    private function isCoolingDown(string $key): bool {
+        return get_transient($this->cooldownKey($key)) !== false;
+    }
+
+    private function coolDown(string $key, int $seconds): void {
+        set_transient($this->cooldownKey($key), 1, max(30, min($seconds, 21600)));
+    }
+
+    private function retryAfter(array $response): int {
+        $header = wp_remote_retrieve_header($response, 'retry-after');
+        $seconds = is_numeric($header) ? (int) $header : 300;
+        return max(30, min($seconds, 3600));
+    }
+}
