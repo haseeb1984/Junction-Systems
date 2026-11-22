@@ -194,11 +194,17 @@ final class CodOtpController {
             return;
         }
 
-        $consumed = $this->container->make(OtpRepositoryInterface::class)->consumeVerifiedAttempt(
-            (string) $proof['attempt_id'],
-            $billingPhone,
-            $sessionRef
-        );
+        try {
+            $consumed = $this->container->make(OtpRepositoryInterface::class)->consumeVerifiedAttempt(
+                (string) $proof['attempt_id'],
+                $billingPhone,
+                $sessionRef
+            );
+        } catch (\\Throwable $error) {
+            error_log('[PK Store] COD OTP proof consumption failed (' . get_class($error) . ').');
+            $errors->add('pkstore_cod_otp_unavailable', 'Phone verification could not be confirmed. Please try again.');
+            return;
+        }
         if (!$consumed) {
             $this->clearSessionProof();
             $errors->add('pkstore_cod_otp_replay', 'This phone verification has already been used or expired. Please request a new code.');
