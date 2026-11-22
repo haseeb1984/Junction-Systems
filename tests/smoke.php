@@ -900,6 +900,8 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false
     || strpos($courierRetrySource, "_pkstore_pos_origin") === false
     || strpos($courierRetrySource, "str_starts_with(\$existingTracking, 'PENDING-')") === false
+    || strpos($courierRetrySource, "str_starts_with(\$result->trackingNumber, 'PENDING-')") === false
+    || strpos($courierRetrySource, 'Courier booking is still pending; no provider has confirmed a shipment yet.') === false
     || strpos($courierRetrySource, 'isDigitalOnlyOrder($order)') === false
     || strpos($courierRetrySource, 'SELECT GET_LOCK(%s, %d)') === false
     || strpos($courierRetrySource, 'SELECT RELEASE_LOCK(%s)') === false
