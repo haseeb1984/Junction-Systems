@@ -223,7 +223,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             'meta_key' => '_pkstore_easypaisa_order_id',
             'meta_value' => $orderRef,
         ]);
-        if (!is_array($orders) || count($orders) !== 1 || !$orders[0] instanceof \\WC_Order
+        if (!is_array($orders) || count($orders) !== 1 || !$orders[0] instanceof \WC_Order
             || $orders[0]->get_payment_method() !== $this->id) {
             status_header(is_array($orders) && count($orders) > 1 ? 409 : 404);
             exit;
