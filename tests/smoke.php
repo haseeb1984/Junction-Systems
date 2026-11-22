@@ -482,6 +482,7 @@ $returnQueueRetrySource = file_get_contents($src . '/Application/Inventory/Proce
 $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
 if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order): void') === false
+    || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($orderQueueRetrySource, 'update_status($previousStatus') === false
     || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order)') === false
@@ -947,6 +948,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, 'markReturnPending(') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_cycle_return_capture_failed_') === false
     || strpos($stockCycleHooksSource, 'holdOrderForInventorySync(') === false
+    || strpos($stockCycleHooksSource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($stockCycleHooksSource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
     || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order)') === false
