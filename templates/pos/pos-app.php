@@ -369,13 +369,21 @@ const POS = {
         try {
             result = await this.api('/pos/sale','POST',payload);
         } catch(e) {
-            if (e.status) {
+            const definitiveClientError = Number.isInteger(e.status)
+                && e.status >= 400 && e.status < 500
+                && ![408, 425, 429].includes(e.status);
+            if (definitiveClientError) {
+                // A 4xx validation/authorization response means the server
+                // rejected this request; restore only the local optimistic cache.
                 await this.applyLocalStockDelta(items, 1);
                 this.toast('Sale rejected: ' + e.message);
             } else {
+                // A timeout, network error, or 5xx may happen after the server
+                // committed the sale. Preserve the same idempotency reference and
+                // retry it; never present an ambiguous result as a rejected sale.
                 await DB.put('queue', {...payload, ref:orderRef, total, offline:true, status:'pending', queued_at:Date.now(), local_stock_decremented:true});
                 this.clearCart();
-                this.toast(\`⚡ Network unavailable — sale queued (\${orderRef})\`);
+                this.toast(\`⚡ Sale confirmation unavailable — safely queued (\${orderRef})\`);
             }
             btn.disabled = false; this.updateTotals();
             return;
