@@ -108,6 +108,41 @@
 
     <?php $renderQueue('Online store sale events', $salesEvents, 'sales'); ?>
     <?php $renderQueue('Cancellation and refund restock events', $returnEvents, 'returns'); ?>
+
+    <h2>WooCommerce stock-cycle events</h2>
+    <p class="description">Immutable reduction/return event records used to bind each real WooCommerce stock change to its own Junction ledger cycle. This table is read-only; retry actions operate on the linked durable sale/return queue rows above.</p>
+    <table class="wp-list-table widefat fixed striped">
+        <thead>
+            <tr>
+                <th>Cycle / event</th><th>Order / item</th><th>Kind / source hook</th>
+                <th>Quantity</th><th>Cumulative</th><th>Status</th><th>Attempts / next retry</th><th>Last error category</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach (($cycleEvents ?? []) as $event): ?>
+            <tr>
+                <td><code><?= esc_html(substr((string) ($event['cycle_uuid'] ?? ''), 0, 8)) ?></code><br>
+                    <small><?= esc_html(substr((string) ($event['event_uuid'] ?? ''), 0, 8)) ?></small></td>
+                <td><strong>#<?= esc_html((string) ($event['wc_order_id'] ?? '')) ?></strong><br>
+                    <small>Item <?= esc_html((string) ($event['wc_order_item_id'] ?? '—')) ?></small></td>
+                <td><?= esc_html($event['event_kind'] ?? '') ?><br>
+                    <small><?= esc_html($event['source_hook'] ?? '') ?></small></td>
+                <td><?= esc_html((string) ($event['quantity'] ?? 0)) ?></td>
+                <td><?= esc_html((string) ($event['cumulative_quantity'] ?? 0)) ?></td>
+                <td><code><?= esc_html($event['status'] ?? '') ?></code>
+                    <?php if (!empty($event['claimed_at'])): ?><br><small>Claimed: <?= esc_html($event['claimed_at']) ?></small><?php endif; ?>
+                </td>
+                <td><?= esc_html((string) ($event['attempts'] ?? 0)) ?><br>
+                    <small><?= esc_html($event['next_attempt_at'] ?? '—') ?></small></td>
+                <td><?= esc_html($event['last_error'] ?: '—') ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (empty($cycleEvents)): ?>
+            <tr><td colspan="8" style="text-align:center;padding:20px;color:#646970;">No stock-cycle events found.</td></tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <p class="description">Showing the latest <?= esc_html((string) count($cycleEvents ?? [])) ?> cycle event(s), up to 100.</p>
     <?php $renderQueue('WooCommerce aggregate stock-sync events', $stockEvents, 'stock', false); ?>
 
     <h2>Recent operator audit</h2>
