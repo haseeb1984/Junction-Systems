@@ -291,6 +291,11 @@ if (!is_string($returnSource)
     || !is_string($returnHooks)
     || strpos($returnHooks, "woocommerce_restore_order_item_stock") === false
     || strpos($returnHooks, "onOrderItemRestored") === false
+    || strpos($returnHooks, "woocommerce_reduce_order_stock") === false
+    || strpos($returnHooks, "onOrderStockReduced") === false
+    || strpos($returnHooks, "woocommerce_payment_complete") !== false
+    || strpos($returnHooks, "woocommerce_order_status_processing") !== false
+    || strpos($returnHooks, "woocommerce_order_status_completed") !== false
     || !in_array(\PkStore\Domain\Inventory\Entity\MovementType::OnlineReturn, \PkStore\Domain\Inventory\Entity\MovementType::cases(), true)) {
     throw new \RuntimeException('Actual WooCommerce cancellation restocks must be mirrored idempotently into the Junction ledger.');
 }
