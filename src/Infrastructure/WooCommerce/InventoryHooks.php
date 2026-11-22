@@ -96,14 +96,7 @@ final class InventoryHooks {
                 return;
             }
 
-            $orderQueue = $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class);
-            $orderQueue->enqueue($orderId, $cycleUuid);
-
-            // Commit the shared ledger before this checkout request finishes.
-            // The durable queue remains the crash/retry fallback; an idempotent
-            // worker can safely replay the event if this synchronous pass fails.
-            try {
-                $this->c->make(\PkStore\Application\Inventory\SyncWooCommerceStockUseCase::class)
+            $orderQueue = $this->c->make(SyncWooCommerceStockUseCase::class)
                     ->onWooCommerceSale($orderId, $cycleUuid);
                 $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
             } catch (\Throwable $syncError) {
