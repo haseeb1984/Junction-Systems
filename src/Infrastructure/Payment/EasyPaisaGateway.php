@@ -312,7 +312,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         $expectedAmount = wc_format_decimal($order->get_meta('_pkstore_easypaisa_expected_amount'), 2, false);
         $reportedAmount = wc_format_decimal((string) ($status['transactionAmount'] ?? ''), 2, false);
-        if ($expectedAmount === '' || $reportedAmount === '' || $expectedAmount !== $reportedAmount) {
+        if ($expectedAmount === '' || $reportedAmount === '' || !hash_equals($expectedAmount, $reportedAmount)) {
             $order->add_order_note('Easypaisa status rejected: reported amount does not match the order. Manual reconciliation is required.');
             $order->update_meta_data('_pkstore_easypaisa_state', 'review');
             $order->save();
