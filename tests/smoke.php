@@ -365,6 +365,14 @@ if (!is_string($wcLifecycleSource)
 }
 
 
+$inventoryHooksLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
+if (!is_string($inventoryHooksLifecycleSource)
+    || strpos($inventoryHooksLifecycleSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')") === false
+    || strpos($inventoryHooksLifecycleSource, 'blockPurchasesDuringMigration') === false
+    || strpos($inventoryHooksLifecycleSource, 'migrationNotice') === false) {
+    throw new \RuntimeException('WooCommerce checkout must remain paused until cycle-aware inventory migrations complete.');
+}
+
 $returnQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
 $inventoryInstallerSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
 if (!is_string($returnQueueSource)
