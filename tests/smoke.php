@@ -595,6 +595,8 @@ $otpCheckoutJsSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/
 if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !is_string($otpCheckoutJsSource)
     || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
     || strpos($codOtpControllerSource, 'consumeVerifiedAttempt(') === false
+    || strpos($codOtpControllerSource, 'is_virtual()') === false
+    || strpos($codOtpControllerSource, 'is_downloadable()') !== false
     || strpos($codOtpControllerSource, "hash_equals((string) (\$proof['phone'] ?? ''), \$billingPhone->e164)") === false
     || strpos($codOtpControllerSource, "update_meta_data('_pkstore_cod_otp_verified', 'yes')") === false
     || strpos($otpRepositorySource, 'consumed_at IS NULL') === false
