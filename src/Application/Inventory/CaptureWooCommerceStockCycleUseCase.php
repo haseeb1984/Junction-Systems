@@ -9,8 +9,8 @@ use PkStore\Domain\Inventory\Repository\LocationRepositoryInterface;
 /**
  * Persist an immutable snapshot of one real WooCommerce stock-reduction pass.
  *
- * This service is intentionally not registered or hooked into production yet.
- * Cycle-aware sale and return workers must exist before capture is enabled.
+ * This service is called by the actual WooCommerce stock-reduction hook.
+ * It snapshots each reduction cycle before asynchronous ledger processing.
  */
 final class CaptureWooCommerceStockCycleUseCase {
     public function __construct(
@@ -88,6 +88,11 @@ final class CaptureWooCommerceStockCycleUseCase {
                 throw new \RuntimeException('Reduced WooCommerce product has no Junction inventory mapping.');
             }
 
+            $refundBaselineRaw = $item->get_meta('_restock_refunded_items', true);
+            $refundBaseline = $refundBaselineRaw === '' || $refundBaselineRaw === null ? 0 : $refundBaselineRaw;
+            if (!is_numeric($refundBaseline) || (int) $refundBaseline < 0 || floor((float) $refundBaseline) !== (float) $refundBaseline) {
+                throw new \RuntimeException('WooCommerce stock-cycle refund baseline is invalid.');
+            }
             $snapshot[] = [
                 'item_id' => $itemId,
                 'parent_id' => $parentId,
@@ -95,6 +100,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 'inventory_product_id' => (int) $inventoryProduct->id,
                 'inventory_location_id' => (int) $onlineLocation->id,
                 'quantity' => (int) $reduced,
+                'refund_cumulative_baseline' => (int) $refundBaseline,
             ];
         }
 
@@ -121,7 +127,7 @@ final class CaptureWooCommerceStockCycleUseCase {
             if (is_array($existing)) {
                 $existingItems = $wpdb->get_results($wpdb->prepare(
                     "SELECT wc_order_item_id, wc_parent_product_id, wc_variation_id,
-                            inventory_product_id, inventory_location_id, reduced_quantity
+                            inventory_product_id, inventory_location_id, reduced_quantity, refund_cumulative_baseline
                      FROM {$itemsTable} WHERE cycle_uuid=%s ORDER BY wc_order_item_id ASC",
                     (string) $existing['cycle_uuid']
                 ), ARRAY_A);
@@ -137,6 +143,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                         'inventory_product_id' => (int) $row['inventory_product_id'],
                         'inventory_location_id' => (int) $row['inventory_location_id'],
                         'quantity' => (int) $row['reduced_quantity'],
+                        'refund_cumulative_baseline' => (int) $row['refund_cumulative_baseline'],
                     ];
                 }
                 if ($existingSnapshot !== $snapshot) {
@@ -187,9 +194,10 @@ final class CaptureWooCommerceStockCycleUseCase {
                     'inventory_product_id' => $line['inventory_product_id'],
                     'inventory_location_id' => $line['inventory_location_id'],
                     'reduced_quantity' => $line['quantity'],
+                    'refund_cumulative_baseline' => $line['refund_cumulative_baseline'],
                     'created_at' => $now,
                     'updated_at' => $now,
-                ], ['%s', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%s', '%s']);
+                ], ['%s', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%s', '%s']);
                 if ($inserted !== 1) {
                     throw new \RuntimeException('Unable to persist WooCommerce stock-cycle line snapshot.');
                 }
