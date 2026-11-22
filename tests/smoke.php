@@ -555,6 +555,18 @@ if (!is_string($stockCycleInstallerSource)
 
 
 
+$trackingModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/tracking.mjs');
+if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
+    || strpos($trackingControllerSource, "'order_key'=>['required'=>true") === false
+    || strpos($trackingControllerSource, 'wc_get_order_id_by_order_key') === false
+    || strpos($trackingControllerSource, 'get_order_key()') === false
+    || strpos($trackingControllerSource, 'customerId !== get_current_user_id()') === false
+    || strpos($trackingControllerSource, "'tracking_number'") !== false
+    || strpos($trackingModuleSource, "body:{order_key:orderKey}") === false
+    || strpos($trackingModuleSource, "get('order_key')") === false) {
+    throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
+}
+
 $trackingControllerSource = file_get_contents($src . '/Infrastructure/Http/TrackingController.php');
 $shippingRegistryLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
 if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecycleSource)
