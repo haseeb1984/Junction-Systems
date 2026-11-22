@@ -262,6 +262,85 @@ final class InventoryInstaller {
         ) ENGINE=InnoDB {$cs};");
     }
 
+
+    /**
+     * Durable WooCommerce stock-cycle history. This migration installs storage
+     * only; capture/workers remain disabled until the cycle-aware path is complete.
+     */
+    public static function installWooCommerceStockCycles(): void {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $cs = $wpdb->get_charset_collate();
+
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_stock_cycles (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            wc_order_id BIGINT UNSIGNED NOT NULL,
+            cycle_uuid CHAR(36) NOT NULL,
+            cycle_number INT UNSIGNED NOT NULL,
+            state VARCHAR(24) NOT NULL DEFAULT 'reducing',
+            reduction_event_key VARCHAR(191) NOT NULL,
+            created_at DATETIME NOT NULL,
+            activated_at DATETIME DEFAULT NULL,
+            closed_at DATETIME DEFAULT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_cycle_uuid (cycle_uuid),
+            UNIQUE INDEX idx_order_cycle (wc_order_id, cycle_number),
+            UNIQUE INDEX idx_reduction_event (reduction_event_key),
+            INDEX idx_order_state (wc_order_id, state)
+        ) ENGINE=InnoDB {$cs};");
+
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_stock_cycle_items (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            cycle_uuid CHAR(36) NOT NULL,
+            wc_order_id BIGINT UNSIGNED NOT NULL,
+            wc_order_item_id BIGINT UNSIGNED NOT NULL,
+            wc_parent_product_id BIGINT UNSIGNED NOT NULL,
+            wc_variation_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            inventory_product_id INT UNSIGNED NOT NULL,
+            inventory_location_id INT UNSIGNED NOT NULL,
+            reduced_quantity INT UNSIGNED NOT NULL,
+            cancellation_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
+            refund_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_cycle_order_item (cycle_uuid, wc_order_item_id),
+            INDEX idx_order_item (wc_order_id, wc_order_item_id),
+            INDEX idx_inventory_product (inventory_product_id, inventory_location_id)
+        ) ENGINE=InnoDB {$cs};");
+
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_wc_stock_cycle_events (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            event_uuid CHAR(36) NOT NULL,
+            event_key VARCHAR(191) NOT NULL,
+            cycle_uuid CHAR(36) NOT NULL,
+            wc_order_id BIGINT UNSIGNED NOT NULL,
+            wc_order_item_id BIGINT UNSIGNED DEFAULT NULL,
+            event_kind VARCHAR(24) NOT NULL,
+            quantity INT UNSIGNED NOT NULL,
+            cumulative_quantity INT UNSIGNED NOT NULL DEFAULT 0,
+            source_hook VARCHAR(80) NOT NULL,
+            source_metadata LONGTEXT DEFAULT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_at DATETIME NOT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            claim_token CHAR(36) DEFAULT NULL,
+            last_error VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            processed_at DATETIME DEFAULT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_event_uuid (event_uuid),
+            UNIQUE INDEX idx_event_key (event_key),
+            INDEX idx_cycle_kind (cycle_uuid, event_kind),
+            INDEX idx_due (status, next_attempt_at),
+            INDEX idx_claimed (status, claimed_at),
+            INDEX idx_order_item (wc_order_id, wc_order_item_id)
+        ) ENGINE=InnoDB {$cs};");
+    }
+
     public static function installInventoryQueueAudit(): void {
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
