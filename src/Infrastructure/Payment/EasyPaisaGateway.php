@@ -75,7 +75,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         // Prevent two concurrent checkout requests from initiating separate
         // provider transactions for the same WooCommerce order.
-        $lockName = 'pkstore_payment_ep_' . $orderId;
+        $lockName = 'pkstore_payment_order_' . $orderId;
         $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ($wpdb->last_error !== '' || (int) $locked !== 1) {
             wc_add_notice('A payment attempt for this order is already being processed. Please wait and refresh the order status.', 'error');
@@ -103,6 +103,13 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
         if (get_woocommerce_currency() !== 'PKR') {
             wc_add_notice('Easypaisa is available only when the store currency is PKR.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        $otherGatewayTxn = (string) $order->get_meta('_pkstore_jazzcash_txn_ref');
+        $otherGatewayState = (string) $order->get_meta('_pkstore_jazzcash_state');
+        if ($otherGatewayTxn !== '' && $otherGatewayState !== 'failed') {
+            wc_add_notice('A JazzCash payment attempt for this order is still unresolved. Reconcile it before switching payment methods.', 'error');
             return ['result' => 'fail'];
         }
 
