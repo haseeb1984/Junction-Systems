@@ -575,4 +575,13 @@ if (!is_string($stockCycleCaptureSource)
     throw new \RuntimeException('WooCommerce stock-cycle capture must snapshot actual reductions atomically and remain disabled until cycle-aware workers are ready.');
 }
 
+$jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
+if (!is_string($jazzCashSource)
+    || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
+    || strpos($jazzCashSource, 'wc_format_decimal($order->get_total(), 2, false)') === false
+    || strpos($jazzCashSource, '$wholeRupees . $paisa') === false
+    || strpos($jazzCashSource, 'strlen($minorUnits) > 12') === false) {
+    throw new \\RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
+}
+
 echo "Smoke tests passed.\n";
