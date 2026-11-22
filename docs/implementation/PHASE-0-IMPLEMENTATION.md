@@ -367,3 +367,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The existing per-session (20/hour) and per-IP (100/hour) counters used transient read/increment/write operations that could race under concurrent requests. AI chat now acquires both IP and session advisory locks in a deterministic order before checking/updating the counters.
 - If the database lock or either counter persistence fails, the request is rate-limited rather than sent to the AI provider without a reliable cap. Locks are released in `finally`, and only an HMAC-derived IP key is used for the IP counter.
 - Added source-level smoke guards; concurrent request/load tests remain pending runtime acceptance.
+
+
+## Migration backup-gate legacy-install detection
+
+- The existing-install probe previously sampled only three known Junction tables. A partial or older installation containing another `pkstore_*` table could have been misclassified as a fresh install and bypassed the pre-migration backup confirmation.
+- The probe now detects any table under the active WordPress prefix beginning `pkstore_`, and fails closed if the schema query itself errors. The existing-install backup gate therefore applies to partial/legacy Junction data as well.
+- Added a source smoke guard; test against fresh, partial legacy and database-error fixtures remains pending runtime acceptance.
