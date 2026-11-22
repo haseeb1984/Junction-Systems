@@ -144,9 +144,18 @@ final class InventoryHooks {
                     error_log('[PKStore Inventory] WooCommerce cancellation cycle capture failed; queued return needs review ('.get_class($captureError).').');
                 }
             }
-            $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
+            $returnQueue = $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class);
+            $eventKey = $returnQueue->enqueueCancellation(
                 (int) $order->get_id(), (int) $item->get_id(), $productId, $quantity, $cycleUuid !== '' ? $cycleUuid : null
             );
+            try {
+                $applied = $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceOrderItemRestored(
+                    $item, (int) $newStock, (int) $oldStock, $order, $cycleUuid !== '' ? $cycleUuid : null
+                );
+                if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
+            } catch (\\Throwable $syncError) {
+                error_log('[PKStore Inventory] Synchronous cancellation restock deferred to durable queue ('.get_class($syncError).').');
+            }
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to persist cancellation restock event ('.get_class($e).').');
         }
@@ -188,9 +197,20 @@ final class InventoryHooks {
                     error_log('[PKStore Inventory] WooCommerce refund cycle capture failed; queued return needs review ('.get_class($captureError).').');
                 }
             }
-            $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueRefund(
+            $returnQueue = $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class);
+            $eventKey = $returnQueue->enqueueRefund(
                 (int) $order->get_id(), $productId, $delta, $cumulative, $itemId, $cycleUuid !== '' ? $cycleUuid : null
             );
+            if ($itemId !== null || $cycleUuid === '') {
+                try {
+                    $applied = $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceRefundItemRestocked(
+                        $productId, (int) $newStock, (int) $oldStock, $order, $product, $itemId, $cumulative, $cycleUuid !== '' ? $cycleUuid : null
+                    );
+                    if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
+                } catch (\\Throwable $syncError) {
+                    error_log('[PKStore Inventory] Synchronous refund restock deferred to durable queue ('.get_class($syncError).').');
+                }
+            }
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to persist refund restock event ('.get_class($e).').');
         }
