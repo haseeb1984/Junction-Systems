@@ -59,11 +59,15 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
              INNER JOIN {$itemsTable} i
                 ON i.cycle_uuid=e.cycle_uuid AND i.wc_order_item_id=e.wc_order_item_id
              LEFT JOIN {$queueTable} q
-                ON q.event_key=CASE
-                    WHEN e.event_kind='cancellation' THEN CONCAT('cancel:',e.cycle_uuid,':',e.wc_order_id,':',e.wc_order_item_id,':',e.quantity)
-                    WHEN e.event_kind='refund' THEN CONCAT('refund:',e.cycle_uuid,':',e.wc_order_id,':',COALESCE(NULLIF(CAST(JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(e.source_metadata) THEN e.source_metadata ELSE '{}' END,'$.wc_product_id')) AS UNSIGNED),0),NULLIF(i.wc_variation_id,0),i.wc_parent_product_id),':',e.wc_order_item_id,':',e.cumulative_quantity+i.refund_cumulative_baseline)
-                    ELSE ''
-                END
+                ON q.cycle_uuid=e.cycle_uuid
+               AND q.wc_order_id=e.wc_order_id
+               AND q.wc_order_item_id=e.wc_order_item_id
+               AND q.event_kind=e.event_kind
+               AND q.quantity=e.quantity
+               AND (
+                    (e.event_kind='cancellation' AND q.cumulative_quantity=0)
+                    OR (e.event_kind='refund' AND q.cumulative_quantity=e.cumulative_quantity+i.refund_cumulative_baseline)
+               )
              WHERE e.event_kind IN ('cancellation','refund')
                AND e.status='pending' AND e.next_attempt_at<=%s AND q.id IS NULL
              ORDER BY e.created_at ASC LIMIT %d",
