@@ -374,3 +374,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The existing-install probe previously sampled only three known Junction tables. A partial or older installation containing another `pkstore_*` table could have been misclassified as a fresh install and bypassed the pre-migration backup confirmation.
 - The probe now detects any table under the active WordPress prefix beginning `pkstore_`, and fails closed if the schema query itself errors. The existing-install backup gate therefore applies to partial/legacy Junction data as well.
 - Added a source smoke guard; test against fresh, partial legacy and database-error fixtures remains pending runtime acceptance.
+
+
+## COD courier booking trigger
+
+- Courier auto-booking previously listened only to `woocommerce_payment_complete`. WooCommerce's standard Cash on Delivery gateway normally moves COD orders to `processing` without firing that hook, so COD orders could miss automatic courier booking.
+- Added the `woocommerce_order_status_processing` trigger. Both hooks use the existing unique Action Scheduler/WP-Cron event and per-order booking lock, so paid online orders do not create duplicate bookings when both hooks fire.
+- Added a source smoke guard; staging acceptance must exercise COD, online payment, and duplicate status/payment hooks against courier sandboxes.
