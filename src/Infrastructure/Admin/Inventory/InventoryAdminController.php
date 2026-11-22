@@ -320,12 +320,14 @@ final class InventoryAdminController {
             ARRAY_A
         ) ?: []) : [];
 
-        $operatorAudit = $wpdb->get_results(
+        $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
+        $auditExists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($auditTable))) === $auditTable;
+        if (!$auditExists) $missingQueues[] = 'operator audit';
+        $operatorAudit = $auditExists ? ($wpdb->get_results(
             "SELECT queue_type, queue_id, action, reason, actor_id, created_at
-             FROM {$wpdb->prefix}pkstore_inventory_queue_audit
-             ORDER BY id DESC LIMIT 50",
+             FROM {$auditTable} ORDER BY id DESC LIMIT 50",
             ARRAY_A
-        ) ?: [];
+        ) ?: []) : [];
 
         include PKSTORE_DIR.'/templates/admin/inventory/inventory-events.php';
     }
