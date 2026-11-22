@@ -355,3 +355,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - JazzCash and EasyPaisa now acquire a per-order MySQL advisory lock before reading prior transaction state or initiating a provider request. Concurrent checkout submissions for the same WooCommerce order cannot race past the duplicate-charge guard and create separate provider transactions.
 - The lock is released in `finally`; lock acquisition failure fails closed, and an unconfirmed release is logged for operator visibility. Existing provider timeout/unknown-state handling remains in force.
 - Added source-level smoke guards. Runtime acceptance still needs concurrent checkout requests, provider timeout-after-acceptance simulation, and MySQL/MariaDB lock-release tests.
+
+- The order lock is shared by JazzCash and EasyPaisa, not scoped separately per gateway. Each adapter also checks the other provider's persisted transaction state and blocks a gateway switch while the prior provider attempt is pending, unknown, confirmed-but-unpaid or under review; only an explicit final failure permits a different payment method.
