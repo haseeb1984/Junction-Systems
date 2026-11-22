@@ -49,6 +49,117 @@ final class CaptureWooCommerceStockCycleUseCase {
         }
     }
 
+    public function markReturnPending(
+        \WC_Order $order,
+        int $itemId,
+        string $kind,
+        int $quantity,
+        ?int $refundCumulative = null
+    ): void {
+        if (!in_array($kind, ['cancellation', 'refund'], true) || $itemId < 1 || $quantity < 1) {
+            throw new \InvalidArgumentException('WooCommerce cycle return capture is invalid.');
+        }
+        $orderId = (int) $order->get_id();
+        $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+            throw new \RuntimeException('WooCommerce order has no active stock-cycle identity for return capture.');
+        }
+        if ($kind === 'refund' && ($refundCumulative === null || $refundCumulative < $quantity)) {
+            throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
+        }
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle return capture.');
+        $lockName = 'pkstore_wc_cycle_' . $orderId;
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ((int) $acquired !== 1) throw new \RuntimeException('Unable to acquire WooCommerce stock-cycle return lock.');
+
+        try {
+            $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            $itemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+            $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            if ($wpdb->query('START TRANSACTION') === false) {
+                throw new \RuntimeException('Unable to start WooCommerce cycle return capture transaction.');
+            }
+            try {
+                $cycle = $wpdb->get_row($wpdb->prepare(
+                    "SELECT state FROM {$cyclesTable} WHERE cycle_uuid=%s AND wc_order_id=%d FOR UPDATE",
+                    $cycleUuid,
+                    $orderId
+                ), ARRAY_A);
+                if ($wpdb->last_error !== '' || !is_array($cycle) || $cycle['state'] === 'closed') {
+                    throw new \RuntimeException('Active WooCommerce stock cycle is unavailable for return capture.');
+                }
+
+                $cycleItem = $wpdb->get_row($wpdb->prepare(
+                    "SELECT reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,refund_restored_quantity
+                     FROM {$itemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d FOR UPDATE",
+                    $cycleUuid,
+                    $itemId
+                ), ARRAY_A);
+                if ($wpdb->last_error !== '' || !is_array($cycleItem)) {
+                    throw new \RuntimeException('WooCommerce stock-cycle item is unavailable for return capture.');
+                }
+
+                $reducedQuantity = (int) $cycleItem['reduced_quantity'];
+                $refundBaseline = (int) $cycleItem['refund_cumulative_baseline'];
+                $alreadyReturned = (int) $cycleItem['cancellation_restored_quantity'] + (int) $cycleItem['refund_restored_quantity'];
+                if ($kind === 'cancellation') {
+                    $eventCumulative = $reducedQuantity;
+                    $eventKey = 'wc_stock_cycle_cancellation:' . $cycleUuid . ':' . $itemId . ':' . $eventCumulative;
+                    $sourceHook = 'woocommerce_restore_order_item_stock';
+                } else {
+                    $eventCumulative = (int) $refundCumulative - $refundBaseline;
+                    if ($eventCumulative < 1 || $eventCumulative !== (int) $cycleItem['refund_restored_quantity'] + $quantity
+                        || $alreadyReturned + $quantity > $reducedQuantity) {
+                        throw new \RuntimeException('WooCommerce refund restock does not match the active stock cycle.');
+                    }
+                    $eventKey = 'wc_stock_cycle_refund:' . $cycleUuid . ':' . $itemId . ':' . $eventCumulative;
+                    $sourceHook = 'woocommerce_restock_refunded_item';
+                }
+
+                $now = current_time('mysql');
+                $inserted = $wpdb->query($wpdb->prepare(
+                    "INSERT IGNORE INTO {$eventsTable}
+                     (event_uuid,event_key,cycle_uuid,wc_order_id,wc_order_item_id,event_kind,quantity,cumulative_quantity,source_hook,source_metadata,status,attempts,next_attempt_at,claimed_at,claim_token,last_error,created_at,updated_at)
+                     VALUES (%s,%s,%s,%d,%d,%s,%d,%d,%s,%s,'pending',0,%s,NULL,NULL,'',%s,%s)",
+                    wp_generate_uuid4(),
+                    $eventKey,
+                    $cycleUuid,
+                    $orderId,
+                    $itemId,
+                    $kind,
+                    $quantity,
+                    $eventCumulative,
+                    $sourceHook,
+                    wp_json_encode(['captured_at_hook' => true]),
+                    $now,
+                    $now,
+                    $now
+                ));
+                if ($inserted === false) throw new \RuntimeException('Unable to persist WooCommerce cycle return event.');
+
+                $updated = $wpdb->update($cyclesTable, [
+                    'state' => 'restoring',
+                    'updated_at' => $now,
+                ], [
+                    'cycle_uuid' => $cycleUuid,
+                    'state' => ['reducing', 'active', 'restoring'],
+                ]);
+                if ($updated === false) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
+
+                if ($wpdb->query('COMMIT') === false) {
+                    throw new \RuntimeException('Unable to commit WooCommerce cycle return capture.');
+                }
+            } catch (\Throwable $error) {
+                $wpdb->query('ROLLBACK');
+                throw $error;
+            }
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+        }
+    }
+
     private function captureLocked(\WC_Order $order, int $orderId): string {
         global $wpdb;
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
@@ -71,6 +182,9 @@ final class CaptureWooCommerceStockCycleUseCase {
             $parentId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             $reduced = $item->get_meta('_reduced_stock', true);
+            if ($reduced === '' || $reduced === null) {
+                $reduced = $item->get_meta('_pkstore_wc_reduced_stock_snapshot', true);
+            }
             if ($reduced === '' || $reduced === null) {
                 continue;
             }
@@ -130,6 +244,16 @@ final class CaptureWooCommerceStockCycleUseCase {
             }
 
             if (is_array($existing)) {
+                if ((string) $existing['state'] === 'restoring') {
+                    throw new \RuntimeException('Previous WooCommerce stock cycle is still restoring; a new cycle must wait for its ledger return.');
+                }
+                $pendingReturn = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$eventsTable} WHERE cycle_uuid=%s AND event_kind IN ('cancellation','refund') AND status<>'processed' LIMIT 1",
+                    (string) $existing['cycle_uuid']
+                ));
+                if ($wpdb->last_error !== '' || $pendingReturn) {
+                    throw new \RuntimeException('Previous WooCommerce stock cycle has an unprocessed return event.');
+                }
                 $existingItems = $wpdb->get_results($wpdb->prepare(
                     "SELECT wc_order_item_id, wc_parent_product_id, wc_variation_id,
                             inventory_product_id, inventory_location_id, reduced_quantity, refund_cumulative_baseline
