@@ -882,6 +882,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, "_pkstore_pos_origin") === false
     || strpos($courierRetrySource, "str_starts_with(\$existingTracking, 'PENDING-')") === false
     || strpos($courierRetrySource, 'isDigitalOnlyOrder($order)') === false
+    || strpos($courierRetrySource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($courierRetrySource, 'SELECT RELEASE_LOCK(%s)') === false
+    || strpos($shippingRegistryLifecycleSource, "as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',[\$orderId],'pkstore-logistics',true)") === false
     || strpos($courierCircuitBreakerSource, 'wp_schedule_single_event') === false
     || strpos($shippingRegistrySource, 'wp_schedule_single_event') === false) {
     throw new \RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
