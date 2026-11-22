@@ -422,6 +422,8 @@ final class LicenseManager {
     private function saveCache(array $data): void {
         $data['cached_at'] = time();
         update_option(self::OPT_LICENSE_CACHE, $this->encryptJson($data), false);
+        update_option('pkstore_groq_config_refreshed_at', $data['cached_at'], false);
+        delete_option('pkstore_groq_config_retry_after');
     }
 
     // ── Encryption (AES-256-CBC) ─────────────────────────────────
