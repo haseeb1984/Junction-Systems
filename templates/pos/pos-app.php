@@ -358,25 +358,40 @@ const POS = {
         const orderRef = 'P-' + Array.from(crypto.getRandomValues(new Uint8Array(13))).map(b=>b.toString(16).padStart(2,'0')).join('');
         const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
 
+        let result;
+        await this.applyLocalStockDelta(items, -1);
         try {
-            await this.applyLocalStockDelta(items, -1);
-            const r = await this.api('/pos/sale','POST',payload);
-            await this.loadProducts();
-            if (cphone) {
-                const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:r.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
-                if (wr.whatsapp_url) window.open(wr.whatsapp_url,'_blank');
-            }
-            this.printReceipt({ref:r.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
-            this.clearCart();
-            this.toast(\`✓ Sale \${r.order_ref} — PKR \${total.toLocaleString()}\`);
+            result = await this.api('/pos/sale','POST',payload);
         } catch(e) {
             if (e.status) {
                 await this.applyLocalStockDelta(items, 1);
                 this.toast('Sale rejected: ' + e.message);
             } else {
-                await DB.put('queue', {...payload, ref:orderRef, total, offline:true, status:'pending', queued_at:Date.now()});
+                await DB.put('queue', {...payload, ref:orderRef, total, offline:true, status:'pending', queued_at:Date.now(), local_stock_decremented:true});
                 this.clearCart();
                 this.toast(\`⚡ Network unavailable — sale queued (\${orderRef})\`);
+            }
+            btn.disabled = false; this.updateTotals();
+            return;
+        }
+
+        // The sale is committed now. Failures in receipt/WhatsApp delivery must
+        // never turn a successful sale into an offline retry or restore stock.
+        await this.loadProducts();
+        this.printReceipt({ref:result.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
+        this.clearCart();
+        this.toast(\`✓ Sale \${result.order_ref} — PKR \${total.toLocaleString()}\`);
+        if (cphone) {
+            try {
+                const receipt = await this.api('/pos/receipt/whatsapp','POST',{
+                    phone:cphone,
+                    order_ref:result.order_ref,
+                    total,
+                    items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))
+                });
+                if (receipt.whatsapp_url) window.open(receipt.whatsapp_url,'_blank');
+            } catch(_) {
+                this.toast('Sale saved. WhatsApp receipt could not be generated.');
             }
         }
         btn.disabled = false; this.updateTotals();
@@ -470,7 +485,7 @@ const POS = {
         this.toast(\`Syncing \${pending.length} offline sale(s)...\`);
         for (const item of pending) {
             try {
-                const {ref, offline, total, status, last_error, queued_at, ...payload} = item;
+                const {ref, offline, total, status, last_error, queued_at, local_stock_decremented, ...payload} = item;
                 await this.api('/pos/sale','POST',payload);
                 await DB.delete('queue', ref);
             } catch(e) {
@@ -478,7 +493,7 @@ const POS = {
                     item.status = 'needs_review';
                     item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
                     await DB.put('queue', item);
-                    await this.applyLocalStockDelta(item.items || [], 1);
+                    if (item.local_stock_decremented) await this.applyLocalStockDelta(item.items || [], 1);
                 }
                 // Network and 5xx failures remain pending and retry idempotently.
             }
