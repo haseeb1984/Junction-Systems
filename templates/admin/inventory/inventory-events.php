@@ -109,19 +109,20 @@
 
     <h2>Recent operator audit</h2>
     <table class="wp-list-table widefat fixed striped">
-        <thead><tr><th>Queue</th><th>Event ID</th><th>Action</th><th>Reason</th><th>Operator</th><th>Time</th></tr></thead>
+        <thead><tr><th>Queue</th><th>Event ID</th><th>Action</th><th>State change</th><th>Reason</th><th>Operator</th><th>Time</th></tr></thead>
         <tbody>
         <?php foreach (($operatorAudit ?? []) as $audit): ?>
             <tr>
                 <td><?= esc_html($audit['queue_type'] ?? '') ?></td>
                 <td><?= esc_html((string) ($audit['queue_id'] ?? '')) ?></td>
                 <td><?= esc_html($audit['action'] ?? '') ?></td>
+                <td><?= esc_html(($audit['previous_status'] ?? '') . ' → ' . ($audit['resulting_status'] ?? '')) ?></td>
                 <td><?= esc_html($audit['reason'] ?? '') ?></td>
                 <td><?= esc_html((string) ($audit['actor_id'] ?? '')) ?></td>
                 <td><?= esc_html($audit['created_at'] ?? '') ?></td>
             </tr>
         <?php endforeach; ?>
-        <?php if (empty($operatorAudit)): ?><tr><td colspan="6">No operator actions recorded.</td></tr><?php endif; ?>
+        <?php if (empty($operatorAudit)): ?><tr><td colspan="7">No operator actions recorded.</td></tr><?php endif; ?>
         </tbody>
     </table>
     <p class="description">Retry and ignore are limited to retained sale/return events in needs_review. Ignore does not change stock; it records an explicit operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
