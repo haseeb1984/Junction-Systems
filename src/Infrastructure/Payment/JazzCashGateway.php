@@ -177,7 +177,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         if (!$this->verifySecureHash($body)
             || (string) ($body['pp_TxnRefNo'] ?? '') !== $txn
-            || (string) ($body['pp_Amount'] ?? '') !== $amount
+            || $this->normalizeMinorUnits((string) ($body['pp_Amount'] ?? '')) !== $this->normalizeMinorUnits($amount)
             || (string) ($body['pp_MerchantID'] ?? '') !== $mid
             || (string) ($body['pp_TxnCurrency'] ?? '') !== 'PKR'
             || (string) ($body['pp_BillReference'] ?? '') !== (string) $order_id
@@ -221,6 +221,12 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $encoded = iconv('UTF-8', 'ISO-8859-1', $message);
         if ($encoded === false) throw new \RuntimeException('JazzCash signature contains characters outside the required encoding.');
         return strtoupper(hash_hmac('sha256', $encoded, $secret));
+    }
+
+    private function normalizeMinorUnits(string $amount): string {
+        if ($amount === '' || !ctype_digit($amount)) return '';
+        $normalized = ltrim($amount, '0');
+        return $normalized === '' ? '0' : $normalized;
     }
 
     private function verifySecureHash(array $payload): bool {
@@ -271,7 +277,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         if ($expectedTxn === '' || $expectedAmount === '' || $expectedMerchant === '' || $expectedDateTime === ''
             || !hash_equals($expectedTxn, $txnRef)
-            || !hash_equals($expectedAmount, $amount)
+            || $this->normalizeMinorUnits($expectedAmount) !== $this->normalizeMinorUnits($amount)
             || !hash_equals($expectedMerchant, $merchant)
             || !hash_equals($expectedDateTime, $txnDateTime)
             || $currency !== 'PKR'
