@@ -949,22 +949,20 @@ if (!is_string($posAppSource)
 $easyPaisaSource = file_get_contents($src . '/Infrastructure/Payment/EasyPaisaGateway.php');
 $settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
 if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
-    || strpos($easyPaisaSource, '/easypay-service/rest/v4/initiate-ma-transaction') !== false
     || strpos($easyPaisaSource, '/initiate-ma-transaction') === false
     || strpos($easyPaisaSource, '/inquire-transaction') === false
     || strpos($easyPaisaSource, "'transactionType' => 'MA'") === false
     || strpos($easyPaisaSource, "'Credentials' => base64_encode(\$username . ':' . \$password)") === false
-    || strpos($easyPaisaSource, "transactionStatus === 'PAID'") === false
     || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/initiate-ma-transaction'") === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/inquire-transaction'") === false
-    || strpos($easyPaisaSource, "hash_equals(\$expectedAmount, \$reportedAmount)") === false
-    || strpos($easyPaisaSource, "hash_equals(\$storeId, (string) (\$body['storeId'] ?? ''))") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
-    || strpos($easyPaisaSource, 'wp_remote_retrieve_response_code($response)') === false
-    || strpos($easyPaisaSource, '$reportedPhone === \'\' || $expectedPhone === \'\'') === false
-    || strpos($easyPaisaSource, "'redirection' => 0") === false
+    || strpos($easyPaisaSource, "if (\$paymentMode !== '' && \$paymentMode !== 'MA')") === false
+    || strpos($easyPaisaSource, "hash_equals(\$expectedPhone, \$reportedPhone)") === false
     || strpos($easyPaisaSource, "\$scheme !== 'https'") === false
+    || strpos($easyPaisaSource, "strpos(\$path, '/order-status/') === false") === false
+    || strpos($easyPaisaSource, "if (\$responseCode === '0001') return 'pending';") === false
+    || strpos($easyPaisaSource, "'REVERSED'") === false
     || strpos($easyPaisaSource, 'applyProviderStatus(') === false
     || strpos($settingsManagerSource, "'EASYPAISA_USERNAME'=>true") === false
     || strpos($settingsManagerSource, "'EASYPAISA_PASSWORD'=>true") === false
