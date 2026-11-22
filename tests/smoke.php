@@ -553,6 +553,20 @@ if (!is_string($stockCycleInstallerSource)
 
 
 
+$shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
+$servicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
+$courierRetrySource = file_get_contents($src . '/Application/Logistics/BookShipmentUseCase.php');
+if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_string($courierRetrySource)
+    || strpos($shippingRegistrySource, "isEnabled('courier_tcs')") === false
+    || strpos($shippingRegistrySource, "isEnabled('courier_leopards')") === false
+    || strpos($shippingRegistrySource, "isEnabled('courier_trax')") === false
+    || strpos($servicesSource, "if($features->isEnabled('courier_tcs'))") === false
+    || strpos($servicesSource, "if($features->isEnabled('courier_leopards'))") === false
+    || strpos($servicesSource, "if($features->isEnabled('courier_trax'))") === false
+    || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false) {
+    throw new \\RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
+}
+
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 $stockCycleHooksSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
 $stockCycleServicesSource = file_get_contents($root . '/config/services.php');
