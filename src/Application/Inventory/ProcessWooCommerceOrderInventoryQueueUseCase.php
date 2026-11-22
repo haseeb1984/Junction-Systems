@@ -109,30 +109,43 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
      * shared Junction stock ledger event has committed successfully.
      */
     public function releaseInventorySyncHold(\WC_Order $order): void {
-        if ($order->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
-
         $orderId = (int) $order->get_id();
-        $currentStatus = $order->get_status();
-        $previousStatus = sanitize_key((string) $order->get_meta('_pkstore_wc_inventory_sync_previous_status', true));
+        if ($orderId < 1) throw new \InvalidArgumentException('WooCommerce inventory hold order ID is invalid.');
+        $freshOrder = wc_get_order($orderId);
+        if (!($freshOrder instanceof \WC_Order)) {
+            throw new \RuntimeException('WooCommerce order is unavailable while releasing its inventory hold.');
+        }
+        if ($freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
 
+        $currentStatus = $freshOrder->get_status();
+        $previousStatus = sanitize_key((string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_previous_status', true));
         if ($currentStatus === 'on-hold') {
             if (!in_array($previousStatus, ['pending', 'processing', 'completed', 'on-hold'], true)) {
                 throw new \RuntimeException('WooCommerce inventory hold has no safe prior order status.');
             }
             if ($previousStatus !== 'on-hold') {
-                $order->update_status(
+                $freshOrder->update_status(
                     $previousStatus,
                     'Junction has committed the shared inventory ledger; the previous order status is restored.'
                 );
             }
         }
 
-        // If an operator or WooCommerce has since moved the order to a different
-        // or terminal status, do not overwrite that newer decision.
-        $order->delete_meta_data('_pkstore_wc_inventory_sync_hold');
-        $order->delete_meta_data('_pkstore_wc_inventory_sync_previous_status');
-        $order->delete_meta_data('_pkstore_wc_inventory_sync_cycle_uuid');
-        if ($orderId < 1 || (int) $order->save() !== $orderId) {
+        // Re-read immediately before this transition so an operator's newer
+        // status decision is never overwritten by a stale worker object.
+        $freshOrder = wc_get_order($orderId);
+        if (!($freshOrder instanceof \WC_Order)) {
+            throw new \RuntimeException('WooCommerce order disappeared while releasing its inventory hold.');
+        }
+        if ($freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
+        if ($freshOrder->get_status() === 'on-hold' && $previousStatus !== 'on-hold') {
+            throw new \RuntimeException('WooCommerce order remains on hold after inventory synchronization.');
+        }
+
+        $freshOrder->delete_meta_data('_pkstore_wc_inventory_sync_hold');
+        $freshOrder->delete_meta_data('_pkstore_wc_inventory_sync_previous_status');
+        $freshOrder->delete_meta_data('_pkstore_wc_inventory_sync_cycle_uuid');
+        if ((int) $freshOrder->save() !== $orderId) {
             throw new \RuntimeException('Unable to clear the completed WooCommerce inventory hold marker.');
         }
     }
