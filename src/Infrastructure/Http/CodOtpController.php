@@ -168,7 +168,9 @@ final class CodOtpController {
     }
 
     public function validateCheckout(array $data, \WP_Error $errors): void {
-        if (($data['payment_method'] ?? '') !== 'cod' || $this->isDigitalOnlyCart()) return;
+        $paymentMethod = (string) ($data['payment_method'] ?? '');
+        if ($paymentMethod === '') $paymentMethod = (string) $this->wooSession()->get('chosen_payment_method');
+        if ($paymentMethod !== 'cod' || $this->isDigitalOnlyCart()) return;
         if ($errors->has_errors()) return;
 
         $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
