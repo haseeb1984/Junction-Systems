@@ -4,6 +4,8 @@ namespace PkStore\Infrastructure\Payment;
 use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 class JazzCashGateway extends \WC_Payment_Gateway {
+    private LoggerInterface $log;
+    private SettingsManager $cfg;
     private const L='https://payments.jazzcash.com.pk/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction';
     private const S='https://sandbox.jazzcash.com.pk/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction';
     public function __construct(LoggerInterface $log=null, SettingsManager $cfg=null){
