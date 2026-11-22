@@ -1,85 +1,295 @@
 <?php
 declare(strict_types=1);
+
 namespace PkStore\Infrastructure\Http;
-use PkStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
+
+use PkStore\Application\Verification\SendCodOtpUseCase;
+use PkStore\Application\Verification\VerifyCodOtpUseCase;
 use PkStore\Container\ServiceContainer;
-use PkStore\Domain\Verification\Exception\{InvalidOtpException,OtpAlreadyVerifiedException,OtpExpiredException,RateLimitExceededException,SmsProviderException};
+use PkStore\Domain\Verification\Exception\{
+    InvalidOtpException,
+    OtpAlreadyVerifiedException,
+    OtpExpiredException,
+    RateLimitExceededException,
+    SmsProviderException
+};
+use PkStore\Domain\Verification\Repository\OtpRepositoryInterface;
+use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 
 final class CodOtpController {
+    private const SESSION_PROOF_KEY = 'pkstore_cod_otp_proof';
+
     public function __construct(private readonly ServiceContainer $container) {}
 
     public function register(): void {
-        add_action('rest_api_init', function(){
-            register_rest_route('pkstore/v1','/cod/send-otp',['methods'=>'POST','callback'=>[$this,'handleSend'],'permission_callback'=>[$this,'verifyNonce'],'args'=>['phone'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_text_field'],'order_id'=>['required'=>true,'type'=>'string'],'_nonce'=>['required'=>true,'type'=>'string']]]);
-            register_rest_route('pkstore/v1','/cod/verify-otp',['methods'=>'POST','callback'=>[$this,'handleVerify'],'permission_callback'=>[$this,'verifyNonce'],'args'=>['phone'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_text_field'],'order_id'=>['required'=>true,'type'=>'string'],'code'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_text_field'],'_nonce'=>['required'=>true,'type'=>'string']]]);
+        add_action('rest_api_init', function (): void {
+            register_rest_route('pkstore/v1', '/cod/send-otp', [
+                'methods' => 'POST',
+                'callback' => [$this, 'handleSend'],
+                'permission_callback' => [$this, 'verifyNonce'],
+                'args' => [
+                    'phone' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+                    '_nonce' => ['required' => true, 'type' => 'string'],
+                ],
+            ]);
+            register_rest_route('pkstore/v1', '/cod/verify-otp', [
+                'methods' => 'POST',
+                'callback' => [$this, 'handleVerify'],
+                'permission_callback' => [$this, 'verifyNonce'],
+                'args' => [
+                    'phone' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+                    'code' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+                    '_nonce' => ['required' => true, 'type' => 'string'],
+                ],
+            ]);
         });
+
+        // The browser check is only UX. This checkout validation is authoritative.
+        add_action('woocommerce_after_checkout_validation', [$this, 'validateCheckout'], 100, 2);
+        add_action('woocommerce_checkout_create_order', [$this, 'attachProofToOrder'], 100, 2);
+        add_action('woocommerce_checkout_order_processed', [$this, 'bindProofToOrder'], 100, 3);
     }
 
-    public function verifyNonce(\WP_REST_Request $req): bool {
-        return (bool)wp_verify_nonce($req->get_param('_nonce'),'pkstore_cod_otp');
+    public function verifyNonce(\WP_REST_Request $request): bool {
+        return (bool) wp_verify_nonce($request->get_param('_nonce'), 'pkstore_cod_otp');
     }
 
-    public function handleSend(\WP_REST_Request $req): \WP_REST_Response {
-        $orderId = (string)$req->get_param('order_id');
-
-        // Skip OTP for digital-only orders
-        if ($this->isDigitalOnlyOrder($orderId)) {
+    public function handleSend(\WP_REST_Request $request): \WP_REST_Response {
+        if ($this->isDigitalOnlyCart()) {
             return new \WP_REST_Response([
                 'success' => true,
-                'skip'    => true,
-                'message' => 'Digital product order — no phone verification required.',
+                'skip' => true,
+                'message' => 'Digital product cart — no phone verification required.',
             ], 200);
         }
 
         try {
+            $sessionRef = $this->checkoutSessionReference();
+            $this->clearSessionProof();
             $this->container->make(SendCodOtpUseCase::class)->execute(
-                (string)$req->get_param('phone'), $orderId
+                (string) $request->get_param('phone'),
+                $sessionRef
             );
-            return new \WP_REST_Response(['success'=>true,'message'=>'OTP sent to your mobile number.'],200);
-        } catch (RateLimitExceededException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'rate_limited','message'=>$e->getMessage(),'unlocks_at'=>$e->unlocksAt->format(\DateTimeInterface::ATOM)],429);
+            return new \WP_REST_Response([
+                'success' => true,
+                'message' => 'OTP sent to your mobile number.',
+            ], 200);
+        } catch (RateLimitExceededException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'rate_limited',
+                'message' => $error->getMessage(),
+                'unlocks_at' => $error->unlocksAt->format(\DateTimeInterface::ATOM),
+            ], 429);
         } catch (SmsProviderException) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'sms_failed','message'=>'Could not send OTP. Please try again.'],503);
-        } catch (\InvalidArgumentException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'invalid_phone','message'=>$e->getMessage()],422);
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'sms_failed',
+                'message' => 'Could not send OTP. Please try again.',
+            ], 503);
+        } catch (\InvalidArgumentException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'invalid_phone',
+                'message' => $error->getMessage(),
+            ], 422);
+        } catch (\RuntimeException) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'checkout_session_unavailable',
+                'message' => 'Checkout session could not be verified. Refresh the page and try again.',
+            ], 503);
         }
     }
 
-    public function handleVerify(\WP_REST_Request $req): \WP_REST_Response {
-        $orderId = (string)$req->get_param('order_id');
-
-        // Digital orders are pre-verified
-        if ($this->isDigitalOnlyOrder($orderId)) {
-            return new \WP_REST_Response(['success'=>true,'message'=>'Digital order verified.'],200);
+    public function handleVerify(\WP_REST_Request $request): \WP_REST_Response {
+        if ($this->isDigitalOnlyCart()) {
+            return new \WP_REST_Response([
+                'success' => true,
+                'skip' => true,
+                'message' => 'Digital product cart — no phone verification required.',
+            ], 200);
         }
 
         try {
-            $this->container->make(VerifyCodOtpUseCase::class)->execute(
-                (string)$req->get_param('phone'), $orderId, (string)$req->get_param('code')
+            $sessionRef = $this->checkoutSessionReference();
+            $phone = new PakistanPhoneNumber((string) $request->get_param('phone'));
+            $attemptId = $this->container->make(VerifyCodOtpUseCase::class)->execute(
+                $phone->e164,
+                $sessionRef,
+                (string) $request->get_param('code')
             );
-            return new \WP_REST_Response(['success'=>true,'message'=>'Phone verified. Your CoD order is confirmed.'],200);
-        } catch (OtpExpiredException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'otp_expired','message'=>$e->getMessage()],410);
-        } catch (OtpAlreadyVerifiedException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'replay_rejected','message'=>'This code has already been used.'],409);
-        } catch (InvalidOtpException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'invalid_otp','message'=>$e->getMessage(),'remaining_attempts'=>$e->remainingAttempts],422);
-        } catch (\RuntimeException $e) {
-            return new \WP_REST_Response(['success'=>false,'code'=>'not_found','message'=>$e->getMessage()],404);
+
+            $session = $this->wooSession();
+            $session->set(self::SESSION_PROOF_KEY, [
+                'attempt_id' => $attemptId,
+                'phone' => $phone->e164,
+                'session_ref' => $sessionRef,
+                'expires_at' => time() + 300,
+                'consumed' => false,
+            ]);
+
+            return new \WP_REST_Response([
+                'success' => true,
+                'message' => 'Phone verified. Complete checkout using this same billing phone number.',
+            ], 200);
+        } catch (OtpExpiredException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'otp_expired',
+                'message' => $error->getMessage(),
+            ], 410);
+        } catch (OtpAlreadyVerifiedException) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'replay_rejected',
+                'message' => 'This code has already been used.',
+            ], 409);
+        } catch (InvalidOtpException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'invalid_otp',
+                'message' => $error->getMessage(),
+                'remaining_attempts' => $error->remainingAttempts,
+            ], 422);
+        } catch (\InvalidArgumentException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'invalid_phone',
+                'message' => $error->getMessage(),
+            ], 422);
+        } catch (\RuntimeException $error) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => 'not_found',
+                'message' => $error->getMessage(),
+            ], 404);
         }
     }
 
-    private function isDigitalOnlyOrder(string $orderId): bool
-    {
-        if (empty($orderId) || !function_exists('wc_get_order')) return false;
-        $order = wc_get_order((int)$orderId);
-        if (!($order instanceof \WC_Order)) return false;
-        foreach ($order->get_items() as $item) {
-            $product = $item->get_product();
-            if ($product instanceof \WC_Product && !$product->is_virtual() && !$product->is_downloadable()) {
-                return false;
+    public function validateCheckout(array $data, \WP_Error $errors): void {
+        if (($data['payment_method'] ?? '') !== 'cod' || $this->isDigitalOnlyCart()) return;
+        if ($errors->has_errors()) return;
+
+        $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
+        if (!is_array($proof) || !empty($proof['consumed'])) {
+            $errors->add('pkstore_cod_otp_required', 'Please verify your mobile number before placing a Cash on Delivery order.');
+            return;
+        }
+
+        try {
+            $billingPhone = new PakistanPhoneNumber((string) ($data['billing_phone'] ?? ''));
+            $sessionRef = $this->checkoutSessionReference();
+        } catch (\Throwable) {
+            $errors->add('pkstore_cod_otp_phone', 'Enter a valid Pakistani mobile number and verify that same number for Cash on Delivery.');
+            return;
+        }
+
+        if (($proof['expires_at'] ?? 0) < time()
+            || !hash_equals((string) ($proof['session_ref'] ?? ''), $sessionRef)
+            || !hash_equals((string) ($proof['phone'] ?? ''), $billingPhone->e164)
+            || empty($proof['attempt_id'])) {
+            $this->clearSessionProof();
+            $errors->add('pkstore_cod_otp_mismatch', 'Your verified phone number does not match the billing phone, or verification has expired. Please verify again.');
+            return;
+        }
+
+        $consumed = $this->container->make(OtpRepositoryInterface::class)->consumeVerifiedAttempt(
+            (string) $proof['attempt_id'],
+            $billingPhone,
+            $sessionRef
+        );
+        if (!$consumed) {
+            $this->clearSessionProof();
+            $errors->add('pkstore_cod_otp_replay', 'This phone verification has already been used or expired. Please request a new code.');
+            return;
+        }
+
+        $proof['consumed'] = true;
+        $this->wooSession()->set(self::SESSION_PROOF_KEY, $proof);
+    }
+
+    public function attachProofToOrder(\WC_Order $order, array $data): void {
+        if ($order->get_payment_method() !== 'cod' || $this->isDigitalOnlyCart()) return;
+
+        $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
+        if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) return;
+
+        $order->update_meta_data('_pkstore_cod_otp_verified', 'yes');
+        $order->update_meta_data('_pkstore_cod_otp_attempt_id', sanitize_text_field((string) $proof['attempt_id']));
+        $order->update_meta_data('_pkstore_cod_otp_verified_at', current_time('mysql'));
+        $order->update_meta_data(
+            '_pkstore_cod_otp_phone_hash',
+            hash_hmac('sha256', (string) $proof['phone'], wp_salt('auth'))
+        );
+    }
+
+    public function bindProofToOrder(int $orderId, array $postedData, \WC_Order $order): void {
+        if ($order->get_payment_method() !== 'cod' || $this->isDigitalOnlyOrder($order)) return;
+
+        $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
+        if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) return;
+
+        try {
+            $bound = $this->container->make(OtpRepositoryInterface::class)->bindConsumedAttemptToOrder(
+                (string) $proof['attempt_id'],
+                (string) $proof['session_ref'],
+                (string) $orderId
+            );
+            if (!$bound) {
+                $order->add_order_note('COD phone verification was consumed but its OTP audit record could not be linked. Review before dispatch.');
+                error_log('[PK Store] COD OTP consumed-proof order binding failed for order ' . $orderId . '.');
             }
+        } catch (\Throwable $error) {
+            $order->add_order_note('COD phone verification audit binding failed. Review before dispatch.');
+            error_log('[PK Store] COD OTP order binding failed for order ' . $orderId . ' (' . get_class($error) . ').');
+        }
+
+        $this->clearSessionProof();
+    }
+
+    private function isDigitalOnlyCart(): bool {
+        $wc = function_exists('WC') ? WC() : null;
+        if (!$wc || !$wc->cart || $wc->cart->is_empty()) return false;
+
+        foreach ($wc->cart->get_cart() as $cartItem) {
+            $product = $cartItem['data'] ?? null;
+            if (!($product instanceof \WC_Product)) return false;
+            if (!$product->is_virtual() && !$product->is_downloadable()) return false;
         }
         return true;
+    }
+
+    private function isDigitalOnlyOrder(\WC_Order $order): bool {
+        $items = $order->get_items();
+        if (!$items) return false;
+        foreach ($items as $item) {
+            $product = $item->get_product();
+            if (!($product instanceof \WC_Product)) return false;
+            if (!$product->is_virtual() && !$product->is_downloadable()) return false;
+        }
+        return true;
+    }
+
+    private function checkoutSessionReference(): string {
+        $session = $this->wooSession();
+        $customerId = (string) $session->get_customer_id();
+        if ($customerId === '') {
+            throw new \RuntimeException('WooCommerce checkout session is unavailable.');
+        }
+        return 's:' . substr(hash_hmac('sha256', $customerId, wp_salt('auth')), 0, 30);
+    }
+
+    private function wooSession() {
+        $wc = function_exists('WC') ? WC() : null;
+        if (!$wc || !$wc->session) {
+            throw new \RuntimeException('WooCommerce session is unavailable.');
+        }
+        return $wc->session;
+    }
+
+    private function clearSessionProof(): void {
+        $session = $this->wooSession();
+        $session->__unset(self::SESSION_PROOF_KEY);
     }
 }
