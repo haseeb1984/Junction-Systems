@@ -18,7 +18,7 @@ final class POSOrder {
     public function getItems(): array { return $this->items; }
     public function setItems(array $items): void { $this->items = $items; }
     public function getSyncStatus(): SyncStatus { return $this->syncStatus; }
-    public function markSynced(int $wcOrderId): void { if ($wcOrderId < 1) throw new \\InvalidArgumentException('WooCommerce order ID must be positive.'); $this->wcOrderId = $wcOrderId; $this->syncStatus = SyncStatus::Synced; }
+    public function markSynced(int $wcOrderId): void { if ($wcOrderId < 1) throw new \InvalidArgumentException('WooCommerce order ID must be positive.'); $this->wcOrderId = $wcOrderId; $this->syncStatus = SyncStatus::Synced; }
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
     public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $clientOrderRef = null, ?string $requestFingerprint = null): self {
         $subtotal = array_sum(array_map(fn($i) => $i['unit_price_pkr'] * $i['quantity'], $items));
