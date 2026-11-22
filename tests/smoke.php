@@ -851,6 +851,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, '$allocationsByProductLocation') === false
     || strpos($stockSaleSource, '_pkstore_inventory_allocations') === false
     || strpos($stockSaleSource, 'applyAllocatedOnlineReturn(') === false
+    || strpos($stockSaleSource, 'applyWooCommerceSaleCycle(') === false\n    || strpos($stockSaleSource, 'wc_stock_cycle') === false\n    || strpos($stockSaleSource, '_pkstore_inventory_cycle_states') === false\n    || strpos($stockSaleSource, 'applyAllocatedCycleReturn(') === false\n    || strpos($stockSaleSource, "'state' => 'closed'") === false\n    || strpos($stockSaleSource, 'refund_cumulative_baseline') === false
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
     || strpos($stockSaleSource, 'new \\\\RuntimeException') !== false) {
     throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
