@@ -52,27 +52,6 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         return true;
     }
 
-    private function createSecureHash(array $fields, string $integrityKey): ?string {
-        $signedFields = array_filter(
-            $fields,
-            static fn($key) => str_starts_with((string) $key, 'pp') && $key !== 'pp_SecureHash',
-            ARRAY_FILTER_USE_KEY
-        );
-        foreach ($signedFields as $key => $value) {
-            if (!is_scalar($value)) return null;
-            $signedFields[$key] = (string) $value;
-        }
-        ksort($signedFields);
-        $hashInput = $integrityKey . '&' . implode('&', array_values($signedFields));
-        return strtoupper(hash_hmac('sha256', $hashInput, $integrityKey));
-    }
-
-    private function verifySignedResponse(array $payload, string $integrityKey): bool {
-        $received = strtoupper((string) ($payload['pp_SecureHash'] ?? ''));
-        if ($received === '') return false;
-        $expected = $this->createSecureHash($payload, $integrityKey);
-        return $expected !== null && hash_equals($expected, $received);
-    }
     public function process_payment($order_id): array {
         $order = wc_get_order($order_id);
         if (!$order || $order->is_paid()) {
