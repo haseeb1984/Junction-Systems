@@ -510,10 +510,10 @@ const POS = {
             const queue = await DB.getAll('queue');
             const pending = queue.filter(item => item.status !== 'needs_review');
             if (!pending.length) {
-                if (queue.length && !silent) this.toast(\`\${queue.length} offline sale(s) need operator review.\`);
+                if (queue.length && !silent) this.toast(`${queue.length} offline sale(s) need operator review.`);
                 return;
             }
-            if (!silent) this.toast(\`Syncing \${pending.length} offline sale(s)...\`);
+            if (!silent) this.toast(`Syncing ${pending.length} offline sale(s)...`);
             for (const item of pending) {
                 try {
                     const {ref, offline, total, status, last_error, queued_at, local_stock_decremented, ...payload} = item;
@@ -538,7 +538,7 @@ const POS = {
             const review = remaining.filter(item => item.status === 'needs_review').length;
             const stillPending = remaining.length - review;
             if (!silent) {
-                if (review) this.toast(\`\${review} offline sale(s) need operator review; \${stillPending} pending.\`);
+                if (review) this.toast(`${review} offline sale(s) need operator review; ${stillPending} pending.`);
                 else if (!stillPending) this.toast('✓ All offline sales synced!');
             }
         } finally {
