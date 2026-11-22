@@ -156,6 +156,7 @@ $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventor
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 $inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
 $barcodeLabelSource = file_get_contents($src . '/Infrastructure/Barcode/BarcodeLabel.php');
+$posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabilityManager.php');
 if (!is_string($posCapabilitySource)
     || strpos($posCapabilitySource, "add_role('junction_cashier'") === false
