@@ -64,14 +64,14 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
-        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$dt=date('YmdHis');$exp=date('YmdHis',strtotime('+30 minutes'));
+        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$now=current_time('timestamp');$dt=wp_date('YmdHis',$now);$exp=wp_date('YmdHis',$now+1800);
         // JazzCash requires a stable merchant-registered pp_ReturnURL on every
         // request. The synchronous API response is verified below; this endpoint
         // also accepts a signed POST if the merchant's provisioned flow returns one.
         $callbackUrl = function_exists('WC') && WC() && method_exists(WC(), 'api_request_url')
             ? WC()->api_request_url('jazzcash_callback')
             : add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
-        $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$callbackUrl,'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
+        $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_SubMerchantID'=>'','pp_Password'=>$pass,'pp_BankID'=>'','pp_ProductID'=>'','pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$callbackUrl,'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
         $requestHash = $this->createSecureHash($pd, $ik);
         if ($requestHash === null) {
             wc_add_notice('JazzCash request could not be securely prepared.', 'error');
