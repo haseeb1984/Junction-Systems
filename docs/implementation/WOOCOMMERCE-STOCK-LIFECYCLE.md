@@ -205,3 +205,10 @@ The detailed persistence/state-machine contract is maintained in [WC-STOCK-CYCLE
 A second idempotency collision is also recorded there: cancellation event keys currently use order ID + item ID + restored quantity. A second legitimate restore of the same quantity for the same item can collide with the earlier event. Both sale and return identities must include the same persisted cycle UUID before repeated-cycle behavior can be enabled.
 
 No cycle schema or cycle-aware processing has been enabled by this documentation change. Existing ledger history must remain untouched, and ambiguous legacy events must fail closed for operator reconciliation.
+
+
+### Sale ingestion quantity correction
+
+- The order-level reduction hook may include mixed carts where only some lines actually had stock reduced. Sale ingestion now reads each line's `_reduced_stock` metadata and skips lines without an actual reduction, instead of deducting every ordered line quantity.
+- Variation-first Junction mapping and fail-closed behavior for unmapped reduced lines remain in place.
+- A source smoke guard covers the metadata-based ingestion. Runtime acceptance still needs mixed managed/unmanaged carts and supported WooCommerce stock-management modes.
