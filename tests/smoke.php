@@ -803,6 +803,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false
     || strpos($stockSaleSource, '_pkstore_wc_reduced_stock_snapshot') === false
     || strpos($stockSaleSource, '$this->locationRepo->findAll()') === false
+    || strpos($stockSaleSource, '!$product->isActive') === false
     || strpos($stockSaleSource, '$allocationsByProductLocation') === false
     || strpos($stockSaleSource, '_pkstore_inventory_allocations') === false
     || strpos($stockSaleSource, 'applyAllocatedOnlineReturn(') === false
