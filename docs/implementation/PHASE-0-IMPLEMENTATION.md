@@ -265,3 +265,13 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - WooCommerce status API correction: `TrackingStatus::toWooCommerceStatus()` now returns unprefixed CRUD slugs (`shipped`, `out-for-delivery`, `delivery-failed`, `returned`, etc.) for `WC_Order::update_status()`. The `wc-` prefix remains only in order-query/registration contexts where WooCommerce expects it. Source smoke assertions added; runtime custom-status tests remain pending.
 
 - HPOS audit follow-up: GA4 attribution no longer writes order metadata with `update_post_meta()`. It parses the `_ga` cookie to the GA client-ID component and persists it through `WC_Order::update_meta_data()`/`save_meta_data()`.
+
+
+## COD OTP checkout enforcement
+
+- OTP send/verify no longer trusts a browser-supplied order ID. Both endpoints bind attempts to a server-derived WooCommerce guest/customer session reference (32-character opaque HMAC reference), and the SMS no longer exposes an order/session identifier.
+- Digital-only exemption is calculated server-side from the active cart; an empty cart or unknown product is not treated as digital-only.
+- Successful verification returns the persisted OTP attempt ID and stores a short-lived proof in the WooCommerce session. `woocommerce_after_checkout_validation` verifies the same normalized Pakistani billing phone, session reference and expiry, then atomically consumes the proof in the OTP table. A consumed proof cannot authorize a second order.
+- The proof attempt ID and verification timestamp are attached to the newly created COD order through WooCommerce CRUD. The consumed OTP row is then linked to the created order ID for audit. Client-side verified state remains UX only; server-side checkout validation is authoritative.
+- Added migration 2.0.10 for `consumed_at` and `consumed_order_id`, including fresh-install schema and existing-install backup-gated migration. Client JavaScript no longer sends or reads `order_id`.
+- Runtime acceptance still needs classic checkout guest/customer sessions, changed billing phone, session expiry, concurrent checkout replay, digital-only carts, and WooCommerce Checkout Blocks (if supported by the product) tested. Checkout Blocks support is not claimed by the current classic-checkout hooks.
