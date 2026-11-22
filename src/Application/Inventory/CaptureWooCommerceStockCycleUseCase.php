@@ -54,15 +54,16 @@ final class CaptureWooCommerceStockCycleUseCase {
         int $itemId,
         string $kind,
         int $quantity,
-        ?int $refundCumulative = null
+        ?int $refundCumulative = null,
+        ?string $cycleUuidOverride = null
     ): void {
         if (!in_array($kind, ['cancellation', 'refund'], true) || $itemId < 1 || $quantity < 1) {
             throw new \InvalidArgumentException('WooCommerce cycle return capture is invalid.');
         }
         $orderId = (int) $order->get_id();
-        $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        $cycleUuid = $cycleUuidOverride ?? (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
         if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
-            throw new \RuntimeException('WooCommerce order has no active stock-cycle identity for return capture.');
+            throw new \RuntimeException('WooCommerce order has no valid stock-cycle identity for return capture.');
         }
         if ($kind === 'refund' && ($refundCumulative === null || $refundCumulative < $quantity)) {
             throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
@@ -87,16 +88,8 @@ final class CaptureWooCommerceStockCycleUseCase {
                     $cycleUuid,
                     $orderId
                 ), ARRAY_A);
-                if ($wpdb->last_error !== '' || !is_array($cycle) || $cycle['state'] === 'closed') {
-                    throw new \RuntimeException('Active WooCommerce stock cycle is unavailable for return capture.');
-                }
-
-                $openCycleCount = $wpdb->get_var($wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d AND state<>'closed'",
-                    $orderId
-                ));
-                if ($wpdb->last_error !== '' || !is_numeric($openCycleCount) || (int) $openCycleCount > 1) {
-                    throw new \RuntimeException('WooCommerce return event is ambiguous because multiple stock cycles are still open.');
+                if ($wpdb->last_error !== '' || !is_array($cycle)) {
+                    throw new \RuntimeException('WooCommerce stock-cycle header is unavailable for return capture.');
                 }
 
                 $cycleItem = $wpdb->get_row($wpdb->prepare(
@@ -126,27 +119,54 @@ final class CaptureWooCommerceStockCycleUseCase {
                     $sourceHook = 'woocommerce_restock_refunded_item';
                 }
 
-                $now = current_time('mysql');
-                $inserted = $wpdb->query($wpdb->prepare(
-                    "INSERT IGNORE INTO {$eventsTable}
-                     (event_uuid,event_key,cycle_uuid,wc_order_id,wc_order_item_id,event_kind,quantity,cumulative_quantity,source_hook,source_metadata,status,attempts,next_attempt_at,claimed_at,claim_token,last_error,created_at,updated_at)
-                     VALUES (%s,%s,%s,%d,%d,%s,%d,%d,%s,%s,'pending',0,%s,NULL,NULL,'',%s,%s)",
-                    wp_generate_uuid4(),
-                    $eventKey,
-                    $cycleUuid,
-                    $orderId,
-                    $itemId,
-                    $kind,
-                    $quantity,
-                    $eventCumulative,
-                    $sourceHook,
-                    wp_json_encode(['captured_at_hook' => true]),
-                    $now,
-                    $now,
-                    $now
-                ));
-                if ($inserted === false) throw new \RuntimeException('Unable to persist WooCommerce cycle return event.');
+                $existingEvent = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id,status FROM {$eventsTable} WHERE event_key=%s FOR UPDATE",
+                    $eventKey
+                ), ARRAY_A);
+                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect WooCommerce cycle return event.');
 
+                if (is_array($existingEvent) && $existingEvent['status'] === 'processed') {
+                    if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge existing cycle return event.');
+                    return;
+                }
+                if ($cycle['state'] === 'closed') {
+                    throw new \RuntimeException('WooCommerce stock cycle is already closed for this return event.');
+                }
+
+                if (!is_array($existingEvent)) {
+                    $openCycleCount = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d AND state<>'closed'",
+                        $orderId
+                    ));
+                    if ($wpdb->last_error !== '' || !is_numeric($openCycleCount) || (int) $openCycleCount > 1) {
+                        throw new \RuntimeException('WooCommerce return event is ambiguous because multiple stock cycles are still open.');
+                    }
+
+                    $now = current_time('mysql');
+                    $inserted = $wpdb->query($wpdb->prepare(
+                        "INSERT IGNORE INTO {$eventsTable}
+                         (event_uuid,event_key,cycle_uuid,wc_order_id,wc_order_item_id,event_kind,quantity,cumulative_quantity,source_hook,source_metadata,status,attempts,next_attempt_at,claimed_at,claim_token,last_error,created_at,updated_at)
+                         VALUES (%s,%s,%s,%d,%d,%s,%d,%d,%s,%s,'pending',0,%s,NULL,NULL,'',%s,%s)",
+                        wp_generate_uuid4(),
+                        $eventKey,
+                        $cycleUuid,
+                        $orderId,
+                        $itemId,
+                        $kind,
+                        $quantity,
+                        $eventCumulative,
+                        $sourceHook,
+                        wp_json_encode(['captured_at_hook' => true]),
+                        $now,
+                        $now,
+                        $now
+                    ));
+                    if ($inserted === false) throw new \RuntimeException('Unable to persist WooCommerce cycle return event.');
+                } elseif (!in_array($existingEvent['status'], ['pending', 'processing'], true)) {
+                    throw new \RuntimeException('WooCommerce cycle return event is not eligible for capture retry.');
+                }
+
+                $now = current_time('mysql');
                 $updated = $wpdb->query($wpdb->prepare(
                     "UPDATE {$cyclesTable} SET state='restoring', updated_at=%s
                      WHERE cycle_uuid=%s AND state IN ('reducing','active','restoring')",
@@ -165,6 +185,10 @@ final class CaptureWooCommerceStockCycleUseCase {
         } finally {
             $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
+
+        $failedMetaKey = '_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid;
+        $order->delete_meta_data($failedMetaKey);
+        $order->save();
     }
 
     private function captureLocked(\WC_Order $order, int $orderId): string {
