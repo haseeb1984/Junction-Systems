@@ -22,6 +22,12 @@ final class InventoryHooks {
     }
     public function onSale(int $orderId): void {
         try {
+            $order = function_exists('wc_get_order') ? wc_get_order($orderId) : null;
+            // Junction POS already deducted shared inventory; do not ingest its mirror as another sale.
+            if ($order instanceof \\WC_Order
+                && $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') {
+                return;
+            }
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
         } catch (\Throwable $e) {
             // Avoid leaking exception details that may contain customer/provider data.
