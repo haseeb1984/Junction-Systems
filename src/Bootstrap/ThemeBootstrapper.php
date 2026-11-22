@@ -92,7 +92,7 @@ final class ThemeBootstrapper {
             add_action('pkstore_process_pos_order_sync', function(): void {
                 if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.0', '<')) return;
                 try {
-                    $result = $this->c->make(\PkStore\\Application\\POS\\SyncPOSQueueUseCase::class)->execute();
+                    $result = $this->c->make(\PkStore\Application\POS\SyncPOSQueueUseCase::class)->execute();
                     if (($result['failed'] ?? 0) > 0) {
                         error_log('[PK Store] POS-to-WooCommerce order sync has pending failures.');
                     }
