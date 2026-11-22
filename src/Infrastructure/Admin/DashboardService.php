@@ -56,8 +56,8 @@ final class DashboardService {
         $cached = get_transient('pkstore_dash_logistics');
         if ($cached !== false) return $cached;
 
-        $today = strtotime('today');
-        $since24h = date('Y-m-d H:i:s', strtotime('-24 hours'));
+        $today = current_datetime()->setTime(0, 0)->getTimestamp();
+        $since24h = wp_date('Y-m-d H:i:s', time() - DAY_IN_SECONDS);
         $logTable = $this->db->prefix . 'pkstore_logistics_log';
 
         $summary = [
@@ -95,7 +95,7 @@ final class DashboardService {
         $cached = get_transient('pkstore_dash_otp');
         if ($cached !== false) return $cached;
 
-        $since24h = date('Y-m-d H:i:s', strtotime('-24 hours'));
+        $since24h = wp_date('Y-m-d H:i:s', time() - DAY_IN_SECONDS);
         $table = $this->db->prefix . 'pkstore_otp_attempts';
         $row = $this->db->get_row($this->db->prepare(
             "SELECT COUNT(*) AS total,SUM(is_verified=1) AS verified FROM {$table} WHERE created_at>=%s",
