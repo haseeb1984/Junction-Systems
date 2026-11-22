@@ -220,8 +220,8 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, '$schemaReady()') === false
     || strpos($inventoryHttpSource, '$readAuth = fn()=>$schemaReady()') === false
     || strpos($inventoryHttpSource, '$manageAuth = fn()=>$schemaReady()') === false
-    || strpos($inventoryHttpSource, '$readAuth = fn()=>(current_user_can(\'manage_woocommerce\') || current_user_can(\'use_junction_pos\'))') === false
-    || strpos($inventoryHttpSource, '$manageAuth = fn()=>current_user_can(\'manage_woocommerce\')') === false
+    || strpos($inventoryHttpSource, '$readAuth = fn()=>$schemaReady() && (current_user_can(\'manage_woocommerce\') || current_user_can(\'use_junction_pos\'))') === false
+    || strpos($inventoryHttpSource, '$manageAuth = fn()=>$schemaReady() && current_user_can(\'manage_woocommerce\')') === false
     || strpos($inventoryHttpSource, "permission_callback'=>\$manageAuth") === false
     || strpos($inventoryHttpSource, "'/inventory/stock/adjust'") === false
     || strpos($inventoryHttpSource, "'/inventory/products'") === false
