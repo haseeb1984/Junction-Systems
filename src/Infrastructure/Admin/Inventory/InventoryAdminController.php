@@ -63,7 +63,8 @@ final class InventoryAdminController {
         $queueType = sanitize_key($_POST['queue_type'] ?? '');
         $queueId = filter_var($_POST['queue_id'] ?? null, FILTER_VALIDATE_INT);
         $reason = sanitize_textarea_field($_POST['reason'] ?? '');
-        if (!in_array($queueType, ['sales', 'returns'], true) || $queueId === false || $queueId < 1
+        if (!in_array($queueType, ['sales', 'returns', 'stock'], true)
+            || ($action === 'ignore_inventory_event' && $queueType === 'stock') || $queueId === false || $queueId < 1
             || strlen(trim($reason)) < 5 || strlen($reason) > 1000) {
             $this->redirect('pkstore-inventory-events', 'error', 'A valid event and an operator reason of at least 5 characters are required.');
             return;
@@ -71,7 +72,7 @@ final class InventoryAdminController {
 
         $table = $wpdb->prefix . ($queueType === 'sales'
             ? 'pkstore_wc_order_inventory_queue'
-            : 'pkstore_wc_return_inventory_queue');
+            : ($queueType === 'returns' ? 'pkstore_wc_return_inventory_queue' : 'pkstore_wc_stock_sync'));
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $now = current_time('mysql');
         if ($wpdb->query('START TRANSACTION') === false) {
@@ -81,7 +82,7 @@ final class InventoryAdminController {
 
         try {
             if ($action === 'retry_inventory_event') {
-                if ($queueType === 'sales') {
+                if ($queueType === 'sales' || $queueType === 'stock') {
                     $updated = $wpdb->query($wpdb->prepare(
                         "UPDATE {$table} SET status='pending', generation=%s, attempts=0,
                          next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error=''
