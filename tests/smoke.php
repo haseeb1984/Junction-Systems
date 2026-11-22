@@ -534,7 +534,10 @@ if (!is_string($stockCycleInstallerSource)
     || strpos($stockCycleInstallerSource, 'UNIQUE INDEX idx_order_cycle') === false
     || strpos($stockCycleInstallerSource, 'claim_token CHAR(36) DEFAULT NULL') === false
     || strpos($stockCycleMigrationSource, "'2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles']") === false
-    || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.9', '>=')") === false) {
+    || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.9', '>=')") === false
+    || strpos($stockCycleMigrationSource, 'SHOW INDEX FROM ') === false
+    || strpos($stockCycleMigrationSource, 'idx_cycle_order_item') === false
+    || strpos($stockCycleMigrationSource, 'idx_event_key') === false) {
     throw new \RuntimeException('WooCommerce stock-cycle storage must be durable, uniquely keyed and version-migrated.');
 }
 
