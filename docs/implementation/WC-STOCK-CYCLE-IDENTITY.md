@@ -45,12 +45,12 @@ Additional durable queue identity:
 
 ## Fail-closed boundaries and remaining limitations
 
-- If multiple cycles for the same order remain open, a *new* return hook is ambiguous. It is retained in the return queue and will move to `needs_review`; it is not assigned to whichever cycle happens to be newest.
+- Cancellation return hooks are bound to the current cycle UUID and can be processed independently while an earlier cancellation cycle is still restoring. Refund hooks are different: WooCommerce exposes an order-item cumulative restock count, not a cycle identifier. If multiple cycles for the same order remain open, a new refund hook is retained for operator review rather than assigned to the newest cycle. A new sale is also blocked while a previous partial-refund cycle remains open without a full cancellation return.
 - If cycle capture or return capture cannot be persisted, the order/return is queued for retry. A failed return capture sets a per-cycle order-meta guard so a subsequent reduction cannot silently reuse the old active cycle. The worker retries capture; exhausted events require operator review.
 - Legacy rows without cycle identity continue through the legacy order-level path. The implementation does not fabricate historical UUIDs. A cycle-aware sale detects conflicting legacy movements and fails closed.
 - Cycle event rows are retained, but the current Sync Health UI focuses on the durable sale/return/stock queues; a dedicated cycle-event reconciliation view and periodic comparison against WooCommerce metadata are not yet implemented.
 - No runtime acceptance has yet been run against a real WooCommerce database, HPOS, supported WooCommerce versions, concurrent workers, or crash recovery. PHP lint and the dependency-free smoke suite are still pending consolidated execution.
-- Return event ambiguity, edited/deleted order items, changed mappings, inactive locations, missing cycle snapshots, and over-returns must remain operator-review cases rather than being silently reassigned.
+- Ambiguous multi-cycle refund events, edited/deleted order items, changed mappings, inactive locations, missing cycle snapshots, and over-returns must remain operator-review cases rather than being silently reassigned.
 - The schema migration is protected by the existing pre-migration backup confirmation gate for upgrades. Host-level backup confirmation is an external hosting integration and has not been verified by this repository audit.
 - WooCommerce lifecycle hooks and storefront purchasing remain paused until database version 2.0.13 is reached. This avoids accepting online orders while the cycle-aware shared POS/store ledger schema is unavailable.
 
