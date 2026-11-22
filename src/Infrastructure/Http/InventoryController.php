@@ -34,15 +34,34 @@ final class InventoryController {
         $limit  = min(100, max(1, (int)($req->get_param('limit') ?? 50)));
         $offset = max(0, (int)($req->get_param('offset') ?? 0));
         $search = sanitize_text_field($req->get_param('search') ?? '');
-        $repo   = $this->c->make(InventoryProductRepositoryInterface::class);
+        $locationId = absint($req->get_param('location_id') ?? 0);
+        $isCashier = current_user_can('use_junction_pos') && !current_user_can('manage_woocommerce');
+
+        if ($isCashier) {
+            $assignedLocationId = (int) get_user_meta(get_current_user_id(), '_pkstore_pos_location_id', true);
+            if ($locationId < 1 || $locationId !== $assignedLocationId) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'A valid assigned POS location is required.'],403);
+            }
+        }
+        if ($locationId > 0) {
+            $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
+            if (!$location || !$location->isActive || !$location->isPos) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'The requested POS location is unavailable.'],404);
+            }
+        }
+
+        $repo = $this->c->make(InventoryProductRepositoryInterface::class);
         $stockRepo = $this->c->make(StockRepositoryInterface::class);
         $products = $repo->findAll($limit, $offset, $search);
         $canViewCosts = current_user_can('manage_options');
-        $rows = array_map(function ($p) use ($stockRepo, $canViewCosts): array {
+        $rows = array_map(function ($p) use ($stockRepo, $canViewCosts, $locationId): array {
+            $stock = $locationId > 0
+                ? $stockRepo->getStock($p->id, $locationId)->getQuantity()
+                : $stockRepo->getTotalStock($p->id);
             $row = [
                 'id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,
                 'name'=>$p->name,'category'=>$p->category,'sale_price'=>$p->salePricePkr,
-                'total_stock'=>$stockRepo->getTotalStock($p->id),'reorder_point'=>$p->reorderPoint,
+                'total_stock'=>$stock,'location_id'=>$locationId,'reorder_point'=>$p->reorderPoint,
                 'unit'=>$p->unit,'has_barcode'=>$p->hasBarcode(),'wc_product_id'=>$p->wcProductId,
             ];
             if ($canViewCosts) $row['cost_price'] = $p->costPricePkr;
@@ -50,6 +69,7 @@ final class InventoryController {
         }, $products);
         return new \WP_REST_Response(['success'=>true,'total'=>$repo->countAll(),'products'=>$rows],200);
     }
+
     public function getProduct(\WP_REST_Request $req): \WP_REST_Response {
         $p = $this->c->make(InventoryProductRepositoryInterface::class)->findById((int)$req->get_param('id'));
         if (!$p) return new \WP_REST_Response(['success'=>false,'message'=>'Product not found.'],404);
@@ -71,49 +91,34 @@ final class InventoryController {
     }
     public function lookupBarcode(\WP_REST_Request $req): \WP_REST_Response {
         $barcode = sanitize_text_field($req->get_param('barcode'));
-        $repo    = $this->c->make(InventoryProductRepositoryInterface::class);
-        $sr      = $this->c->make(StockRepositoryInterface::class);
-        $p = $repo->findByBarcode($barcode) ?? $repo->findBySku($barcode);
-        if (!$p) return new \WP_REST_Response(['success'=>false,'message'=>'Product not found for this barcode.'],404);
-        return new \WP_REST_Response(['success'=>true,'product'=>['id'=>$p->id,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'name'=>$p->name,'sale_price'=>$p->salePricePkr,'stock'=>$sr->getTotalStock($p->id),'unit'=>$p->unit]],200);
-    }
-    public function createProduct(\WP_REST_Request $req): \WP_REST_Response {
-        $sku   = sanitize_text_field($req->get_param('sku') ?? '');
-        $name  = sanitize_text_field($req->get_param('name') ?? '');
-        if (empty($sku)||empty($name)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU and name required.'],422);
-        $costPrice = current_user_can('manage_options') ? ($req->get_param('cost_price') ?? 0) : 0;
-        $salePrice = $req->get_param('sale_price') ?? 0;
-        $reorderPoint = $req->get_param('reorder_point') ?? 5;
-        $wcProductRaw = $req->get_param('wc_product_id');
-        if ($wcProductRaw !== null && $wcProductRaw !== '' && filter_var($wcProductRaw, FILTER_VALIDATE_INT) === false) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product ID must be a whole number.'],422);
-        }
-        $wcProductId = (int) ($wcProductRaw ?? 0);
-        foreach ([$costPrice, $salePrice, $reorderPoint] as $numericValue) {
-            if (!is_numeric($numericValue) || (float) $numericValue < 0 || floor((float) $numericValue) !== (float) $numericValue) {
-                return new \WP_REST_Response(['success'=>false,'message'=>'Prices and reorder point must be non-negative whole numbers.'],422);
+        $locationId = absint($req->get_param('location_id') ?? 0);
+        $isCashier = current_user_can('use_junction_pos') && !current_user_can('manage_woocommerce');
+        if ($isCashier) {
+            $assignedLocationId = (int) get_user_meta(get_current_user_id(), '_pkstore_pos_location_id', true);
+            if ($locationId < 1 || $locationId !== $assignedLocationId) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'A valid assigned POS location is required.'],403);
             }
         }
-        if ($wcProductId < 0 || ($wcProductId > 0 && !wc_get_product($wcProductId))) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'Linked WooCommerce product does not exist.'],422);
+        if ($locationId > 0) {
+            $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
+            if (!$location || !$location->isActive || !$location->isPos) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'The requested POS location is unavailable.'],404);
+            }
         }
         $repo = $this->c->make(InventoryProductRepositoryInterface::class);
-        if ($repo->findBySku($sku)) return new \WP_REST_Response(['success'=>false,'message'=>'SKU already exists.'],409);
-        $p = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
-            $sku,
-            $name,
-            (int) $costPrice,
-            (int) $salePrice,
-            sanitize_text_field($req->get_param('category') ?? ''),
-            $wcProductId > 0 ? $wcProductId : null,
-            sanitize_text_field($req->get_param('barcode') ?? ''),
-            sanitize_text_field($req->get_param('unit') ?? 'piece'),
-            (int) $reorderPoint
-        );
-        $id  = $repo->save($p);
-        if (!$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
-        return new \WP_REST_Response(['success'=>true,'product_id'=>$id,'message'=>'Product created.'],201);
+        $stockRepo = $this->c->make(StockRepositoryInterface::class);
+        $product = $repo->findByBarcode($barcode) ?? $repo->findBySku($barcode);
+        if (!$product) return new \WP_REST_Response(['success'=>false,'message'=>'Product not found for this barcode.'],404);
+        $stock = $locationId > 0
+            ? $stockRepo->getStock($product->id, $locationId)->getQuantity()
+            : $stockRepo->getTotalStock($product->id);
+        return new \WP_REST_Response(['success'=>true,'product'=>[
+            'id'=>$product->id,'sku'=>$product->sku,'barcode'=>$product->getBarcode(),
+            'name'=>$product->name,'sale_price'=>$product->salePricePkr,'total_stock'=>$stock,
+            'location_id'=>$locationId,'unit'=>$product->unit,
+        ]],200);
     }
+
     public function adjustStock(\WP_REST_Request $req): \WP_REST_Response {
         $productRaw = $req->get_param('product_id');
         $locationRaw = $req->get_param('location_id');
