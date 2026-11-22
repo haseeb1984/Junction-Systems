@@ -581,8 +581,8 @@ if (!is_string($adminMenuSource) || !is_string($dashboardTemplateSource)
 
 $themeBootstrapperSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
 if (!is_string($themeBootstrapperSource)
-    || strpos($themeBootstrapperSource, "wc_get_order($orderId)") === false
-    || strpos($themeBootstrapperSource, "update_meta_data('_ga4_client_id', $clientId)") === false
+    || strpos($themeBootstrapperSource, 'wc_get_order($orderId)') === false
+    || strpos($themeBootstrapperSource, 'update_meta_data(\'_ga4_client_id\', $clientId)') === false
     || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false) {
     throw new \\RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
 }
