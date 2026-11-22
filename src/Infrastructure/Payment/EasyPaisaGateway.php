@@ -320,7 +320,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
 
         $paymentMode = strtoupper((string) ($status['paymentMode'] ?? ''));
-        $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? ''));
+        $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? $status['Msisdn'] ?? ''));
         $expectedPhone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
         if ($paymentMode !== 'MA' || $reportedPhone === '' || $expectedPhone === ''
             || !hash_equals($expectedPhone, $reportedPhone)) {
