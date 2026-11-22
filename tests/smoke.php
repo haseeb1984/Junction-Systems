@@ -956,10 +956,10 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "'Credentials' => base64_encode(\$username . ':' . \$password)") === false
     || strpos($easyPaisaSource, "transactionStatus === 'PAID'") === false
     || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
-    || strpos($easyPaisaSource, "wp_remote_post($baseUrl . '/initiate-ma-transaction'") === false
-    || strpos($easyPaisaSource, "wp_remote_post($baseUrl . '/inquire-transaction'") === false
-    || strpos($easyPaisaSource, "hash_equals(\$expectedAmount, \$responseAmount)") === false
-    || strpos($easyPaisaSource, "hash_equals(\$expectedStoreId, \$responseStoreId)") === false
+    || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/initiate-ma-transaction'") === false
+    || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/inquire-transaction'") === false
+    || strpos($easyPaisaSource, "hash_equals(\$expectedAmount, \$reportedAmount)") === false
+    || strpos($easyPaisaSource, "hash_equals(\$storeId, (string) (\$body['storeId'] ?? ''))") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
     || strpos($easyPaisaSource, 'wp_remote_retrieve_response_code($response)') === false
     || strpos($easyPaisaSource, '$reportedPhone === \'\' || $expectedPhone === \'\'') === false
