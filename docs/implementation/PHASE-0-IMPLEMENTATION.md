@@ -190,3 +190,9 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - This corrects the prior mismatch where the gateway sent the result POST to the thank-you URL while the payment handler was registered on a separate `wc-api` endpoint.
 - The official JazzCash sandbox API reference describes `pp_ReturnURL` as the merchant URL receiving the transaction result by HTTP POST; merchant onboarding must still confirm the exact registered callback URL and request-signature contract before live credentials are enabled.
 - Source smoke guards added; no gateway sandbox transaction or runtime callback test has been executed.
+
+
+## Migration backup-gate partial-install detection follow-up
+
+- Existing-install detection now checks for any table under the WordPress-prefixed `pkstore_` namespace, not only three core tables. Partial or legacy installations therefore cannot be misclassified as fresh installs and bypass the pre-migration backup confirmation.
+- A failed table probe remains a hard failure; it is never interpreted as an empty/fresh installation. Added source smoke guards; database upgrade testing remains pending.
