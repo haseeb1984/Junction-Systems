@@ -24,9 +24,17 @@ final class CourierCircuitBreaker {
                 // Provider-level rejections are failures too. Continue to the
                 // next licensed courier rather than returning before failover.
                 $lastFailure = $result;
-                $this->fail($code);
-                if ($this->fails($code) >= self::THRESH) {
-                    $this->openCircuit($code);
+                // Count only transport/server failures toward the circuit. A
+                // 4xx validation rejection (for example an unmapped city) is
+                // not evidence that the courier service itself is unhealthy.
+                $message = trim($result->message);
+                $transientFailure = str_starts_with($message, 'HTTP error:')
+                    || (preg_match('/^HTTP\s+(5\d{2})$/', $message) === 1);
+                if ($transientFailure) {
+                    $this->fail($code);
+                    if ($this->fails($code) >= self::THRESH) {
+                        $this->openCircuit($code);
+                    }
                 }
             } catch(\Throwable) {
                 $providerException = true;
