@@ -372,6 +372,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'enqueueRefund(') === false
     || strpos($returnQueueSource, 'cycle_uuid') === false
     || strpos($returnQueueSource, 'cycleUuid') === false
+    || strpos($returnQueueSource, 'markReturnPending(') === false\n    || strpos($returnQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
@@ -816,6 +817,7 @@ $stockCycleServicesSource = file_get_contents($root . '/config/services.php');
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "get_meta('_reduced_stock', true)") === false
     || strpos($stockCycleCaptureSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($stockCycleCaptureSource, "state IN ('reducing','active')") === false\n    || strpos($stockCycleCaptureSource, 'pkstore_wc_return_inventory_queue') === false
     || strpos($stockCycleCaptureSource, "state<>'closed'") === false
     || strpos($stockCycleCaptureSource, 'An open WooCommerce stock cycle conflicts with the current reduction snapshot.') === false
     || strpos($stockCycleCaptureSource, "'wc_stock_cycle_reduce:'") === false
@@ -871,6 +873,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'wc_stock_cycle') === false
     || strpos($stockSaleSource, '_pkstore_inventory_cycle_states') === false
     || strpos($stockSaleSource, 'applyAllocatedCycleReturn(') === false
+    || strpos($stockSaleSource, 'An earlier WooCommerce stock-cycle sale must be processed first.') === false
     || strpos($stockSaleSource, "'state' => 'closed'") === false
     || strpos($stockSaleSource, 'refund_cumulative_baseline') === false
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
