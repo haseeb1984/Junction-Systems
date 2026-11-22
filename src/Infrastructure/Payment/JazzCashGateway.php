@@ -102,6 +102,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || !hash_equals($txn, $responseTxn)
             || !hash_equals($amt, $responseAmount)
             || $responseCurrency !== 'PKR'
+            || (string) ($b['pp_TxnType'] ?? '') !== 'MWALLET'
             || !hash_equals((string) $mid, $responseMerchant)) {
             $order->update_meta_data('_pkstore_jazzcash_state', 'unknown');
             $order->add_order_note('JazzCash response could not be verified. Reconcile the transaction before retrying.');
@@ -170,6 +171,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || !hash_equals($expectedAmount, $amount)
             || !hash_equals($expectedMerchant, $merchant)
             || $currency !== 'PKR'
+            || ($payload['pp_TxnType'] ?? '') !== 'MWALLET'
             || ($payload['pp_ResponseCode'] ?? '') !== '000') {
             $order->add_order_note('JazzCash callback rejected: transaction details did not match the initiated payment.');
             status_header(400);
