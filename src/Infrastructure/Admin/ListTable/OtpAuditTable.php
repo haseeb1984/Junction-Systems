@@ -43,8 +43,8 @@ final class OtpAuditTable extends \WP_List_Table {
     }
 
     public function column_order_id($item): string {
-        $orderId = absint($item['order_id'] ?? 0);
-        if ($orderId < 1) return '<em>—</em>';
+        $orderId = absint($item['consumed_order_id'] ?? 0);
+        if ($orderId < 1) return '<em>Checkout session</em>';
 
         $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
         if (!($order instanceof \WC_Order)) {
