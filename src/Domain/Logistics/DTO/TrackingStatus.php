@@ -22,7 +22,7 @@ enum TrackingStatus: string {
         $current = str_starts_with($currentWooStatus, 'wc-')
             ? substr($currentWooStatus, 3)
             : $currentWooStatus;
-        if (in_array($current, ['completed', 'returned', 'cancelled'], true)) {
+        if (in_array($current, ['completed', 'returned', 'cancelled', 'refunded'], true)) {
             return false;
         }
         if (in_array($current, ['out-for-delivery', 'delivery-failed'], true)
