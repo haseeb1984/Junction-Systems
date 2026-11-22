@@ -66,11 +66,17 @@ final class CaptureWooCommerceStockCycleUseCase {
             $parentId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             $reduced = $item->get_meta('_reduced_stock', true);
-            if ($reduced === '' || $reduced === null || (int) $reduced === 0) {
+            if ($reduced === '' || $reduced === null) {
                 continue;
             }
-            if ($itemId < 1 || $parentId < 1 || !is_numeric($reduced)
-                || (float) $reduced <= 0 || floor((float) $reduced) !== (float) $reduced) {
+            if (!is_numeric($reduced)) {
+                throw new \\RuntimeException('WooCommerce stock-cycle line has malformed reduced-stock metadata.');
+            }
+            if ((float) $reduced === 0.0) {
+                continue;
+            }
+            if ($itemId < 1 || $parentId < 1
+                || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced) {
                 throw new \RuntimeException('WooCommerce stock-cycle line snapshot is invalid.');
             }
 
