@@ -594,6 +594,9 @@ $otpRepositorySource = file_get_contents($src . '/Infrastructure/Verification/Wp
 $otpCheckoutJsSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/checkout.mjs');
 if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !is_string($otpCheckoutJsSource)
     || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
+    || strpos($codOtpControllerSource, 'woocommerce_checkout_create_order') === false
+    || strpos($codOtpControllerSource, 'woocommerce_checkout_order_processed') === false
+    || strpos($codOtpControllerSource, 'bindConsumedAttemptToOrder(') === false
     || strpos($codOtpControllerSource, 'consumeVerifiedAttempt(') === false
     || strpos($codOtpControllerSource, 'is_virtual()') === false
     || strpos($codOtpControllerSource, 'is_downloadable()') !== false
