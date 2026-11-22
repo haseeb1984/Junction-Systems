@@ -566,6 +566,15 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
+$dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
+if (!is_string($dashboardServiceSource)
+    || strpos($dashboardServiceSource, 'wc_get_orders(') === false
+    || strpos($dashboardServiceSource, 'paginate') === false
+    || strpos($dashboardServiceSource, '$this->db->posts') !== false
+    || strpos($dashboardServiceSource, '$this->db->postmeta') !== false) {
+    throw new \\RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
+}
+
 $trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
 if (!$trackingStatus->canAdvanceFrom('shipped')
     || $trackingStatus->canAdvanceFrom('out-for-delivery')
