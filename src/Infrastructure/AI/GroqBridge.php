@@ -224,7 +224,7 @@ final class GroqBridge implements AiProviderInterface {
     }
 
     private function fingerprint(string $key): string {
-        return substr(hash('sha256', $key), 0, 12);
+        return substr(hash('sha256', $key), 0, 24);
     }
 
     private function cooldownKey(string $key): string {
