@@ -123,6 +123,7 @@ final class LicenseManager {
     public function getGroqProviderConfig(): array {
         try {
             $data = $this->getLicenseData();
+            $data = $this->refreshGroqProviderData($data);
         } catch (LicenseException) {
             return ['keys' => [], 'model' => '', 'limit' => 0];
         }
@@ -154,6 +155,59 @@ final class LicenseManager {
             'model' => $model,
             'limit' => min($limit, 100),
         ];
+    }
+
+    /**
+     * Refresh provider credentials/limits more frequently than the ordinary
+     * 24-hour license cache so platform-owner changes propagate promptly.
+     * If the service is offline, the last known-good provider config is usable
+     * for at most 24 hours; beyond that AI fails closed.
+     */
+    private function refreshGroqProviderData(array $data): array {
+        $cachedAt = (int) ($data['cached_at'] ?? 0);
+        $lastRefresh = (int) get_option('pkstore_groq_config_refreshed_at', $cachedAt);
+        $lastRetry = (int) get_option('pkstore_groq_config_retry_after', 0);
+        $now = time();
+
+        if (($now - $lastRefresh) < 300 || $lastRetry > $now) {
+            return $data;
+        }
+
+        $key = $this->getStoredKey();
+        if (!$key) return [];
+
+        try {
+            $result = $this->remoteCall('validate', $key);
+            if (!($result['success'] ?? false) || !is_array($result['data'] ?? null)) {
+                throw new LicenseInvalidException($result['message'] ?? 'Provider configuration refresh was rejected.');
+            }
+
+            $fresh = $result['data'];
+            $this->saveCache($fresh);
+            $this->cache = $fresh;
+            delete_option(self::OPT_LICENSE_GRACE);
+            delete_option('pkstore_groq_config_retry_after');
+            update_option('pkstore_groq_config_refreshed_at', $now, false);
+            return $fresh;
+        } catch (LicenseDomainMismatch $error) {
+            $this->cache = null;
+            delete_option(self::OPT_LICENSE_CACHE);
+            delete_option(self::OPT_LICENSE_GRACE);
+            $this->lockout('domain_mismatch');
+            return [];
+        } catch (LicenseExpiredException | LicenseInvalidException $error) {
+            $this->cache = null;
+            delete_option(self::OPT_LICENSE_CACHE);
+            delete_option(self::OPT_LICENSE_GRACE);
+            return [];
+        } catch (LicenseException $error) {
+            update_option('pkstore_groq_config_retry_after', $now + 60, false);
+            return ($now - $lastRefresh) <= 86400 ? $data : [];
+        } catch (\Throwable $error) {
+            error_log('[PkStore License] Groq provider configuration refresh failed: ' . get_class($error));
+            update_option('pkstore_groq_config_retry_after', $now + 60, false);
+            return ($now - $lastRefresh) <= 86400 ? $data : [];
+        }
     }
 
     // ── Core validation ─────────────────────────────────────────
