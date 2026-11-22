@@ -372,6 +372,29 @@ if (!is_string($inventoryEventsSource)
 }
 
 
+$queueOperatorSource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
+$queueOperatorTemplate = file_get_contents(dirname(__DIR__) . '/templates/admin/inventory/inventory-events.php');
+$queueOperatorSchema = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+$queueOperatorMigration = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
+if (!is_string($queueOperatorSource)
+    || strpos($queueOperatorSource, "retry_inventory_event") === false
+    || strpos($queueOperatorSource, "ignore_inventory_event") === false
+    || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
+    || strpos($queueOperatorSource, "pkstore_inventory_queue_audit") === false
+    || strpos($queueOperatorSource, "strlen(trim($reason)) < 5") === false
+    || !is_string($queueOperatorTemplate)
+    || strpos($queueOperatorTemplate, "Recent operator audit") === false
+    || strpos($queueOperatorTemplate, "retry_inventory_event") === false
+    || strpos($queueOperatorTemplate, "ignore_inventory_event") === false
+    || !is_string($queueOperatorSchema)
+    || strpos($queueOperatorSchema, "CREATE TABLE {$wpdb->prefix}pkstore_inventory_queue_audit") === false
+    || !is_string($queueOperatorMigration)
+    || strpos($queueOperatorMigration, "'2.0.7' => [InventoryInstaller::class, 'installInventoryQueueAudit']") === false
+    || strpos($queueOperatorMigration, "'pkstore_inventory_queue_audit'") === false) {
+    throw new \RuntimeException('Inventory queue review actions must be reasoned, audited and restricted to needs_review.');
+}
+
+
 $orderQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
 $returnQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
 $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
