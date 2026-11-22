@@ -217,6 +217,8 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, "permission_callback'=>\$manageAuth") === false
     || strpos($inventoryHttpSource, "'/inventory/stock/adjust'") === false
     || strpos($inventoryHttpSource, "'/inventory/products'") === false
+    || strpos($inventoryHttpSource, "get_param('location_id')") === false
+    || strpos($inventoryHttpSource, 'getStock($p->id, $locationId)->getQuantity()') === false
     || strpos($inventoryHttpSource, '$this->c->make(LocationRepositoryInterface::class)->findPOS()') === false) {
     throw new \RuntimeException('POS cashiers must receive only read-only inventory access and POS-enabled locations.');
 }
@@ -842,6 +844,14 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
     || strpos($stockSaleSource, 'new \\\\RuntimeException') !== false) {
     throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
+}
+
+$posAppSource = file_get_contents(dirname(__DIR__) . '/templates/pos/pos-app.php');
+if (!is_string($posAppSource)
+    || strpos($posAppSource, 'location_id=${this.locationId}') === false
+    || strpos($posAppSource, 'p.location_id === this.locationId') === false
+    || strpos($posAppSource, 'Insufficient stock at this POS location.') === false) {
+    throw new \\RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
 }
 
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
