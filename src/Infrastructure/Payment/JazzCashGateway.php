@@ -70,7 +70,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         // Prevent two concurrent checkout requests from initiating separate
         // provider transactions for the same WooCommerce order.
-        $lockName = 'pkstore_payment_jc_' . $orderId;
+        $lockName = 'pkstore_payment_order_' . $orderId;
         $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ($wpdb->last_error !== '' || (int) $locked !== 1) {
             wc_add_notice('A payment attempt for this order is already being processed. Please wait and refresh the order status.', 'error');
@@ -94,6 +94,13 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $order = wc_get_order($order_id);
         if (!$order || $order->is_paid()) {
             wc_add_notice('This order cannot be paid through JazzCash.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        $otherGatewayTxn = (string) $order->get_meta('_pkstore_easypaisa_order_id');
+        $otherGatewayState = (string) $order->get_meta('_pkstore_easypaisa_state');
+        if ($otherGatewayTxn !== '' && $otherGatewayState !== 'failed') {
+            wc_add_notice('An Easypaisa payment attempt for this order is still unresolved. Reconcile it before switching payment methods.', 'error');
             return ['result' => 'fail'];
         }
 
