@@ -153,7 +153,7 @@ final class InventoryHooks {
                     $item, (int) $newStock, (int) $oldStock, $order, $cycleUuid !== '' ? $cycleUuid : null
                 );
                 if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
-            } catch (\\Throwable $syncError) {
+            } catch (\Throwable $syncError) {
                 error_log('[PKStore Inventory] Synchronous cancellation restock deferred to durable queue ('.get_class($syncError).').');
             }
         } catch (\Throwable $e) {
@@ -207,7 +207,7 @@ final class InventoryHooks {
                         $productId, (int) $newStock, (int) $oldStock, $order, $product, $itemId, $cumulative, $cycleUuid !== '' ? $cycleUuid : null
                     );
                     if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
-                } catch (\\Throwable $syncError) {
+                } catch (\Throwable $syncError) {
                     error_log('[PKStore Inventory] Synchronous refund restock deferred to durable queue ('.get_class($syncError).').');
                 }
             }
