@@ -758,14 +758,14 @@ if (!is_string($dashboardServiceSource)
     throw new \RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
 }
 
-$trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
-if (\\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Booked->toWooCommerceStatus() !== 'shipped'
-    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Returned->toWooCommerceStatus() !== 'returned'
+$trackingStatus = \PkStore\Domain\Logistics\DTO\TrackingStatus::InTransit;
+if (\PkStore\Domain\Logistics\DTO\TrackingStatus::Booked->toWooCommerceStatus() !== 'shipped'
+    || \PkStore\Domain\Logistics\DTO\TrackingStatus::Returned->toWooCommerceStatus() !== 'returned'
     || !$trackingStatus->canAdvanceFrom('shipped')
     || $trackingStatus->canAdvanceFrom('out-for-delivery')
     || $trackingStatus->canAdvanceFrom('completed')
-    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')
-    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('refunded')) {
+    || \PkStore\Domain\Logistics\DTO\TrackingStatus::Delivered->canAdvanceFrom('completed')
+    || \PkStore\Domain\Logistics\DTO\TrackingStatus::Delivered->canAdvanceFrom('refunded')) {
     throw new \RuntimeException('Courier tracking must reject stale status regressions and preserve terminal order states.');
 }
 
