@@ -61,6 +61,9 @@ final class LicenseFeatures {
             'affiliate_system', 'white_label', 'basic_reports', 'dukaan_ai',
             'junction_pos', 'inventory_management', 'whatsapp_api',
             'quickbooks_sync', 'daraz_sync',
+            // Standard advertises PostEx and Rider integrations; Enterprise adds
+            // their enhanced COD-remittance and same-day service commitments.
+            'postex_courier', 'rider_courier',
             'barcode_labels',
             'analytics_ga4',
             'facebook_pixel',
