@@ -11,5 +11,32 @@ final class WpOtpRepository implements OtpRepositoryInterface {
     public function update(OtpAttempt $a):void{$prev=$a->getAttemptCount()-1;$this->db->query($this->db->prepare("UPDATE {$this->t()} SET is_verified=%d,attempt_count=%d WHERE id=%s AND attempt_count=%d AND is_verified=0",$a->getIsVerified()?1:0,$a->getAttemptCount(),$a->id,$prev));if($this->db->rows_affected===0)throw new \RuntimeException("OTP update conflict on [{$a->id}].");}
     public function findActiveByPhoneAndOrder(PakistanPhoneNumber $p,string $oid):?OtpAttempt{$r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE phone_e164=%s AND order_id=%s AND is_verified=0 AND expires_at>NOW() ORDER BY created_at DESC LIMIT 1",$p->e164,$oid),ARRAY_A);if($r===null)return null;return OtpAttempt::reconstitute($r['id'],new PakistanPhoneNumber($r['phone_e164']),$r['hashed_code'],$r['order_id'],new \DateTimeImmutable($r['created_at']),new \DateTimeImmutable($r['expires_at']),(int)$r['attempt_count'],(bool)$r['is_verified']);}
     public function countRecentSendsByPhone(PakistanPhoneNumber $p,\DateTimeImmutable $since):int{return(int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t()} WHERE phone_e164=%s AND created_at>=%s",$p->e164,$since->format('Y-m-d H:i:s')));}
+    public function consumeVerifiedAttempt(string $attemptId, PakistanPhoneNumber $phone, string $sessionRef): bool {
+        $result = $this->db->query($this->db->prepare(
+            "UPDATE {$this->t()} SET consumed_at=%s WHERE id=%s AND phone_e164=%s AND order_id=%s AND is_verified=1 AND consumed_at IS NULL AND expires_at>NOW()",
+            current_time('mysql'),
+            $attemptId,
+            $phone->e164,
+            $sessionRef
+        ));
+        if ($result === false) {
+            throw new \RuntimeException('Unable to consume verified COD OTP proof.');
+        }
+        return $this->db->rows_affected === 1;
+    }
+
+    public function bindConsumedAttemptToOrder(string $attemptId, string $sessionRef, string $orderId): bool {
+        $result = $this->db->query($this->db->prepare(
+            "UPDATE {$this->t()} SET consumed_order_id=%s WHERE id=%s AND order_id=%s AND consumed_at IS NOT NULL AND consumed_order_id IS NULL",
+            $orderId,
+            $attemptId,
+            $sessionRef
+        ));
+        if ($result === false) {
+            throw new \RuntimeException('Unable to bind consumed COD OTP proof to the order.');
+        }
+        return $this->db->rows_affected === 1;
+    }
+
     public function invalidatePrevious(PakistanPhoneNumber $p,string $oid):void{$this->db->query($this->db->prepare("UPDATE {$this->t()} SET expires_at=%s WHERE phone_e164=%s AND order_id=%s AND is_verified=0",(new \DateTimeImmutable('-1 second'))->format('Y-m-d H:i:s'),$p->e164,$oid));}
 }
