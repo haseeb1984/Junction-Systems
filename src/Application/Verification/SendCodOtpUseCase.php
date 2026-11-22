@@ -12,6 +12,9 @@ final class SendCodOtpUseCase {
     private const TPL="Your PK Store code: %s\nValid 5 minutes. Order #%s\nDO NOT share.";
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly SmsProviderInterface $sms, private readonly LoggerInterface $log) {}
     public function execute(string $rawPhone, string $orderId):void {
+        if ($orderId === '' || strlen($orderId) > 32) {
+            throw new \\InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
+        }
         $phone=new PakistanPhoneNumber($rawPhone);
         $since=new \DateTimeImmutable('-'.self::MINS.' minutes');
         if($this->repo->countRecentSendsByPhone($phone,$since)>=self::MAX)
@@ -20,7 +23,7 @@ final class SendCodOtpUseCase {
         $code=$this->otp();
         $attempt=OtpAttempt::create($phone,$code,$orderId);
         $this->repo->save($attempt);
-        try { $this->sms->send($phone,sprintf(self::TPL,$code,$orderId)); }
+        try { $this->sms->send($phone,sprintf(self::TPL,$code)); }
         catch(SmsProviderException $e){ $this->repo->invalidatePrevious($phone,$orderId); throw $e; }
         finally { $code=str_repeat('0',self::LEN); unset($code); }
     }
