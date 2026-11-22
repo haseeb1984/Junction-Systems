@@ -106,14 +106,12 @@ final class MigrationRunner {
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
-        // Any pre-existing Junction table makes this an upgrade, including a
-        // partial/legacy install that does not yet have the three core tables.
-        // Escape the literal prefix before adding the intentional wildcard.
-        $pattern = $wpdb->esc_like($wpdb->prefix . 'pkstore_') . '%';
-        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pattern));
+        // Any Junction-owned table means this is an existing installation.
+        // Looking at only a few core tables could misclassify a partial install
+        // and bypass the pre-migration backup confirmation gate.
+        $tablePattern = $wpdb->esc_like($wpdb->prefix . 'pkstore_') . '%';
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tablePattern));
         if ($wpdb->last_error !== '') {
-            // Never interpret a failed schema probe as a fresh install:
-            // doing so could bypass the pre-migration backup confirmation.
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
