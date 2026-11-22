@@ -130,19 +130,32 @@ final class InventoryHooks {
         if ($orderId < 1) return;
         $freshOrder = wc_get_order($orderId);
         if (!($freshOrder instanceof \WC_Order)) return;
-        if ($freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
-        if (in_array($freshOrder->get_status(), ['cancelled', 'refunded', 'failed'], true)) return;
 
-        $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_hold', 'yes');
-        $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_previous_status', $freshOrder->get_status());
-        if ($cycleUuid !== null) {
-            $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_cycle_uuid', $cycleUuid);
+        $alreadyMarked = $freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes';
+        if (!$alreadyMarked) {
+            if (in_array($freshOrder->get_status(), ['cancelled', 'refunded', 'failed'], true)) return;
+            $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_hold', 'yes');
+            $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_previous_status', $freshOrder->get_status());
+            if ($cycleUuid !== null) {
+                $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_cycle_uuid', $cycleUuid);
+            }
+            if ((int) $freshOrder->save() !== $orderId) {
+                throw new \RuntimeException('Unable to persist WooCommerce inventory fulfilment hold.');
+            }
+        } else {
+            // Retry a failed status transition only while the order still has
+            // the exact status captured when the hold was first requested.
+            // A different current status is a newer operator/WooCommerce decision.
+            $previousStatus = (string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_previous_status', true);
+            if ($freshOrder->get_status() !== $previousStatus) return;
         }
-        if ((int) $freshOrder->save() !== $orderId) {
-            throw new \RuntimeException('Unable to persist WooCommerce inventory fulfilment hold.');
-        }
+
         if ($freshOrder->get_status() !== 'on-hold') {
             $freshOrder->update_status('on-hold', 'Junction is reconciling the shared inventory ledger before this order can be fulfilled.');
+            $check = wc_get_order($orderId);
+            if (!($check instanceof \WC_Order) || $check->get_status() !== 'on-hold') {
+                throw new \RuntimeException('WooCommerce did not confirm the inventory fulfilment hold.');
+            }
         }
     }
 
