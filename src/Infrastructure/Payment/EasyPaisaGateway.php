@@ -66,6 +66,36 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
     }
 
     public function process_payment($order_id): array {
+        global $wpdb;
+        $orderId = (int) $order_id;
+        if ($orderId < 1 || !($wpdb instanceof \wpdb)) {
+            wc_add_notice('Payment could not be safely initialized. Please try again or contact the store.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        // Prevent two concurrent checkout requests from initiating separate
+        // provider transactions for the same WooCommerce order.
+        $lockName = 'pkstore_payment_ep_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) {
+            wc_add_notice('A payment attempt for this order is already being processed. Please wait and refresh the order status.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        try {
+            return $this->processPaymentLocked($orderId);
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                $this->log->critical('Payment initiation lock release could not be confirmed.', [
+                    'order_id' => $orderId,
+                    'gateway' => 'easypaisa',
+                ]);
+            }
+        }
+    }
+
+    private function processPaymentLocked(int $order_id): array {
         $order = wc_get_order($order_id);
         if (!$order || $order->is_paid() || in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
             wc_add_notice('This order cannot be paid through Easypaisa.', 'error');
