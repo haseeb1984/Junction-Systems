@@ -41,3 +41,5 @@ The client expects these optional fields inside the license `data` object:
 ## External integration gate
 
 The Junction client code is ready to consume this contract, but the central licensing service/dashboard is outside this repository. Until that service returns the fields above and its deployment is verified, the Groq provider intentionally fails closed as unconfigured. Do not enable production AI chat on a store that has no provisioned key pool and resolved key limit.
+
+- Provider keys and resolved limits refresh from the central license service every five minutes while online, independently of the ordinary 24-hour license cache. If the service is unavailable, the last known-good Groq configuration is usable for at most 24 hours; after that the AI provider fails closed. A 60-second retry backoff prevents repeated license-service calls during an outage.
