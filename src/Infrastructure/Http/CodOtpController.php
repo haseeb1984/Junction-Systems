@@ -268,7 +268,7 @@ final class CodOtpController {
         foreach ($wc->cart->get_cart() as $cartItem) {
             $product = $cartItem['data'] ?? null;
             if (!($product instanceof \WC_Product)) return false;
-            if (!$product->is_virtual() && !$product->is_downloadable()) return false;
+            if (!$product->is_virtual()) return false;
         }
         return true;
     }
