@@ -11,20 +11,23 @@ final class InventoryController {
     public function register(): void {
         add_action('rest_api_init', function () {
             $ns = 'pkstore/v1';
-            $auth = fn()=>current_user_can('manage_woocommerce') && FeatureManager::getInstance()->isEnabled('inventory');
-            $barcodeAuth = fn()=>$auth() && FeatureManager::getInstance()->isEnabled('barcode_labels');
-            register_rest_route($ns, '/inventory/products',         ['methods'=>'GET', 'callback'=>[$this,'listProducts'],     'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/products',         ['methods'=>'POST','callback'=>[$this,'createProduct'],    'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/products/(?P<id>\d+)', ['methods'=>'GET', 'callback'=>[$this,'getProduct'],   'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/search',           ['methods'=>'GET', 'callback'=>[$this,'searchProduct'],    'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/barcode/(?P<barcode>[A-Za-z0-9\-]+)', ['methods'=>'GET','callback'=>[$this,'lookupBarcode'],'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/stock/adjust',     ['methods'=>'POST','callback'=>[$this,'adjustStock'],     'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>$auth]);
-            register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>$auth]);
+            $readAuth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
+                && FeatureManager::getInstance()->isEnabled('inventory');
+            $manageAuth = fn()=>current_user_can('manage_woocommerce')
+                && FeatureManager::getInstance()->isEnabled('inventory');
+            $barcodeAuth = fn()=>$manageAuth() && FeatureManager::getInstance()->isEnabled('barcode_labels');
+            register_rest_route($ns, '/inventory/products',         ['methods'=>'GET', 'callback'=>[$this,'listProducts'],     'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/products',         ['methods'=>'POST','callback'=>[$this,'createProduct'],    'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/products/(?P<id>\d+)', ['methods'=>'GET', 'callback'=>[$this,'getProduct'],   'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/search',           ['methods'=>'GET', 'callback'=>[$this,'searchProduct'],    'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/barcode/(?P<barcode>[A-Za-z0-9\-]+)', ['methods'=>'GET','callback'=>[$this,'lookupBarcode'],'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/stock/adjust',     ['methods'=>'POST','callback'=>[$this,'adjustStock'],     'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>$readAuth]);
             if (FeatureManager::getInstance()->isEnabled('barcode_labels')) {
                 register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>$barcodeAuth]);
             }
-            register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$auth]);
+            register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$readAuth]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
@@ -160,6 +163,13 @@ final class InventoryController {
     public function listLocations(\WP_REST_Request $req): \WP_REST_Response {
         // POS sessions may only be opened against physical locations explicitly enabled for POS.
         $locations = $this->c->make(LocationRepositoryInterface::class)->findPOS();
+        if (!current_user_can('manage_woocommerce') && !current_user_can('manage_options')) {
+            $assignedLocationId = (int) get_user_meta(get_current_user_id(), '_pkstore_pos_location_id', true);
+            $locations = array_values(array_filter(
+                $locations,
+                static fn($location): bool => $location->id === $assignedLocationId
+            ));
+        }
         return new \WP_REST_Response(['success'=>true,'locations'=>array_map(fn($l)=>['id'=>$l->id,'name'=>$l->name,'type'=>$l->type,'is_pos'=>$l->isPos],$locations)],200);
     }
     public function generateBarcode(\WP_REST_Request $req): \WP_REST_Response {
