@@ -21,7 +21,11 @@ final class BookShipmentUseCase {
         }
         $s=$this->buildDto($order); if($s===null)return;
         $r=$this->execute($s);
-        if($r->success) $order->add_order_note('[PK Store] Courier booked on retry. Tracking: '.$r->trackingNumber);
+        if($r->success) {
+            $order->add_order_note('[PK Store] Courier booked on retry. Tracking: '.$r->trackingNumber);
+        } else {
+            $order->add_order_note('[PK Store] Courier booking failed at all enabled providers. Check courier configuration, city mapping and provider logs before retrying.');
+        }
     }
     private function buildDto(\WC_Order $o):?ShipmentRequestDTO {
         try { return new ShipmentRequestDTO(internalOrderId:(string)$o->get_id(),orderReference:$o->get_order_number(),recipientName:$o->get_shipping_first_name().' '.$o->get_shipping_last_name(),recipientPhone:$o->get_billing_phone(),recipientEmail:$o->get_billing_email(),addressLine1:$o->get_shipping_address_1(),addressLine2:$o->get_shipping_address_2(),city:strtolower(trim($o->get_shipping_city())),province:$o->get_shipping_state(),postalCode:$o->get_shipping_postcode(),country:'PK',weightKg:(float)($o->get_meta('_total_weight')?: 0.5),itemCount:$o->get_item_count(),dimensions:[],declaredValuePkr:(int)$o->get_total(),isCashOnDelivery:$o->get_payment_method()==='cod',codAmountPkr:(int)$o->get_total(),specialInstructions:'',isFragile:false,serviceType:'standard'); }
