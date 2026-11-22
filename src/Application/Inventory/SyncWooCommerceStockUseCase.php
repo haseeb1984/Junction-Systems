@@ -230,6 +230,8 @@ final class SyncWooCommerceStockUseCase {
                     $line['item']->update_meta_data('_pkstore_inventory_allocations', wp_json_encode($line['allocations']));
                     $line['item']->update_meta_data('_pkstore_inventory_reduced_quantity', $line['quantity']);
                     $line['item']->update_meta_data('_pkstore_inventory_returned_quantity', 0);
+                    $line['item']->update_meta_data('_pkstore_inventory_refund_returned_quantity', 0);
+                    $line['item']->update_meta_data('_pkstore_inventory_cancellation_returned_quantity', 0);
                     if (!$line['item']->save()) {
                         throw new \RuntimeException('Unable to persist WooCommerce order location allocation metadata.');
                     }
@@ -290,6 +292,12 @@ final class SyncWooCommerceStockUseCase {
         }
 
         $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
+        if (!$isPosOrder) {
+            $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+            if ($rawAllocations !== '' && $rawAllocations !== null) {
+                return $this->applyAllocatedOnlineReturn($order, $item, 'cancellation', $quantity, null);
+            }
+        }
         $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
         $wcProductId = (int) $item->get_product_id();
         if ($isPosOrder) {
@@ -417,6 +425,18 @@ final class SyncWooCommerceStockUseCase {
         $candidate = $candidates[0];
         $item = $candidate['item'];
         $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
+        if (!$isPosOrder) {
+            $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+            if ($rawAllocations !== '' && $rawAllocations !== null) {
+                return $this->applyAllocatedOnlineReturn(
+                    $order,
+                    $item,
+                    'refund',
+                    $newStock - $oldStock,
+                    $eventCumulative
+                );
+            }
+        }
         if ($isPosOrder) {
             $productRecord = $this->productRepo->findById((int) $item->get_meta('_pkstore_inventory_product_id', true));
             $returnLocation = $this->locationRepo->findById((int) $item->get_meta('_pkstore_inventory_location_id', true));
