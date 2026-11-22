@@ -14,6 +14,27 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         add_action('woocommerce_api_jazzcash_callback',[$this,'handleCallback']);
     }
     public function init_form_fields():void{$this->form_fields=['enabled'=>['title'=>'Enable/Disable','type'=>'checkbox','label'=>'Enable JazzCash','default'=>'yes'],'title'=>['title'=>'Title','type'=>'text','default'=>'JazzCash'],'description'=>['title'=>'Description','type'=>'textarea','default'=>'Pay via JazzCash Mobile Wallet or Debit Card']];}
+    private function createSecureHash(array $fields, string $integrityKey): ?string {
+        $signedFields = array_filter(
+            $fields,
+            static fn($key) => str_starts_with((string) $key, 'pp') && $key !== 'pp_SecureHash',
+            ARRAY_FILTER_USE_KEY
+        );
+        foreach ($signedFields as $key => $value) {
+            if (!is_scalar($value)) return null;
+            $signedFields[$key] = (string) $value;
+        }
+        ksort($signedFields);
+        $hashInput = $integrityKey . '&' . implode('&', array_values($signedFields));
+        return strtoupper(hash_hmac('sha256', $hashInput, $integrityKey));
+    }
+
+    private function verifySignedResponse(array $payload, string $integrityKey): bool {
+        $received = strtoupper((string) ($payload['pp_SecureHash'] ?? ''));
+        if ($received === '') return false;
+        $expected = $this->createSecureHash($payload, $integrityKey);
+        return $expected !== null && hash_equals($expected, $received);
+    }
     public function process_payment($order_id):array{
         $order=wc_get_order($order_id);
         if (!$order || $order->is_paid()) { wc_add_notice('This order cannot be paid through JazzCash.','error'); return ['result'=>'fail']; }
@@ -44,16 +65,53 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             ? WC()->api_request_url('jazzcash_callback')
             : add_query_arg('wc-api', 'jazzcash_callback', home_url('/'));
         $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$callbackUrl,'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
-        ksort($pd);$hs=$ik.'&'.implode('&',array_values($pd));$pd['pp_SecureHash']=strtoupper(hash_hmac('sha256',$hs,$ik));
+        $requestHash = $this->createSecureHash($pd, $ik);
+        if ($requestHash === null) {
+            wc_add_notice('JazzCash request could not be securely prepared.', 'error');
+            return ['result' => 'fail'];
+        }
+        $pd['pp_SecureHash'] = $requestHash;
         $order->update_meta_data('_pkstore_jazzcash_txn_ref',$txn);
         $order->update_meta_data('_pkstore_jazzcash_expected_amount',$amt);
         $order->update_meta_data('_pkstore_jazzcash_merchant_id',$mid);
         $order->save();
         $r=wp_remote_post($isSandbox?self::S:self::L,['timeout'=>15,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode($pd)]);
         if(is_wp_error($r)){wc_add_notice('Payment connection failed.','error');return['result'=>'fail'];}
-        $b=json_decode(wp_remote_retrieve_body($r),true);
-        if(($b['pp_ResponseCode']??'')==='000'){$order->update_status('pending','JazzCash payment initiated.');return['result'=>'success','redirect'=>$this->get_return_url($order)];}
-        wc_add_notice('JazzCash error: '.($b['pp_ResponseMessage']??'Unknown'),'error');return['result'=>'fail'];
+        $httpStatus = (int) wp_remote_retrieve_response_code($r);
+        $b = json_decode(wp_remote_retrieve_body($r), true);
+        $responseTxn = is_array($b) ? (string) ($b['pp_TxnRefNo'] ?? '') : '';
+        $responseAmount = is_array($b) ? (string) ($b['pp_Amount'] ?? '') : '';
+        $responseCurrency = is_array($b) ? (string) ($b['pp_TxnCurrency'] ?? '') : '';
+        $responseMerchant = is_array($b) ? (string) ($b['pp_MerchantID'] ?? '') : '';
+        if ($httpStatus < 200 || $httpStatus >= 300 || !is_array($b)
+            || !$this->verifySignedResponse($b, $ik)
+            || !hash_equals($txn, $responseTxn)
+            || !hash_equals($amt, $responseAmount)
+            || $responseCurrency !== 'PKR'
+            || !hash_equals((string) $mid, $responseMerchant)) {
+            $order->add_order_note('JazzCash response rejected: HTTP status or signed transaction details did not match the initiated payment.');
+            wc_add_notice('JazzCash could not verify the payment response. Please contact the store before retrying.', 'error');
+            return ['result' => 'fail'];
+        }
+
+        $responseCode = (string) ($b['pp_ResponseCode'] ?? '');
+        if ($responseCode === '000') {
+            if (!$order->is_paid()) {
+                $order->payment_complete($txn);
+                $order->add_order_note('JazzCash payment confirmed by signed API response. TxID: ' . $txn);
+            }
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+        }
+
+        if ($responseCode === '157') {
+            $order->update_status('pending', 'JazzCash wallet payment is awaiting customer confirmation.');
+            wc_add_notice('Please approve the payment request in your JazzCash app. Your order will remain pending until confirmation.', 'notice');
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+        }
+
+        $order->update_status('failed', 'JazzCash payment was declined. Response code: ' . sanitize_text_field($responseCode));
+        wc_add_notice('JazzCash payment was not completed. Please try another payment method.', 'error');
+        return ['result' => 'fail'];
     }
     public function handleCallback():void{
         $payload = wp_unslash($_POST);
@@ -66,21 +124,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             exit;
         }
 
-        $signedPayload = array_filter(
-            $payload,
-            static fn($key) => str_starts_with((string)$key, 'pp') && $key !== 'pp_SecureHash',
-            ARRAY_FILTER_USE_KEY
-        );
-        foreach ($signedPayload as $key => $value) {
-            if (!is_scalar($value)) {
-                status_header(400);
-                exit;
-            }
-            $signedPayload[$key] = (string) $value;
-        }
-        ksort($signedPayload);
-        $expectedHash = strtoupper(hash_hmac('sha256', $ik . '&' . implode('&', array_values($signedPayload)), $ik));
-        if (!hash_equals($expectedHash, strtoupper($receivedHash))) {
+        if (!$this->verifySignedResponse($payload, $ik)) {
             status_header(400);
             exit;
         }
