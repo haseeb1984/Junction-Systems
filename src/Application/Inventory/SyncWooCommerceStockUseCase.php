@@ -56,9 +56,13 @@ final class SyncWooCommerceStockUseCase {
             }
 
             $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+            $hasRawAllocationMeta = $rawAllocations !== '' && $rawAllocations !== null;
             $allocations = is_array($rawAllocations)
                 ? $rawAllocations
                 : (is_string($rawAllocations) ? json_decode($rawAllocations, true) : null);
+            if ($hasRawAllocationMeta && !is_array($allocations)) {
+                throw new \RuntimeException('WooCommerce order has malformed Junction location-allocation metadata.');
+            }
             if (is_array($allocations)) $metadataCount++;
 
             $lines[] = [
@@ -174,20 +178,29 @@ final class SyncWooCommerceStockUseCase {
                 unset($line);
             }
 
-            // Detect legacy order-level deductions before writing new location-
-            // scoped references. Never recompute an allocation over an old sale.
+            // Detect legacy order-level deductions in every active location
+            // before writing new location-scoped references. Never recompute an
+            // allocation over a sale committed by the previous order-level model.
+            foreach ($products as $productId) {
+                foreach ($locations as $location) {
+                    if ($this->stockRepo->hasMovementReference(
+                        (int) $productId,
+                        $location->id,
+                        'wc_order',
+                        (string) $orderId,
+                        MovementType::OnlineSale
+                    )) {
+                        throw new \RuntimeException('A legacy order-level stock deduction exists without a verifiable location allocation.');
+                    }
+                }
+            }
+
             foreach ($allocationsByProductLocation as $productId => $byLocation) {
                 foreach ($byLocation as $locationId => $quantity) {
                     $referenceId = $orderId . ':' . $locationId;
                     $alreadyApplied = $this->stockRepo->hasMovementReference(
                         (int) $productId, (int) $locationId, 'wc_order', $referenceId, MovementType::OnlineSale
                     );
-                    $legacyApplied = $this->stockRepo->hasMovementReference(
-                        (int) $productId, (int) $locationId, 'wc_order', (string) $orderId, MovementType::OnlineSale
-                    );
-                    if ($legacyApplied) {
-                        throw new \RuntimeException('A legacy order-level stock deduction exists without a verifiable location allocation.');
-                    }
                     if ($hasAllocationSnapshot && !$alreadyApplied) {
                         throw new \RuntimeException('Saved Junction allocations exist without their matching stock ledger movements.');
                     }
@@ -222,7 +235,7 @@ final class SyncWooCommerceStockUseCase {
                     }
                 }
                 $order->update_meta_data('_pkstore_inventory_allocation_version', '1');
-                if (!$order->save_meta_data()) {
+                if ((int) $order->save() !== $orderId) {
                     throw new \RuntimeException('Unable to persist WooCommerce order allocation version.');
                 }
             }
