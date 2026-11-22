@@ -21,54 +21,70 @@ final class SyncWooCommerceStockUseCase {
 
     private function applyWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
-        if (!($order instanceof \WC_Order)) { throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.'); }
+        if (!($order instanceof \WC_Order)) {
+            throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
+        }
         if (in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending'], true)) {
             return;
         }
-        $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation) { throw new \RuntimeException('Junction online inventory location is not configured.'); }
 
-        // Aggregate repeated product lines so one order creates one auditable
-        // online-sale movement per inventory product.
-        $quantities = [];
+        $lines = [];
+        $metadataCount = 0;
         foreach ($order->get_items('line_item') as $item) {
-            // Only count lines WooCommerce actually reduced. An order can also
-            // contain virtual, untracked, or otherwise non-stock-managed lines.
             $reducedStock = $item->get_meta('_reduced_stock', true);
-            if ($reducedStock === '' || $reducedStock === null) {
-                continue;
-            }
+            if ($reducedStock === '' || $reducedStock === null) continue;
             if (!is_numeric($reducedStock)) {
                 throw new \RuntimeException('WooCommerce order contains a malformed actual stock-reduction quantity.');
             }
-            $rawQuantity = (float) $reducedStock;
-            if ($rawQuantity === 0.0) {
-                continue;
-            }
-            $wcProductId = (int) $item->get_product_id();
-            $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
-            if ($wcProductId < 1 || $rawQuantity < 0 || floor($rawQuantity) !== $rawQuantity) {
+            $quantity = (float) $reducedStock;
+            if ($quantity === 0.0) continue;
+            if ($quantity < 0 || floor($quantity) !== $quantity) {
                 throw new \RuntimeException('WooCommerce order contains an invalid actual stock-reduction quantity.');
             }
-            // Prefer an explicitly mapped variation so separately stocked
-            // variants deduct from their own Junction inventory record. If no
-            // variation mapping exists, fall back to the parent product mapping.
+
+            $wcProductId = (int) $item->get_product_id();
+            $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+            if ($wcProductId < 1) {
+                throw new \RuntimeException('WooCommerce order contains an invalid reduced product.');
+            }
             $product = $variationId > 0
                 ? $this->productRepo->findByWcProductId($variationId)
                 : null;
             $product ??= $this->productRepo->findByWcProductId($wcProductId);
             if (!$product) {
-                // Fail before opening the inventory transaction: never deduct only
-                // the mapped subset of an order and leave the order under-counted.
                 throw new \RuntimeException('WooCommerce order product is not linked to Junction inventory.');
             }
-            $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int) $rawQuantity;
+
+            $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+            $allocations = is_array($rawAllocations)
+                ? $rawAllocations
+                : (is_string($rawAllocations) ? json_decode($rawAllocations, true) : null);
+            if (is_array($allocations)) $metadataCount++;
+
+            $lines[] = [
+                'item' => $item,
+                'item_id' => (int) $item->get_id(),
+                'product_id' => (int) $product->id,
+                'quantity' => (int) $quantity,
+                'allocations' => $allocations,
+            ];
         }
-        if (!$quantities) {
-            // An order with no stock-managed product lines needs no inventory movement.
-            return;
+        if (!$lines) return;
+        if ($metadataCount !== 0 && $metadataCount !== count($lines)) {
+            throw new \RuntimeException('WooCommerce order has only a partial Junction location-allocation snapshot.');
         }
-        ksort($quantities, SORT_NUMERIC);
+        $hasAllocationSnapshot = $metadataCount === count($lines);
+
+        $locations = $this->locationRepo->findAll();
+        if (!$locations) {
+            throw new \RuntimeException('No active Junction inventory locations are available for online order allocation.');
+        }
+        $onlineLocation = $this->locationRepo->findOnline();
+        usort($locations, static function ($a, $b) use ($onlineLocation): int {
+            $aOnline = $onlineLocation && $a->id === $onlineLocation->id ? 0 : 1;
+            $bOnline = $onlineLocation && $b->id === $onlineLocation->id ? 0 : 1;
+            return ($aOnline <=> $bOnline) ?: ($a->id <=> $b->id);
+        });
 
         global $wpdb;
         if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
@@ -78,32 +94,137 @@ final class SyncWooCommerceStockUseCase {
             throw new \RuntimeException('Unable to start WooCommerce order inventory ledger transaction.');
         }
 
+        $products = array_values(array_unique(array_column($lines, 'product_id')));
+        sort($products, SORT_NUMERIC);
+        $stockLevels = [];
+        $allocationsByProductLocation = [];
         try {
-            foreach ($quantities as $productId => $quantity) {
-                // Lock the location/product row before checking the reference.
-                // Concurrent duplicate WooCommerce hooks then observe the first
-                // committed movement and cannot deduct the same order twice.
-                $this->stockRepo->getStock((int) $productId, $onlineLocation->id);
-                if ($this->stockRepo->hasMovementReference(
-                    (int) $productId,
-                    $onlineLocation->id,
-                    'wc_order',
-                    (string) $orderId,
-                    MovementType::OnlineSale
-                )) {
-                    continue;
+            // Lock every candidate location in deterministic product/location
+            // order. POS and online sales therefore serialize on the same rows.
+            foreach ($products as $productId) {
+                foreach ($locations as $location) {
+                    $stockLevels[$productId][$location->id] = $this->stockRepo->getStock($productId, $location->id);
+                }
+            }
+
+            if ($hasAllocationSnapshot) {
+                foreach ($lines as &$line) {
+                    $allocations = $line['allocations'];
+                    if (!$allocations) {
+                        throw new \RuntimeException('WooCommerce order has an empty Junction allocation snapshot.');
+                    }
+                    $allocated = 0;
+                    foreach ($allocations as $allocation) {
+                        if (!is_array($allocation)
+                            || (int) ($allocation['product_id'] ?? 0) !== $line['product_id']
+                            || (int) ($allocation['location_id'] ?? 0) < 1
+                            || (int) ($allocation['quantity'] ?? 0) < 1) {
+                            throw new \RuntimeException('WooCommerce order has an invalid Junction allocation snapshot.');
+                        }
+                        $locationId = (int) $allocation['location_id'];
+                        if (!isset($stockLevels[$line['product_id']][$locationId])) {
+                            throw new \RuntimeException('A saved Junction allocation references an inactive or unknown location.');
+                        }
+                        $quantity = (int) $allocation['quantity'];
+                        $allocated += $quantity;
+                        $allocationsByProductLocation[$line['product_id']][$locationId] =
+                            ($allocationsByProductLocation[$line['product_id']][$locationId] ?? 0) + $quantity;
+                    }
+                    if ($allocated !== $line['quantity']) {
+                        throw new \RuntimeException('Saved Junction location allocations do not match the actual WooCommerce reduction.');
+                    }
+                }
+                unset($line);
+            } else {
+                $available = [];
+                foreach ($stockLevels as $productId => $byLocation) {
+                    foreach ($byLocation as $locationId => $stock) {
+                        $available[$productId][$locationId] = $stock->getQuantity();
+                    }
                 }
 
-                $this->adjustStock->execute(
-                    (int) $productId,
-                    $onlineLocation->id,
-                    -$quantity,
-                    MovementType::OnlineSale,
-                    "WooCommerce order #{$orderId}",
-                    'wc_order',
-                    (string) $orderId,
-                    false
-                );
+                // Allocate each actual reduced line from the online location
+                // first, then other active locations in stable ID order. This
+                // preserves the shared multi-location pool without negative stock.
+                foreach ($lines as &$line) {
+                    $remaining = $line['quantity'];
+                    $allocations = [];
+                    foreach ($locations as $location) {
+                        $locationId = $location->id;
+                        $onHand = $available[$line['product_id']][$locationId] ?? 0;
+                        if ($onHand < 1) continue;
+                        $take = min($remaining, $onHand);
+                        if ($take < 1) continue;
+                        $allocations[] = [
+                            'product_id' => $line['product_id'],
+                            'location_id' => $locationId,
+                            'quantity' => $take,
+                        ];
+                        $available[$line['product_id']][$locationId] -= $take;
+                        $allocationsByProductLocation[$line['product_id']][$locationId] =
+                            ($allocationsByProductLocation[$line['product_id']][$locationId] ?? 0) + $take;
+                        $remaining -= $take;
+                        if ($remaining === 0) break;
+                    }
+                    if ($remaining > 0) {
+                        throw new \DomainException('Combined Junction inventory is insufficient for the WooCommerce order.');
+                    }
+                    $line['allocations'] = $allocations;
+                }
+                unset($line);
+            }
+
+            // Detect legacy order-level deductions before writing new location-
+            // scoped references. Never recompute an allocation over an old sale.
+            foreach ($allocationsByProductLocation as $productId => $byLocation) {
+                foreach ($byLocation as $locationId => $quantity) {
+                    $referenceId = $orderId . ':' . $locationId;
+                    $alreadyApplied = $this->stockRepo->hasMovementReference(
+                        (int) $productId, (int) $locationId, 'wc_order', $referenceId, MovementType::OnlineSale
+                    );
+                    $legacyApplied = $this->stockRepo->hasMovementReference(
+                        (int) $productId, (int) $locationId, 'wc_order', (string) $orderId, MovementType::OnlineSale
+                    );
+                    if ($legacyApplied) {
+                        throw new \RuntimeException('A legacy order-level stock deduction exists without a verifiable location allocation.');
+                    }
+                    if ($hasAllocationSnapshot && !$alreadyApplied) {
+                        throw new \RuntimeException('Saved Junction allocations exist without their matching stock ledger movements.');
+                    }
+                    if (!$hasAllocationSnapshot && $alreadyApplied) {
+                        throw new \RuntimeException('A stock ledger movement exists without its Junction location allocation snapshot.');
+                    }
+                }
+            }
+
+            if (!$hasAllocationSnapshot) {
+                foreach ($allocationsByProductLocation as $productId => $byLocation) {
+                    foreach ($byLocation as $locationId => $quantity) {
+                        $this->adjustStock->execute(
+                            (int) $productId,
+                            (int) $locationId,
+                            -$quantity,
+                            MovementType::OnlineSale,
+                            "WooCommerce order #{$orderId}",
+                            'wc_order',
+                            $orderId . ':' . $locationId,
+                            false
+                        );
+                    }
+                }
+
+                foreach ($lines as $line) {
+                    $line['item']->update_meta_data('_pkstore_inventory_allocations', wp_json_encode($line['allocations']));
+                    $line['item']->update_meta_data('_pkstore_inventory_reduced_quantity', $line['quantity']);
+                    $line['item']->update_meta_data('_pkstore_inventory_returned_quantity', 0);
+                    if (!$line['item']->save()) {
+                        throw new \RuntimeException('Unable to persist WooCommerce order location allocation metadata.');
+                    }
+                }
+                $order->update_meta_data('_pkstore_inventory_allocation_version', '1');
+                if (!$order->save_meta_data()) {
+                    throw new \RuntimeException('Unable to persist WooCommerce order allocation version.');
+                }
             }
 
             if ($wpdb->query('COMMIT') === false) {
@@ -118,8 +239,7 @@ final class SyncWooCommerceStockUseCase {
             throw $error;
         }
 
-        // Push the aggregate snapshot only after the inventory ledger commits.
-        foreach (array_keys($quantities) as $productId) {
+        foreach (array_keys($allocationsByProductLocation) as $productId) {
             try {
                 $this->adjustStock->syncProductToWooCommerce((int) $productId);
             } catch (\Throwable $error) {
@@ -131,6 +251,7 @@ final class SyncWooCommerceStockUseCase {
             }
         }
     }
+
     /**
      * Mirror a cancellation restock only after WooCommerce has actually restored
      * the individual order item. The callback's stock delta is authoritative.
