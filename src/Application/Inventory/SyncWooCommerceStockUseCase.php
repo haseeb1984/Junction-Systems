@@ -225,12 +225,15 @@ final class SyncWooCommerceStockUseCase {
                 if (!is_string($encoded)) throw new \RuntimeException('Unable to encode WooCommerce stock-cycle allocation snapshot.');
                 $firstLocationId = (int) $line['cycle_state']['allocations'][0]['location_id'];
                 $cycleItemRow = $wpdb->get_row($wpdb->prepare(
-                    "SELECT id,refund_cumulative_baseline FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
+                    "SELECT id,reduced_quantity,refund_cumulative_baseline FROM {$cycleItemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d",
                     $cycleUuid,
                     $line['item_id']
                 ), ARRAY_A);
                 if ($wpdb->last_error !== '' || !is_array($cycleItemRow)) {
                     throw new \RuntimeException('Captured WooCommerce stock-cycle line is unavailable.');
+                }
+                if ((int) $cycleItemRow['reduced_quantity'] !== $line['quantity']) {
+                    throw new \RuntimeException('Captured stock-cycle quantity conflicts with the current WooCommerce reduction snapshot.');
                 }
                 if (!$hasSnapshot) {
                     $line['cycle_state']['refund_cumulative_baseline'] = (int) $cycleItemRow['refund_cumulative_baseline'];
