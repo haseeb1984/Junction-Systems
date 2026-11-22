@@ -19,7 +19,7 @@ final class SendCodOtpUseCase {
         $this->repo->acquirePhoneSendLock($phone);
         $code = null;
         try {
-            $since = new \\DateTimeImmutable('-' . self::MINS . ' minutes');
+            $since = new \DateTimeImmutable('-' . self::MINS . ' minutes');
             if ($this->repo->countRecentSendsByPhone($phone, $since) >= self::MAX) {
                 throw new RateLimitExceededException($since->modify('+' . self::MINS . ' minutes'));
             }
