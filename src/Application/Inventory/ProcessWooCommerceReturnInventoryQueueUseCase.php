@@ -74,11 +74,11 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 } else {
                     throw new \RuntimeException('Unknown WooCommerce return event kind.');
                 }
-                $this->complete($id);
+                $this->complete($id, (string) ($job['claim_token'] ?? ''));
                 $result['processed']++;
             } catch (\Throwable $error) {
                 $result['failed']++;
-                try { $this->retry($id, $attempt, get_class($error)); }
+                try { $this->retry($id, (string) ($job['claim_token'] ?? ''), $attempt, get_class($error)); }
                 catch (\Throwable $queueError) {
                     $this->log->critical('WooCommerce return retry could not be persisted.', ['event_id' => $id, 'error_class' => get_class($queueError)]);
                 }
@@ -96,7 +96,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
         $limit = max(1, min(100, $limit));
         $recovered = $wpdb->query($wpdb->prepare(
-            "UPDATE {$table} SET status='pending',claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
+            "UPDATE {$table} SET status='pending',claimed_at=NULL,claim_token=NULL WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
             current_time('mysql')
         ));
         if ($recovered === false) throw new \RuntimeException('Unable to recover stale WooCommerce return claims.');
@@ -110,12 +110,14 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
             if ($rows === null && $wpdb->last_error !== '') throw new \RuntimeException('Unable to read WooCommerce return queue.');
             $rows = $rows ?: [];
             foreach ($rows as &$row) {
+                $claimToken = wp_generate_uuid4();
                 $updated = $wpdb->query($wpdb->prepare(
-                    "UPDATE {$table} SET status='processing',claimed_at=%s,attempts=attempts+1 WHERE id=%d AND status='pending'",
-                    current_time('mysql'), (int) $row['id']
+                    "UPDATE {$table} SET status='processing',claimed_at=%s,claim_token=%s,attempts=attempts+1 WHERE id=%d AND status='pending'",
+                    current_time('mysql'), $claimToken, (int) $row['id']
                 ));
-                if ($updated === false) throw new \RuntimeException('Unable to claim WooCommerce return event.');
+                if ($updated !== 1) throw new \RuntimeException('Unable to claim WooCommerce return event.');
                 $row['attempts'] = (int) $row['attempts'] + 1;
+                $row['claim_token'] = $claimToken;
             }
             unset($row);
             if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit return queue claim.');
@@ -126,14 +128,15 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         }
     }
 
-    private function complete(int $id): void {
+    private function complete(int $id, string $claimToken): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
-        $deleted = $wpdb->delete($table, ['id' => $id, 'status' => 'processing'], ['%d', '%s']);
-        if ($deleted !== 1) throw new \RuntimeException('Unable to acknowledge WooCommerce return event.');
+        $deleted = $wpdb->delete($table, ['id' => $id, 'status' => 'processing', 'claim_token' => $claimToken], ['%d', '%s', '%s']);
+        if ($deleted === false) throw new \RuntimeException('Unable to acknowledge WooCommerce return event.');
+        // A stale worker must never acknowledge a job reclaimed by another worker.
     }
 
-    private function retry(int $id, int $attempt, string $errorClass): void {
+    private function retry(int $id, string $claimToken, int $attempt, string $errorClass): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
         $needsReview = $attempt >= self::MAX_AUTOMATIC_ATTEMPTS;
@@ -142,10 +145,11 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $updated = $wpdb->query($wpdb->prepare(
             "UPDATE {$table} SET status=%s,claimed_at=NULL,
              next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s,INTERVAL %d SECOND)),last_error=%s
-             WHERE id=%d AND status='processing'",
+             WHERE id=%d AND status='processing' AND claim_token=%s",
             $needsReview ? 'needs_review' : 'pending', $needsReview ? 'needs_review' : 'pending',
-            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $claimToken
         ));
-        if ($updated !== 1) throw new \RuntimeException('Unable to reschedule WooCommerce return event.');
+        if ($updated === false) throw new \RuntimeException('Unable to reschedule WooCommerce return event.');
+        // A zero-row update means this worker lost its lease; leave the newer claim untouched.
     }
 }
