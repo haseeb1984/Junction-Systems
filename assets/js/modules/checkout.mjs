@@ -21,6 +21,15 @@ export function init() {
     const billingPhoneInput = find('#billing_phone');
     const codPhoneInput = mustFind('[data-cod-phone]', codSection);
     if (billingPhoneInput && !codPhoneInput.value) codPhoneInput.value = billingPhoneInput.value;
+    if (billingPhoneInput) {
+        billingPhoneInput.addEventListener('input', () => {
+            if (state.isVerified && billingPhoneInput.value.trim() !== codPhoneInput.value.trim()) {
+                state.isVerified = false;
+                if (placeOrderBtn) placeOrderBtn.disabled = true;
+                showMessage(codSection, 'Billing phone changed. Please verify the new number before placing your COD order.', 'error');
+            }
+        });
+    }
     const otpInput = mustFind('[data-cod-otp-input]', codSection);
     otpInput.addEventListener('input', () => {
         otpInput.value = otpInput.value.replace(/\D/g,'').slice(0,6);
