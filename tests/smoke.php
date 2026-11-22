@@ -490,7 +490,8 @@ if (!is_string($orderQueueSource)
     || strpos($orderQueueSource, 'enqueue(int $orderId, ?string $cycleUuid = null)') === false
     || strpos($orderQueueSource, 'cycle_uuid') === false
     || strpos($orderQueueSource, 'onWooCommerceSale($orderId, $cycleUuid') === false
-    || strpos($orderQueueSource, 'bindCycleIdentity(') === false\n    || strpos($orderQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
+    || strpos($orderQueueSource, 'bindCycleIdentity(') === false
+    || strpos($orderQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($inventoryInstallerSource, 'cycle_uuid CHAR(36) NOT NULL DEFAULT') === false
     || strpos($inventoryInstallerSource, 'UNIQUE INDEX idx_order_cycle (wc_order_id, cycle_uuid)') === false
     || strpos($migrationRunnerSource, "'2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity']") === false
@@ -825,12 +826,15 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '$wpdb->last_error') === false
     || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
-    || strpos($stockCycleCaptureSource, 'markReturnPending(') === false\n    || strpos($stockCycleCaptureSource, "'state' => 'restoring'") === false\n    || strpos($stockCycleCaptureSource, 'Previous WooCommerce stock cycle is still restoring') === false
+    || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
+    || strpos($stockCycleCaptureSource, "'state' => 'restoring'") === false
+    || strpos($stockCycleCaptureSource, 'Previous WooCommerce stock cycle is still restoring') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
     || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_active_cycle_uuid') === false
-    || strpos($stockCycleHooksSource, 'markReturnPending(') === false\n    || strpos($stockCycleHooksSource, '_pkstore_wc_cycle_return_capture_failed_') === false
+    || strpos($stockCycleHooksSource, 'markReturnPending(') === false
+    || strpos($stockCycleHooksSource, '_pkstore_wc_cycle_return_capture_failed_') === false
     || !is_string($stockCycleServicesSource)
     || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') === false) {
     throw new \RuntimeException('WooCommerce stock-cycle capture must be wired to the real reduction hook and registered with the cycle-aware ledger workers.');
