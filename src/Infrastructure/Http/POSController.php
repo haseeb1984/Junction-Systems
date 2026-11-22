@@ -6,12 +6,15 @@ use PkStore\Container\ServiceContainer;
 use PkStore\Domain\POS\Repository\{POSSessionRepositoryInterface, POSOrderRepositoryInterface};
 use PkStore\Domain\POS\Entity\POSSession;
 use PkStore\Domain\Inventory\Repository\LocationRepositoryInterface;
+use PkStore\Core\Feature\FeatureManager;
 final class POSController {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
         add_action('rest_api_init', function () {
             $ns   = 'pkstore/v1';
-            $auth = fn()=>current_user_can('manage_woocommerce');
+            $auth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
+                && FeatureManager::getInstance()->isEnabled('pos')
+                && FeatureManager::getInstance()->isEnabled('inventory');
             register_rest_route($ns,'/pos/session/open',      ['methods'=>'POST','callback'=>[$this,'openSession'],  'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/close',     ['methods'=>'POST','callback'=>[$this,'closeSession'], 'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/session/current',   ['methods'=>'GET', 'callback'=>[$this,'currentSession'],'permission_callback'=>$auth]);
@@ -26,6 +29,9 @@ final class POSController {
         $openingCash = (int)($req->get_param('opening_cash')??0);
         if ($locationId < 1 || $openingCash < 0) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Location and opening cash must be valid non-negative values.'],422);
+        }
+        if (!$this->canAccessLocation($locationId)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS location.'],403);
         }
         global $wpdb;
         $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
@@ -95,6 +101,9 @@ final class POSController {
     }
     public function currentSession(\WP_REST_Request $req): \WP_REST_Response {
         $locationId = (int)($req->get_param('location_id')??1);
+        if (!$this->canAccessLocation($locationId)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS location.'],403);
+        }
         $session    = $this->c->make(POSSessionRepositoryInterface::class)->findOpenByLocation($locationId);
         if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'No open session.'],404);
         if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
@@ -141,7 +150,8 @@ final class POSController {
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
         $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
         if (!$session || !$session->isOpen() || $session->locationId !== $locationId
-            || !$location || !$location->isPos || !$location->isActive) {
+            || !$location || !$location->isPos || !$location->isActive
+            || !$this->canAccessLocation($locationId)) {
             return new \WP_REST_Response(['success'=>false,'message'=>'The POS session or POS-enabled location is invalid or closed.'],409);
         }
         if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
@@ -178,6 +188,14 @@ final class POSController {
         $orders = $this->c->make(POSOrderRepositoryInterface::class)->findBySession($sessionId);
         return new \WP_REST_Response(['success'=>true,'orders'=>array_map(fn($o)=>['id'=>$o->id,'ref'=>$o->orderRef,'total'=>$o->totalPkr,'method'=>$o->paymentMethod,'customer'=>$o->customerName,'sync'=>$o->getSyncStatus()->value,'created_at'=>$o->createdAt->format('H:i:s')],$orders)],200);
     }
+    private function canAccessLocation(int $locationId): bool {
+        if ($locationId < 1) return false;
+        if (current_user_can('manage_woocommerce') || current_user_can('manage_options')) return true;
+        if (!current_user_can('use_junction_pos')) return false;
+        $assignedLocationId = (int) get_user_meta(get_current_user_id(), '_pkstore_pos_location_id', true);
+        return $assignedLocationId > 0 && $assignedLocationId === $locationId;
+    }
+
     public function sendWhatsApp(\WP_REST_Request $req): \WP_REST_Response {
         $phone = sanitize_text_field($req->get_param('phone') ?? '');
         $orderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
