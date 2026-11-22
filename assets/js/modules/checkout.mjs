@@ -49,13 +49,13 @@ async function handleSendOtp(codSection, placeOrderBtn) {
     clearMessages(codSection);
     const phoneInput = mustFind('[data-cod-phone]', codSection);
     const rawPhone   = phoneInput.value.trim();
+    if (!rawPhone) { showMessage(codSection,'براہ کرم موبائل نمبر درج کریں۔ Please enter your mobile number.','error'); phoneInput.focus(); return; }
     const billingPhoneInput = find('#billing_phone');
     if (billingPhoneInput) {
         billingPhoneInput.value = rawPhone;
         billingPhoneInput.dispatchEvent(new Event('input', { bubbles: true }));
         billingPhoneInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    if (!rawPhone) { showMessage(codSection,'براہ کرم موبائل نمبر درج کریں۔ Please enter your mobile number.','error'); phoneInput.focus(); return; }
     const sendBtn = mustFind('[data-cod-send-btn]', codSection);
     disableButton(sendBtn,'بھیج رہے ہیں...');
     try {
