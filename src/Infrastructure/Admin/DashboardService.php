@@ -17,7 +17,6 @@ final class DashboardService {
         $this->forEachOrder([
             'type' => 'shop_order',
             'date_created' => '>' . $since,
-            'meta_key' => '_booked_courier',
         ], static function ($order) use (&$summary): void {
             if (!($order instanceof \WC_Order)) return;
             $courier = strtoupper((string) $order->get_meta('_booked_courier'));
@@ -79,7 +78,6 @@ final class DashboardService {
 
         $this->forEachOrder([
             'type' => 'shop_order',
-            'meta_key' => '_tracking_courier',
         ], static function ($order) use (&$summary): void {
             if (!($order instanceof \WC_Order)) return;
             $tracking = (string) $order->get_meta('_tracking_courier');
