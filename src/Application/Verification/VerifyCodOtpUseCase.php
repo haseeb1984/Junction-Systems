@@ -8,6 +8,9 @@ use Psr\Log\LoggerInterface;
 final class VerifyCodOtpUseCase {
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly LoggerInterface $log) {}
     public function execute(string $rawPhone, string $orderId, string $submittedCode):string {
+        if ($orderId === '' || strlen($orderId) > 32) {
+            throw new \\InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
+        }
         $phone=new PakistanPhoneNumber($rawPhone);
         $code=preg_replace('/\D/','',$submittedCode);
         if(strlen($code)!==6)throw new InvalidOtpException(0,'OTP must be exactly 6 digits.');
