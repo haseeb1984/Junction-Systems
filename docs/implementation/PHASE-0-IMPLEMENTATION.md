@@ -329,3 +329,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The three-send/15-minute per-phone limit previously used a count-then-insert sequence that concurrent checkout requests could race.
 - COD OTP issuance now acquires a phone-scoped MySQL advisory lock around the rate-limit count, previous-code invalidation, new attempt persistence and SMS dispatch. The lock is released in `finally`; database/lock failures fail closed rather than treating the rate window as empty.
 - Added source-level smoke guards. Runtime tests still need concurrent-request fault injection on the target MySQL/MariaDB and SMS provider path.
+
+
+## WooCommerce fulfilment gate for unresolved inventory events
+
+- A real WooCommerce stock reduction now places the order on hold if cycle capture, queue persistence, or the synchronous Junction ledger commit cannot be confirmed. The original order status and cycle identity are retained so the order cannot be fulfilled against an incomplete shared stock ledger.
+- Once the cycle-aware sale worker commits successfully, it restores the prior order status only if the order remains on hold. It does not overwrite a later operator or terminal status, and it clears the hold marker only after the order save succeeds.
+- The same release path is used by synchronous recovery and the durable worker. Source smoke guards cover the hold/release path; WooCommerce/HPOS status-hook and stock-restoration side effects remain runtime acceptance requirements.
