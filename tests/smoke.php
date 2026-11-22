@@ -563,7 +563,8 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     || strpos($trackingControllerSource, 'customerId !== get_current_user_id()') === false
     || strpos($trackingControllerSource, "'tracking_number'") !== false
     || strpos($trackingModuleSource, "body:{order_key:orderKey}") === false
-    || strpos($trackingModuleSource, "get('order_key')") === false) {
+    || strpos($trackingModuleSource, "get('order_key')") === false
+    || strpos($trackingModuleSource, 'sessionStorage') !== false) {
     throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
 }
 
