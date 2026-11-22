@@ -483,8 +483,8 @@ $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpS
 if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order): void') === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
-    || strpos($orderQueueRetrySource, "update_status(\\$previousStatus") === false
-    || strpos($orderQueueRetrySource, "$this->releaseInventorySyncHold($order)") === false
+    || strpos($orderQueueRetrySource, 'update_status($previousStatus') === false
+    || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order)') === false
     || strpos($orderQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
     || strpos($orderQueueRetrySource, "'needs_review' : 'pending'") === false
     || strpos($orderQueueRetrySource, "DATE_ADD(%s, INTERVAL %d SECOND)") === false
