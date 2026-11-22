@@ -31,11 +31,18 @@ final class CaptureWooCommerceStockCycleUseCase {
             throw new \InvalidArgumentException('WooCommerce order is not eligible for online stock-cycle capture.');
         }
 
+        $activeCycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        if ($activeCycleUuid !== ''
+            && $order->get_meta('_pkstore_wc_cycle_return_capture_failed_' . $activeCycleUuid, true)) {
+            throw new \RuntimeException('A previous stock-cycle return capture needs operator review before another sale cycle can be captured.');
+        }
+
         global $wpdb;
         if (!$wpdb instanceof \wpdb) {
             throw new \RuntimeException('WordPress database is unavailable for stock-cycle capture.');
         }
 
+        $failedMetaKey = '_pkstore_wc_cycle_return_capture_failed_' . $activeCycleUuid;
         $lockName = 'pkstore_wc_cycle_' . $orderId;
         $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ((int) $acquired !== 1) {
@@ -127,6 +134,8 @@ final class CaptureWooCommerceStockCycleUseCase {
 
                 if (is_array($existingEvent) && $existingEvent['status'] === 'processed') {
                     if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge existing cycle return event.');
+                    $order->delete_meta_data($failedMetaKey);
+                    $order->save();
                     return;
                 }
                 if ($cycle['state'] === 'closed') {
@@ -186,7 +195,6 @@ final class CaptureWooCommerceStockCycleUseCase {
             $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
 
-        $failedMetaKey = '_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid;
         $order->delete_meta_data($failedMetaKey);
         $order->save();
     }
