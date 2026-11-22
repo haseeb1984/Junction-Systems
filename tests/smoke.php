@@ -509,6 +509,9 @@ if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
     || strpos($posSyncSource, "get_currency() !== 'PKR'") === false
     || strpos($posStockLifecycle, "MovementType::Sale") === false
     || strpos($posStockLifecycle, "'pos_order'") === false
+    || strpos($posStockLifecycle, "get_meta('_reduced_stock', true)") === false
+    || strpos($posStockLifecycle, "get_items('line_item')") === false
+    || strpos($posStockLifecycle, "Only count lines WooCommerce actually reduced.") === false
     || strpos($posStockLifecycle, "The original Junction inventory location is unavailable.") === false) {
     throw new \RuntimeException('POS order retry, original-location return, and stock-cycle safeguards must remain in place.');
 }
