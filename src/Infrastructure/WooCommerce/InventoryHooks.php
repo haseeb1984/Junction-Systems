@@ -120,7 +120,7 @@ final class InventoryHooks {
             if ($cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
-                        ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $quantity);
+                        ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $quantity, null, $cycleUuid, $productId);
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
@@ -164,7 +164,7 @@ final class InventoryHooks {
             if ($cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
-                        ->markReturnPending($order, (int) $itemId, 'refund', $delta, $cumulative);
+                        ->markReturnPending($order, (int) $itemId, 'refund', $delta, $cumulative, $cycleUuid, $productId);
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
