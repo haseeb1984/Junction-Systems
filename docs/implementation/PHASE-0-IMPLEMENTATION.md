@@ -357,3 +357,6 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added source-level smoke guards. Runtime acceptance still needs concurrent checkout requests, provider timeout-after-acceptance simulation, and MySQL/MariaDB lock-release tests.
 
 - The order lock is shared by JazzCash and EasyPaisa, not scoped separately per gateway. Each adapter also checks the other provider's persisted transaction state and blocks a gateway switch while the prior provider attempt is pending, unknown, confirmed-but-unpaid or under review; only an explicit final failure permits a different payment method.
+
+
+- AI chat input sanitization now falls back to byte-safe `substr` when the optional PHP `mbstring` extension is unavailable. The controller already validates length with the same extension fallback; the use case no longer fatals on otherwise supported PHP installations without mbstring. Added a source smoke guard.
