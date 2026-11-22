@@ -222,6 +222,8 @@ final class SyncPOSQueueUseCase {
         }
 
         $expected = [];
+        $expectedAmounts = [];
+        if (!$posOrder->getItems()) return false;
         foreach ($posOrder->getItems() as $item) {
             $inventoryProduct = $this->productRepo->findById((int) $item['product_id']);
             if (!$inventoryProduct || !$inventoryProduct->wcProductId) return false;
