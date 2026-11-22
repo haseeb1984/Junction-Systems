@@ -593,7 +593,7 @@ if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'OrderUtil::custom_orders_table_usage_is_enabled()') === false
     || strpos($shippingWebhookSource, "'meta_query'] = [[") === false
     || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . $cc") === false
-    || strpos($shippingWebhookSource, "'meta_value' => $tn") === false
+    || strpos($shippingWebhookSource, "'meta_value'] = $tn") === false
     || strpos($shippingWebhookSource, 'count($matches) !== 1') === false
     || strpos($shippingWebhookSource, '$order->get_status() !== $normalizedTargetStatus') === false
     || strpos($shippingWebhookSource, "return new \\WP_REST_Response(['status'=>'disabled'],403)") === false) {
