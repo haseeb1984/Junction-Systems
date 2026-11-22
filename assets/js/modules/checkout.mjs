@@ -18,6 +18,9 @@ export function init() {
     mustFind('[data-cod-send-btn]', codSection).addEventListener('click', () => handleSendOtp(codSection, placeOrderBtn));
     mustFind('[data-cod-verify-btn]', codSection).addEventListener('click', () => handleVerifyOtp(codSection, placeOrderBtn));
     mustFind('[data-cod-resend-btn]', codSection).addEventListener('click', () => { resetOtpForm(codSection); handleSendOtp(codSection, placeOrderBtn); });
+    const billingPhoneInput = find('#billing_phone');
+    const codPhoneInput = mustFind('[data-cod-phone]', codSection);
+    if (billingPhoneInput && !codPhoneInput.value) codPhoneInput.value = billingPhoneInput.value;
     const otpInput = mustFind('[data-cod-otp-input]', codSection);
     otpInput.addEventListener('input', () => {
         otpInput.value = otpInput.value.replace(/\D/g,'').slice(0,6);
@@ -46,6 +49,12 @@ async function handleSendOtp(codSection, placeOrderBtn) {
     clearMessages(codSection);
     const phoneInput = mustFind('[data-cod-phone]', codSection);
     const rawPhone   = phoneInput.value.trim();
+    const billingPhoneInput = find('#billing_phone');
+    if (billingPhoneInput) {
+        billingPhoneInput.value = rawPhone;
+        billingPhoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        billingPhoneInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     if (!rawPhone) { showMessage(codSection,'براہ کرم موبائل نمبر درج کریں۔ Please enter your mobile number.','error'); phoneInput.focus(); return; }
     const sendBtn = mustFind('[data-cod-send-btn]', codSection);
     disableButton(sendBtn,'بھیج رہے ہیں...');
