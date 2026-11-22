@@ -213,12 +213,17 @@ const DB = {
 const POS = {
     cart: [], products: [], sessionId: null, locationId: 1,
     paymentMethod: 'cash', isOnline: navigator.onLine, scannerStream: null,
+    isFlushingQueue: false,
 
     async init() {
         await DB.open();
         await this.loadLocations();
         window.addEventListener('online',  () => this.setOnline(true));
         window.addEventListener('offline', () => this.setOnline(false));
+        if (navigator.onLine) this.flushOfflineQueue(true);
+        window.setInterval(() => {
+            if (navigator.onLine) this.flushOfflineQueue(true);
+        }, 30000);
         document.getElementById('pos-search').addEventListener('input', e => this.searchProducts(e.target.value));
         document.getElementById('pos-search').addEventListener('keydown', e => { if(e.key==='Enter') this.handleBarcodeInput(e.target.value.trim()); });
     },
@@ -498,39 +503,47 @@ const POS = {
         if (online) this.flushOfflineQueue();
     },
 
-    async flushOfflineQueue() {
-        const queue = await DB.getAll('queue');
-        const pending = queue.filter(item => item.status !== 'needs_review');
-        if (!pending.length) {
-            if (queue.length) this.toast(\`\${queue.length} offline sale(s) need operator review.\`);
-            return;
-        }
-        this.toast(\`Syncing \${pending.length} offline sale(s)...\`);
-        for (const item of pending) {
-            try {
-                const {ref, offline, total, status, last_error, queued_at, local_stock_decremented, ...payload} = item;
-                await this.api('/pos/sale','POST',payload);
-                await DB.delete('queue', ref);
-            } catch(e) {
-                const definitiveClientError = Number.isInteger(e.status)
-                    && e.status >= 400 && e.status < 500
-                    && ![408, 425, 429].includes(e.status);
-                if (definitiveClientError) {
-                    item.status = 'needs_review';
-                    item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
-                    await DB.put('queue', item);
-                    if (item.local_stock_decremented) await this.applyLocalStockDelta(item.items || [], 1);
-                }
-                // Network, timeout, throttling and 5xx failures remain pending
-                // and retry with the same idempotency reference.
+    async flushOfflineQueue(silent = false) {
+        if (this.isFlushingQueue || !navigator.onLine) return;
+        this.isFlushingQueue = true;
+        try {
+            const queue = await DB.getAll('queue');
+            const pending = queue.filter(item => item.status !== 'needs_review');
+            if (!pending.length) {
+                if (queue.length && !silent) this.toast(\`\${queue.length} offline sale(s) need operator review.\`);
+                return;
             }
+            if (!silent) this.toast(\`Syncing \${pending.length} offline sale(s)...\`);
+            for (const item of pending) {
+                try {
+                    const {ref, offline, total, status, last_error, queued_at, local_stock_decremented, ...payload} = item;
+                    await this.api('/pos/sale', 'POST', payload);
+                    await DB.delete('queue', ref);
+                } catch(e) {
+                    const definitiveClientError = Number.isInteger(e.status)
+                        && e.status >= 400 && e.status < 500
+                        && ![408, 425, 429].includes(e.status);
+                    if (definitiveClientError) {
+                        item.status = 'needs_review';
+                        item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
+                        await DB.put('queue', item);
+                        if (item.local_stock_decremented) await this.applyLocalStockDelta(item.items || [], 1);
+                    }
+                    // Network, timeout, throttling and 5xx failures remain pending
+                    // and retry with the same idempotency reference.
+                }
+            }
+            const remaining = await DB.getAll('queue');
+            if (this.sessionId) await this.loadProducts();
+            const review = remaining.filter(item => item.status === 'needs_review').length;
+            const stillPending = remaining.length - review;
+            if (!silent) {
+                if (review) this.toast(\`\${review} offline sale(s) need operator review; \${stillPending} pending.\`);
+                else if (!stillPending) this.toast('✓ All offline sales synced!');
+            }
+        } finally {
+            this.isFlushingQueue = false;
         }
-        const remaining = await DB.getAll('queue');
-        if (this.sessionId) await this.loadProducts();
-        const review = remaining.filter(item => item.status === 'needs_review').length;
-        const stillPending = remaining.length - review;
-        if (review) this.toast(\`\${review} offline sale(s) need operator review; \${stillPending} pending.\`);
-        else if (!stillPending) this.toast('✓ All offline sales synced!');
     },
 
     async applyLocalStockDelta(items, direction) {
