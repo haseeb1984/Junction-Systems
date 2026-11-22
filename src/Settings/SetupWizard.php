@@ -16,6 +16,7 @@ final class SetupWizard {
         'tcs'       => 'TCS',
         'leopards'  => 'Leopards',
         'trax'      => 'Trax',
+        'whatsapp'  => 'WhatsApp Business API',
         'sms'       => 'OTP / SMS',
         'ai'        => 'Dukaan AI',
     ];
@@ -248,6 +249,19 @@ final class SetupWizard {
                 'TRAX_SENDER_ID'          => ['label' => 'Sender ID',               'sensitive' => false, 'desc' => ''],
                 'TRAX_WEBHOOK_SECRET'     => ['label' => 'Webhook Secret',           'sensitive' => true,  'desc' => ''],
                 'TRAX_SANDBOX_MODE'       => ['label' => 'Sandbox Mode',             'sensitive' => false, 'desc' => '1 = sandbox'],
+            ],
+            'whatsapp' => [
+                'WHATSAPP_TOKEN' => ['label' => 'Permanent Access Token', 'sensitive' => true, 'desc' => 'Business System User token with WhatsApp messaging permission.'],
+                'WHATSAPP_PHONE_ID' => ['label' => 'Phone Number ID', 'sensitive' => false, 'desc' => 'Meta WhatsApp Business phone number ID, not the visible phone number.'],
+                'WHATSAPP_VERIFY_TOKEN' => ['label' => 'Webhook Verify Token', 'sensitive' => true, 'desc' => 'A private value you also enter in the Meta webhook configuration.'],
+                'WHATSAPP_APP_SECRET' => ['label' => 'Meta App Secret', 'sensitive' => true, 'desc' => 'Used to verify X-Hub-Signature-256 on incoming webhooks.'],
+                'WHATSAPP_ADMIN_PHONE' => ['label' => 'Admin Alert Phone', 'sensitive' => false, 'desc' => 'Pakistan number with country code, e.g. 923001234567.'],
+                'WHATSAPP_TEMPLATE_ORDER_CONFIRMATION' => ['label' => 'Order Confirmation Template', 'sensitive' => false, 'desc' => 'Approved Meta template name; body parameters: name, order number, items, total.'],
+                'WHATSAPP_TEMPLATE_SHIPPED' => ['label' => 'Shipment Update Template', 'sensitive' => false, 'desc' => 'Approved Meta template name; body parameters: order number, tracking number, courier.'],
+                'WHATSAPP_TEMPLATE_DELIVERED' => ['label' => 'Delivery Confirmation Template', 'sensitive' => false, 'desc' => 'Approved Meta template name; body parameters: name, order number.'],
+                'WHATSAPP_TEMPLATE_LOW_STOCK' => ['label' => 'Low Stock Template', 'sensitive' => false, 'desc' => 'Approved Meta template name; body parameters: product name, stock quantity.'],
+                'WHATSAPP_TEMPLATE_LANGUAGE' => ['label' => 'Template Language Code', 'sensitive' => false, 'desc' => 'Meta template language code, e.g. en_US or ur.'],
+                'WHATSAPP_GRAPH_API_VERSION' => ['label' => 'Graph API Version', 'sensitive' => false, 'desc' => 'Versioned Graph API path, e.g. v26.0.'],
             ],
             'sms' => [
                 'TWILIO_ACCOUNT_SID'      => ['label' => 'Twilio Account SID',       'sensitive' => false, 'desc' => 'From twilio.com console'],
