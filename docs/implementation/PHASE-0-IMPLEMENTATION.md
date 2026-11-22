@@ -284,3 +284,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Invalid provider signatures now return HTTP 401, missing tracking references return 422, unmatched orders return 404, ambiguous duplicate references return 409, and lookup outages return 503 instead of acknowledging every failure with HTTP 200.
 - Exact duplicate webhook payloads are deduplicated using a bounded last-20 event-hash list stored through `WC_Order` metadata. The status transition guard and one-time COD delivered marker remain in force for provider retries and stale events.
 - Runtime provider retry policy, concurrent duplicate delivery, and event-ordering acceptance remain pending sandbox tests.
+
+
+## Customer tracking authorization
+
+- Public tracking no longer accepts an arbitrary courier tracking number. The endpoint requires the secret WooCommerce order key, resolves the order through WooCommerce, verifies the key with `hash_equals`, and returns only the courier/tracking data attached to that order. When a logged-in customer requests an order owned by another account, access is denied unless the caller has `manage_woocommerce`.
+- The tracking widget now asks for the order key from the confirmation email and sends it to the endpoint. The storefront nonce remains a CSRF layer, not the identity proof; the order key is the authorization secret.
+- Runtime tests for guest orders, logged-in ownership, invalid keys, and key leakage/cache behavior remain pending.
