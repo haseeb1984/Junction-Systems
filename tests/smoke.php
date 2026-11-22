@@ -590,7 +590,9 @@ $shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/Shipping
 if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'isEnabled($featureMap[$cc])') === false
     || strpos($shippingWebhookSource, 'wc_get_orders([') === false
-    || strpos($shippingWebhookSource, "'meta_key' => '_tracking_' . $cc") === false
+    || strpos($shippingWebhookSource, 'OrderUtil::custom_orders_table_usage_is_enabled()') === false
+    || strpos($shippingWebhookSource, "'meta_query'] = [[") === false
+    || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . $cc") === false
     || strpos($shippingWebhookSource, "'meta_value' => $tn") === false
     || strpos($shippingWebhookSource, 'count($matches) !== 1') === false
     || strpos($shippingWebhookSource, '$order->get_status() !== $normalizedTargetStatus') === false
