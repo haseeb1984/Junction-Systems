@@ -27,8 +27,8 @@ final class MigrationRunner {
         '2.0.7' => [InventoryInstaller::class, 'installInventoryQueueAudit'],
         '2.0.8' => [InventoryInstaller::class, 'installStockSyncQueue'],
         '2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles'],
-        '2.0.10' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
         '2.0.10' => [Installer::class, 'addOtpConsumptionColumns'],
+        '2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
     ];
 
 
@@ -175,7 +175,7 @@ final class MigrationRunner {
                 }
             }
         }
-        if (version_compare($version, '2.0.10', '>=')) {
+        if (version_compare($version, '2.0.11', '>=')) {
             $returnQueue = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
             $cycleUuid = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $returnQueue . ' LIKE %s', 'cycle_uuid'));
             if (!$cycleUuid) throw new \RuntimeException('Required return queue cycle identity column was not created.');
