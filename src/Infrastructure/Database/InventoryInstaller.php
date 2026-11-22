@@ -301,6 +301,7 @@ final class InventoryInstaller {
             inventory_product_id INT UNSIGNED NOT NULL,
             inventory_location_id INT UNSIGNED NOT NULL,
             reduced_quantity INT UNSIGNED NOT NULL,
+            refund_cumulative_baseline INT UNSIGNED NOT NULL DEFAULT 0,
             allocation_snapshot LONGTEXT DEFAULT NULL,
             cancellation_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
             refund_restored_quantity INT UNSIGNED NOT NULL DEFAULT 0,
