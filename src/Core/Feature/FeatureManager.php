@@ -19,8 +19,8 @@ final class FeatureManager {
             'courier_tcs'          => ['label'=>'TCS Express',               'group'=>'Couriers',       'default'=>true],
             'courier_leopards'     => ['label'=>'Leopards Courier',          'group'=>'Couriers',       'default'=>true],
             'courier_trax'         => ['label'=>'Trax (Sonic)',              'group'=>'Couriers',       'default'=>true],
-            'courier_postex'       => ['label'=>'PostEx (COD Remittance)',   'group'=>'Couriers',       'default'=>false],
-            'courier_rider'        => ['label'=>'Rider.pk (Same-Day)',       'group'=>'Couriers',       'default'=>false],
+            'courier_postex'       => ['label'=>'PostEx Courier Integration',   'group'=>'Couriers',       'default'=>false],
+            'courier_rider'        => ['label'=>'Rider.pk Courier Integration',       'group'=>'Couriers',       'default'=>false],
             // Affiliate
             'affiliate_system'     => ['label'=>'Affiliate System',          'group'=>'Marketing',      'default'=>true],
             'whatsapp_api'         => ['label'=>'WhatsApp Business API',     'group'=>'Marketing',      'default'=>false],
