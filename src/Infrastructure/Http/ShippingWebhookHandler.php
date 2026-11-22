@@ -23,7 +23,7 @@ final class ShippingWebhookHandler {
     public function handle(\WP_REST_Request $r,string $cc):\WP_REST_Response{
         $featureMap=['tcs'=>'courier_tcs','leopards'=>'courier_leopards','trax'=>'courier_trax'];
         if(!isset($featureMap[$cc]) || !$this->features->isEnabled($featureMap[$cc])) {
-            return new \\WP_REST_Response(['status'=>'disabled'],403);
+            return new \WP_REST_Response(['status'=>'disabled'],403);
         }
         $payload=$r->get_json_params()??[];$headers=array_map(fn($v)=>is_array($v)?$v[0]:$v,$r->get_headers());
         $map=['tcs'=>TcsCourier::class,'leopards'=>LeopardsCourier::class,'trax'=>TraxCourier::class];
