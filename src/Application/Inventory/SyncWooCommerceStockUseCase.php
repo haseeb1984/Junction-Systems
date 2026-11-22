@@ -119,17 +119,20 @@ final class SyncWooCommerceStockUseCase {
                     }
                     $allocated = 0;
                     foreach ($allocations as $allocation) {
+                        $allocationProductId = is_array($allocation) ? filter_var($allocation['product_id'] ?? null, FILTER_VALIDATE_INT) : false;
+                        $allocationLocationId = is_array($allocation) ? filter_var($allocation['location_id'] ?? null, FILTER_VALIDATE_INT) : false;
+                        $allocationQuantity = is_array($allocation) ? filter_var($allocation['quantity'] ?? null, FILTER_VALIDATE_INT) : false;
                         if (!is_array($allocation)
-                            || (int) ($allocation['product_id'] ?? 0) !== $line['product_id']
-                            || (int) ($allocation['location_id'] ?? 0) < 1
-                            || (int) ($allocation['quantity'] ?? 0) < 1) {
+                            || $allocationProductId !== $line['product_id']
+                            || !$allocationLocationId || $allocationLocationId < 1
+                            || !$allocationQuantity || $allocationQuantity < 1) {
                             throw new \RuntimeException('WooCommerce order has an invalid Junction allocation snapshot.');
                         }
-                        $locationId = (int) $allocation['location_id'];
+                        $locationId = (int) $allocationLocationId;
                         if (!isset($stockLevels[$line['product_id']][$locationId])) {
                             throw new \RuntimeException('A saved Junction allocation references an inactive or unknown location.');
                         }
-                        $quantity = (int) $allocation['quantity'];
+                        $quantity = (int) $allocationQuantity;
                         $allocated += $quantity;
                         $allocationsByProductLocation[$line['product_id']][$locationId] =
                             ($allocationsByProductLocation[$line['product_id']][$locationId] ?? 0) + $quantity;
@@ -577,8 +580,14 @@ final class SyncWooCommerceStockUseCase {
             ];
             $allocatedQuantity += $allocationQuantity;
         }
-        if ($allocatedQuantity !== $reducedQuantity || $returnedQuantity > $reducedQuantity) {
+        if ($allocatedQuantity !== $reducedQuantity || $returnedQuantity > $reducedQuantity
+            || (int) $item->get_quantity() !== $reducedQuantity) {
             throw new \RuntimeException('WooCommerce stock-allocation quantities do not reconcile to the original sale.');
+        }
+        foreach ($normalized as $allocation) {
+            if (!$this->productRepo->findById($allocation['product_id'])) {
+                throw new \RuntimeException('An original Junction inventory product is unavailable for return.');
+            }
         }
 
         if ($kind === 'cancellation') {
