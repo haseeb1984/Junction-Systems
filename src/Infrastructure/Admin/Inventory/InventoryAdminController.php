@@ -239,7 +239,7 @@ final class InventoryAdminController {
     }
 
     public function pos(): void {
-        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!current_user_can('use_junction_pos')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('pos')) wp_die('POS is not available on the current package.');
         include PKSTORE_DIR.'/templates/pos/pos-app.php';
     }
