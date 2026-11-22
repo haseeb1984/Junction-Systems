@@ -181,3 +181,12 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Corrected the exception class namespace escaping introduced in the prior edit.
 - Verified the committed source contains the missing-order, missing-online-location and transaction-start exceptions, contains no doubled namespace separator for RuntimeException, and the smoke guard is present. These are source inspections only; PHP execution and database/runtime tests have not run.
 - Refund/cancellation restocking remains intentionally unimplemented until it can be tied to WooCommerce's actual restock events and per-refund/per-line idempotency. A payment refund without a WooCommerce stock-restock action must never add stock to Junction.
+
+
+## JazzCash callback routing and amount handling follow-up
+
+- JazzCash initiation now rejects non-PKR WooCommerce stores and formats the gateway's integer minor-unit amount from a fixed two-decimal PKR value without floating-point truncation.
+- The `pp_ReturnURL` now points to the registered WooCommerce `jazzcash_callback` API endpoint, where the signed transaction response is validated. After a valid callback, the customer is redirected to the normal WooCommerce order-received URL.
+- This corrects the prior mismatch where the gateway sent the result POST to the thank-you URL while the payment handler was registered on a separate `wc-api` endpoint.
+- The official JazzCash sandbox API reference describes `pp_ReturnURL` as the merchant URL receiving the transaction result by HTTP POST; merchant onboarding must still confirm the exact registered callback URL and request-signature contract before live credentials are enabled.
+- Source smoke guards added; no gateway sandbox transaction or runtime callback test has been executed.
