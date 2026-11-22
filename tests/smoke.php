@@ -366,6 +366,13 @@ if (!is_string($wcLifecycleSource)
 }
 
 
+if (strpos($wcLifecycleSource, 'applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order, $cycleUuid)') === false
+    || strpos($wcLifecycleSource, 'applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid)') === false
+    || strpos($wcLifecycleSource, 'private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null)') === false
+    || strpos($wcLifecycleSource, '?string $cycleUuid = null): bool') === false) {
+    throw new \\RuntimeException('Cycle identity must reach the online cancellation and refund ledger handlers.');
+}
+
 $inventoryHooksLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
 if (!is_string($inventoryHooksLifecycleSource)
     || strpos($inventoryHooksLifecycleSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')") === false
