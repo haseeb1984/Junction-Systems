@@ -288,6 +288,9 @@ final class SyncWooCommerceStockUseCase {
             if ($wpdb->last_error !== '' || !is_array($event)) {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction event is unavailable.');
             }
+            if ($cycle['state'] === 'restoring' && $event['status'] === 'processed') {
+                throw new \RuntimeException('Previous WooCommerce stock cycle is still restoring; this sale belongs to a later cycle.');
+            }
             if ($event['status'] !== 'processed') {
                 $updated = $wpdb->update($eventsTable, [
                     'status' => 'processed',
@@ -958,7 +961,7 @@ final class SyncWooCommerceStockUseCase {
                 if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to defer early cycle return.');
                 return false;
             }
-            if ($cycle['state'] !== 'active') {
+            if (!in_array($cycle['state'], ['active', 'restoring'], true)) {
                 throw new \RuntimeException('WooCommerce stock cycle is not active for return processing.');
             }
 
@@ -1051,11 +1054,13 @@ final class SyncWooCommerceStockUseCase {
 
             $now = current_time('mysql');
             if ((int) $openItems === 0) {
-                $updated = $wpdb->update($cyclesTable, [
-                    'state' => 'closed',
-                    'closed_at' => $now,
-                    'updated_at' => $now,
-                ], ['cycle_uuid' => $cycleUuid, 'state' => 'active']);
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE {$cyclesTable} SET state='closed', closed_at=%s, updated_at=%s
+                     WHERE cycle_uuid=%s AND state IN ('active','restoring')",
+                    $now,
+                    $now,
+                    $cycleUuid
+                ));
                 if ($updated === false) throw new \RuntimeException('Unable to close WooCommerce stock cycle.');
             }
 
