@@ -135,7 +135,7 @@ final class InventoryController {
             return new \WP_REST_Response(['success'=>false,'message'=>'Purchase receipts and opening stock must add a positive quantity.'],422);
         }
         if ($type === MovementType::Damage && $quantity > -1) {
-            return new \\WP_REST_Response(['success'=>false,'message'=>'Damage/loss must reduce stock using a negative quantity.'],422);
+            return new \WP_REST_Response(['success'=>false,'message'=>'Damage/loss must reduce stock using a negative quantity.'],422);
         }
 
         $product = $this->c->make(InventoryProductRepositoryInterface::class)->findById($productId);
