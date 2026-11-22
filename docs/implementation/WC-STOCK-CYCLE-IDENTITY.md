@@ -31,6 +31,7 @@ Cycle/item/event identity is protected by unique indexes verified by the migrati
 Additional durable queue identity:
 - Sale queue migration 2.0.13 stores one queue row per (WooCommerce order, cycle UUID); legacy rows use a fixed zero UUID sentinel.
 - Return queue migration 2.0.11 stores the cycle UUID on each cancellation/refund event.
+- Both workers recover pending cycle-event rows that were durably captured but whose queue-row enqueue failed, so a transient failure between capture and queue insertion does not silently lose a sale or return.
 - Migration 2.0.12 adds the per-cycle refund cumulative baseline.
 
 ## Live processing now connected
