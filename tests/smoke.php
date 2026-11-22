@@ -976,6 +976,8 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
 
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
 if (!is_string($jazzCashSource)
+    || strpos($jazzCashSource, 'public function is_available(): bool') === false
+    || strpos($jazzCashSource, "parent::is_available()") === false
     || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
     || strpos($jazzCashSource, 'wc_format_decimal($order->get_total(), 2, false)') === false
     || strpos($jazzCashSource, '$wholeRupees . $paisa') === false
