@@ -143,13 +143,15 @@ final class SyncWooCommerceStockUseCase {
             if ($wpdb->last_error !== '' || !is_array($reductionEvent)) {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction event is unavailable.');
             }
-            if ($cycleHeader['state'] === 'closed' && $reductionEvent['status'] === 'processed') {
+            if (in_array($cycleHeader['state'], ['restoring', 'closed'], true)
+                && $reductionEvent['status'] === 'processed') {
+                // This queue generation is a duplicate for a sale cycle already
+                // committed; the return queue owns its later restoration.
                 if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge completed WooCommerce stock cycle.');
                 return;
             }
-            if ($cycleHeader['state'] === 'closed'
-                || ($cycleHeader['state'] === 'restoring' && $reductionEvent['status'] === 'processed')) {
-                throw new \RuntimeException('WooCommerce stock cycle is already restoring or closed; this sale belongs to another cycle.');
+            if ($cycleHeader['state'] === 'closed') {
+                throw new \RuntimeException('WooCommerce stock cycle is closed without a completed sale event.');
             }
             if (!in_array($cycleHeader['state'], ['reducing', 'active', 'restoring'], true)) {
                 throw new \RuntimeException('WooCommerce stock cycle is in an unsupported state.');
