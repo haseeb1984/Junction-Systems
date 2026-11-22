@@ -331,12 +331,10 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         if ($responseCode !== '0000') {
             if ($responseCode === '0001') return 'pending';
             if ($responseCode === '0003') {
-                if (!$order->is_paid()) {
-                    $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
-                    $order->update_status('failed', 'Easypaisa inquiry reports that the transaction reference was not found.');
-                    return 'failed';
-                }
-                $order->add_order_note('Easypaisa inquiry reports an unknown transaction reference for an already-paid order. Manual reconciliation is required.');
+                // An inquiry miss immediately after initiation can be eventual
+                // consistency, not proof that the payment request never existed.
+                // Keep it out of the automatic retry path to prevent double charge.
+                $order->add_order_note('Easypaisa inquiry has not found this transaction yet. Manual/provider reconciliation is required before another payment attempt.');
             } else {
                 $order->add_order_note('Easypaisa inquiry could not verify merchant/order details. Manual reconciliation is required.');
             }
