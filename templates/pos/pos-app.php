@@ -359,7 +359,13 @@ const POS = {
         const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
 
         let result;
-        await this.applyLocalStockDelta(items, -1);
+        try {
+            await this.applyLocalStockDelta(items, -1);
+        } catch(_) {
+            this.toast('Local POS stock cache is unavailable. Sale was not submitted.');
+            btn.disabled = false; this.updateTotals();
+            return;
+        }
         try {
             result = await this.api('/pos/sale','POST',payload);
         } catch(e) {
@@ -499,7 +505,7 @@ const POS = {
             }
         }
         const remaining = await DB.getAll('queue');
-        await this.loadProducts();
+        if (this.sessionId) await this.loadProducts();
         const review = remaining.filter(item => item.status === 'needs_review').length;
         const stillPending = remaining.length - review;
         if (review) this.toast(\`\${review} offline sale(s) need operator review; \${stillPending} pending.\`);
