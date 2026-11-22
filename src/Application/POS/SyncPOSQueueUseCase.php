@@ -230,13 +230,29 @@ final class SyncPOSQueueUseCase {
             $parentId = $product->is_type('variation') ? (int) $product->get_parent_id() : (int) $product->get_id();
             $variationId = $product->is_type('variation') ? (int) $product->get_id() : 0;
             $key = $parentId . ':' . $variationId;
-            $expected[$key] = ($expected[$key] ?? 0) + (int) $item['quantity'];
+            $quantity = (int) $item['quantity'];
+            $lineAmount = (int) $item['unit_price_pkr'] * $quantity;
+            $expected[$key] = ($expected[$key] ?? 0) + $quantity;
+            $expectedAmounts[$key] = ($expectedAmounts[$key] ?? 0) + $lineAmount;
         }
 
         $actual = [];
+        $actualAmounts = [];
         foreach ($wcOrder->get_items('line_item') as $item) {
             $key = (int) $item->get_product_id() . ':' . (int) $item->get_variation_id();
-            $actual[$key] = ($actual[$key] ?? 0) + (int) $item->get_quantity();
+            $quantity = (int) $item->get_quantity();
+            $actual[$key] = ($actual[$key] ?? 0) + $quantity;
+            // POS mirror line prices are immutable source data. An order-level
+            // discount is stored separately, so each line's subtotal and total
+            // must still equal the source unit price multiplied by quantity.
+            $lineSubtotal = (float) $item->get_subtotal();
+            $lineTotal = (float) $item->get_total();
+            if (!is_finite($lineSubtotal) || !is_finite($lineTotal)
+                || $lineSubtotal < 0 || $lineTotal < 0
+                || abs($lineSubtotal - $lineTotal) > 0.00001) {
+                return false;
+            }
+            $actualAmounts[$key] = ($actualAmounts[$key] ?? 0) + (int) round($lineTotal);
 
             // A paid order is immutable for recovery purposes. Verify the
             // original Junction product, physical location and POS reference
@@ -260,6 +276,8 @@ final class SyncPOSQueueUseCase {
         }
         ksort($expected);
         ksort($actual);
-        return $expected === $actual;
+        ksort($expectedAmounts);
+        ksort($actualAmounts);
+        return $expected === $actual && $expectedAmounts === $actualAmounts;
     }
 }
