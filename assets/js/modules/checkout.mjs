@@ -4,13 +4,11 @@ import { find, mustFind, disableButton, enableButton, showMessage, clearMessages
 import { bus } from '../lib/event-bus.mjs';
 
 let _submitInFlight = false;
-const state = { orderId:'', phone:'', isVerified:false, resendTimer:null, isDigital:false };
+const state = { phone:'', isVerified:false, resendTimer:null, isDigital:false };
 
 export function init() {
     const codSection = find('[data-cod-section]');
     if (!codSection) return;
-    const meta = document.querySelector('meta[name="pkstore-config"]');
-    state.orderId = meta?.dataset.orderId || '';
     const placeOrderBtn = find('[data-place-order]') || find('#place_order') || find('button[name="woocommerce_checkout_place_order"]');
     document.querySelectorAll('input[name="payment_method"]').forEach(input => {
         input.addEventListener('change', () => handlePaymentChange(input.value, codSection, placeOrderBtn));
@@ -52,7 +50,7 @@ async function handleSendOtp(codSection, placeOrderBtn) {
     const sendBtn = mustFind('[data-cod-send-btn]', codSection);
     disableButton(sendBtn,'بھیج رہے ہیں...');
     try {
-        const res = await apiRequest('/cod/send-otp', { nonce: config.codNonce, body: { phone: rawPhone, order_id: state.orderId } });
+        const res = await apiRequest('/cod/send-otp', { nonce: config.codNonce, body: { phone: rawPhone } });
         // Server signals digital order — skip OTP entirely
         if (res.skip === true) {
             state.isDigital = true; state.isVerified = true;
@@ -80,9 +78,9 @@ async function handleVerifyOtp(codSection, placeOrderBtn) {
     const verifyBtn = mustFind('[data-cod-verify-btn]', codSection);
     disableButton(verifyBtn,'تصدیق ہو رہی ہے...');
     try {
-        await apiRequest('/cod/verify-otp', { nonce: config.codNonce, body: { phone: state.phone, order_id: state.orderId, code } });
+        await apiRequest('/cod/verify-otp', { nonce: config.codNonce, body: { phone: state.phone, code } });
         state.isVerified = true; clearCountdown(); showSuccess(codSection, placeOrderBtn);
-        bus.emit('cod:verified', { orderId: state.orderId });
+        bus.emit('cod:verified', { phone: state.phone });
     } catch(e) {
         enableButton(verifyBtn);
         if (e instanceof ApiError) {
