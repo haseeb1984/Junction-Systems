@@ -181,8 +181,9 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             $parsed = wp_parse_url($rawUrl);
             $host = strtolower((string) ($parsed['host'] ?? ''));
             $allowedHosts = ['easypaystg.easypaisa.com.pk', 'easypay.easypaisa.com.pk'];
-            $segments = array_values(array_filter(explode('/', trim((string) ($parsed['path'] ?? ''), '/')), 'strlen'));
-            if (!in_array($host, $allowedHosts, true) || count($segments) < 2) {
+            $path = (string) ($parsed['path'] ?? '');
+            $segments = array_values(array_filter(explode('/', trim($path, '/')), 'strlen'));
+            if (!in_array($host, $allowedHosts, true) || strpos($path, '/order-status/') === false || count($segments) < 2) {
                 status_header(400);
                 exit;
             }
@@ -268,6 +269,17 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             return 'review';
         }
 
+        $paymentMode = strtoupper((string) ($status['paymentMode'] ?? ''));
+        $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? ''));
+        $expectedPhone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
+        if (($paymentMode !== '' && $paymentMode !== 'MA')
+            || ($reportedPhone !== '' && $expectedPhone !== '' && !hash_equals($expectedPhone, $reportedPhone))) {
+            $order->add_order_note('Easypaisa status rejected: payment mode or customer mobile number does not match this order. Manual reconciliation is required.');
+            $order->update_meta_data('_pkstore_easypaisa_state', 'review');
+            $order->save();
+            return 'review';
+        }
+
         $transactionStatus = strtoupper((string) ($status['transactionStatus'] ?? ''));
         $transactionId = sanitize_text_field((string) ($status['transactionId'] ?? ''));
         if ($transactionStatus === 'PAID') {
@@ -285,7 +297,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             return 'paid';
         }
 
-        if (in_array($transactionStatus, ['FAILED', 'BLOCKED', 'EXPIRED'], true)) {
+        if (in_array($transactionStatus, ['FAILED', 'BLOCKED', 'EXPIRED', 'REVERSED'], true)) {
             if (!$order->is_paid()) {
                 $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
                 $order->update_status('failed', 'Easypaisa transaction status: ' . sanitize_text_field($transactionStatus));
