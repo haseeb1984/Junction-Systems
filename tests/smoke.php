@@ -1030,8 +1030,10 @@ $settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php
 if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, 'public function process_payment($order_id): array') === false
     || strpos($easyPaisaSource, "SELECT GET_LOCK(%s, %d)") === false
-    || strpos($easyPaisaSource, "pkstore_payment_ep_") === false
+    || strpos($easyPaisaSource, "pkstore_payment_order_") === false
     || strpos($easyPaisaSource, 'processPaymentLocked($orderId)') === false
+    || strpos($easyPaisaSource, "_pkstore_jazzcash_txn_ref") === false
+    || strpos($easyPaisaSource, 'A JazzCash payment attempt for this order is still unresolved.') === false
     || strpos($easyPaisaSource, "SELECT RELEASE_LOCK(%s)") === false
     || strpos($easyPaisaSource, '/initiate-ma-transaction') === false
     || strpos($easyPaisaSource, '/inquire-transaction') === false
@@ -1062,8 +1064,10 @@ $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGate
 if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, 'public function process_payment($order_id): array') === false
     || strpos($jazzCashSource, "SELECT GET_LOCK(%s, %d)") === false
-    || strpos($jazzCashSource, "pkstore_payment_jc_") === false
+    || strpos($jazzCashSource, "pkstore_payment_order_") === false
     || strpos($jazzCashSource, 'processPaymentLocked($orderId)') === false
+    || strpos($jazzCashSource, "_pkstore_easypaisa_order_id") === false
+    || strpos($jazzCashSource, 'An Easypaisa payment attempt for this order is still unresolved.') === false
     || strpos($jazzCashSource, "SELECT RELEASE_LOCK(%s)") === false
     || strpos($jazzCashSource, 'public function is_available(): bool') === false
     || strpos($jazzCashSource, "parent::is_available()") === false
