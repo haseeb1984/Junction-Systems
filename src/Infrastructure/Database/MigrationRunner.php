@@ -184,34 +184,36 @@ final class MigrationRunner {
                 }
             }
 
-            $cycleTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
-            foreach (['idx_cycle_uuid', 'idx_order_cycle', 'idx_reduction_event'] as $indexName) {
-                $index = $wpdb->get_var($wpdb->prepare(
-                    'SHOW INDEX FROM ' . $cycleTable . ' WHERE Key_name = %s',
-                    $indexName
-                ));
-                if (!$index) {
-                    throw new \RuntimeException('Required WooCommerce stock-cycle uniqueness index was not created.');
-                }
-            }
-            $cycleItems = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
-            $lineIndex = $wpdb->get_var($wpdb->prepare(
-                'SHOW INDEX FROM ' . $cycleItems . ' WHERE Key_name = %s',
-                'idx_cycle_order_item'
-            ));
-            if (!$lineIndex) {
-                throw new \RuntimeException('Required WooCommerce stock-cycle line uniqueness index was not created.');
-            }
-            $cycleEvents = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
-            foreach (['idx_event_uuid', 'idx_event_key'] as $indexName) {
-                $index = $wpdb->get_var($wpdb->prepare(
-                    'SHOW INDEX FROM ' . $cycleEvents . ' WHERE Key_name = %s',
-                    $indexName
-                ));
-                if (!$index) {
-                    throw new \RuntimeException('Required WooCommerce stock-cycle event uniqueness index was not created.');
-                }
-            }
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycles',
+                'idx_cycle_uuid',
+                ['cycle_uuid']
+            );
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycles',
+                'idx_order_cycle',
+                ['wc_order_id', 'cycle_number']
+            );
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycles',
+                'idx_reduction_event',
+                ['reduction_event_key']
+            );
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycle_items',
+                'idx_cycle_order_item',
+                ['cycle_uuid', 'wc_order_item_id']
+            );
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycle_events',
+                'idx_event_uuid',
+                ['event_uuid']
+            );
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_wc_stock_cycle_events',
+                'idx_event_key',
+                ['event_key']
+            );
         }
         if (version_compare($version, '2.0.8', '>=')) {
             $stockQueue = $wpdb->prefix . 'pkstore_wc_stock_sync';
@@ -224,6 +226,36 @@ final class MigrationRunner {
             $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
             if ($found !== $table) {
                 throw new \RuntimeException('Required database table was not created: ' . $suffix);
+            }
+        }
+    }
+
+    /**
+     * Verify dbDelta produced a unique index with the exact ordered columns.
+     * Checking only Key_name can accept a non-unique or malformed index.
+     *
+     * @param list<string> $expectedColumns
+     */
+    private static function verifyUniqueIndex(string $table, string $indexName, array $expectedColumns): void {
+        global $wpdb;
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SHOW INDEX FROM ' . $table . ' WHERE Key_name = %s',
+            $indexName
+        ), ARRAY_A);
+        if (!is_array($rows) || count($rows) !== count($expectedColumns)) {
+            throw new \\RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
+        }
+
+        usort($rows, static fn(array $a, array $b): int =>
+            (int) $a['Seq_in_index'] <=> (int) $b['Seq_in_index']
+        );
+        foreach ($expectedColumns as $position => $column) {
+            $row = $rows[$position] ?? [];
+            if ((int) ($row['Non_unique'] ?? 1) !== 0
+                || (int) ($row['Seq_in_index'] ?? 0) !== $position + 1
+                || (string) ($row['Column_name'] ?? '') !== $column) {
+                throw new \\RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
             }
         }
     }
