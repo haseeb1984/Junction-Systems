@@ -197,3 +197,11 @@ The online sale queue trigger now listens to `woocommerce_reduce_order_stock`, w
 - The POS mirror adapter uses its own controlled order creation and intentionally does not depend on this hook.
 
 This is a safer trigger boundary, not a completed stock-cycle implementation or production sign-off.
+
+### Stock-cycle implementation contract
+
+The detailed persistence/state-machine contract is maintained in [WC-STOCK-CYCLE-IDENTITY.md](WC-STOCK-CYCLE-IDENTITY.md). It now specifies the target cycle header, immutable per-line mapping snapshot, durable lifecycle event identity, migration/rollout gates, legacy-order handling, and acceptance matrix.
+
+A second idempotency collision is also recorded there: cancellation event keys currently use order ID + item ID + restored quantity. A second legitimate restore of the same quantity for the same item can collide with the earlier event. Both sale and return identities must include the same persisted cycle UUID before repeated-cycle behavior can be enabled.
+
+No cycle schema or cycle-aware processing has been enabled by this documentation change. Existing ledger history must remain untouched, and ambiguous legacy events must fail closed for operator reconciliation.
