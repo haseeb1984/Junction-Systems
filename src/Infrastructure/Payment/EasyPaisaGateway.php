@@ -148,20 +148,30 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
 
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
-        if (!is_array($body)
-            || (string) ($body['orderId'] ?? '') !== $orderRef
-            || (string) ($body['storeId'] ?? '') !== $storeId
-            || (string) ($body['responseCode'] ?? '') !== '0000') {
-            $responseCode = is_array($body) ? (string) ($body['responseCode'] ?? '') : '';
-            $responseMessage = is_array($body) ? sanitize_text_field((string) ($body['responseDesc'] ?? '')) : '';
-            if ($responseCode !== '' && $responseCode !== '0001') {
-                $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
-                $order->update_status('failed', 'Easypaisa initiation failed: ' . ($responseMessage !== '' ? $responseMessage : $responseCode));
-                wc_add_notice('Easypaisa could not initiate this payment. Please try again.', 'error');
-                return ['result' => 'fail'];
-            }
-            $order->add_order_note('Easypaisa returned an unknown initiation response; status must be reconciled before another charge.');
+        if (!is_array($body)) {
+            $order->add_order_note('Easypaisa returned an unreadable initiation response; status must be reconciled before another charge.');
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+        }
+
+        if ((string) ($body['orderId'] ?? '') !== $orderRef
+            || (string) ($body['storeId'] ?? '') !== $storeId) {
+            $order->add_order_note('Easypaisa initiation response did not match the submitted order/store reference. Status is unknown; manual reconciliation is required.');
+            $order->update_meta_data('_pkstore_easypaisa_state', 'review');
+            $order->save();
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+        }
+
+        if ((string) ($body['responseCode'] ?? '') !== '0000') {
+            $responseCode = sanitize_text_field((string) ($body['responseCode'] ?? ''));
+            $responseMessage = sanitize_text_field((string) ($body['responseDesc'] ?? ''));
+            if ($responseCode === '') {
+                $order->add_order_note('Easypaisa returned an unknown initiation response; status must be reconciled before another charge.');
+                return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
+            }
+            $order->update_meta_data('_pkstore_easypaisa_state', 'failed');
+            $order->update_status('failed', 'Easypaisa initiation failed: ' . ($responseMessage !== '' ? $responseMessage : $responseCode));
+            wc_add_notice('Easypaisa could not initiate this payment. Please try again.', 'error');
+            return ['result' => 'fail'];
         }
 
         $order->update_meta_data('_pkstore_easypaisa_transaction_id', sanitize_text_field((string) ($body['transactionId'] ?? '')));
