@@ -72,7 +72,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
             throw new \RuntimeException('WooCommerce order has no valid stock-cycle identity for return capture.');
         }
-        if ($wcProductId !== null && $wcProductId < 1) throw new \\InvalidArgumentException('WooCommerce cycle return product ID is invalid.');
+        if ($wcProductId !== null && $wcProductId < 1) throw new \InvalidArgumentException('WooCommerce cycle return product ID is invalid.');
         if ($kind === 'refund' && ($refundCumulative === null || $refundCumulative < $quantity)) {
             throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
         }
