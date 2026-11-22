@@ -178,3 +178,22 @@ This is source implementation, not runtime acceptance. Required tests include du
 WooCommerce's native cancellation and explicit refund-restock flows inspect per-order-item `_reduced_stock` bookkeeping before emitting their actual-restock callbacks. Because Junction has already deducted the shared stock ledger and aggregate WooCommerce stock snapshot, the POS mirror does not invoke a second WooCommerce stock reduction. It now records the POS line quantity in `_reduced_stock` as lifecycle bookkeeping only. Paid-order recovery verifies that this marker equals the immutable POS line quantity alongside the Junction product, original location and POS reference metadata.
 
 This is intended to let WooCommerce's own cancellation/refund flows identify the quantity to restore, after which Junction's durable return queue applies the corresponding ledger movement to the original POS location and republishes the combined stock snapshot. It still needs real WooCommerce-version/HPOS runtime acceptance; product stock-management settings and the exact native restore behavior must be exercised before production use.
+
+
+## Implementation progress — sale trigger hardened
+
+The online sale queue trigger now listens to `woocommerce_reduce_order_stock`, which runs after WooCommerce's order stock-reduction pass, instead of enqueueing from generic payment-complete or processing/completed status transitions.
+
+- Payment receipt and order status changes alone no longer create Junction online-sale queue events.
+- The callback validates the WooCommerce order object and skips Junction POS mirror orders, whose inventory was already deducted by the POS ledger.
+- Existing durable queue idempotency, retry, claim fencing and post-commit aggregate stock synchronization remain in place.
+- Source smoke guards assert the actual stock-reduction hook is registered and the generic payment/status triggers are absent.
+
+### Important remaining limitations
+
+- This change does not yet implement per-cycle UUID identity. The ledger still references online sale movements by order ID, so a later genuine reduction after a full restore of the same order can still be incorrectly treated as a duplicate.
+- Runtime acceptance must confirm the supported WooCommerce versions invoke `woocommerce_reduce_order_stock` after successful item reductions, including COD/manual workflows, and that the order-level callback is not emitted for a no-op reduction.
+- The asynchronous sale queue and return queue can still race. A sale enqueued before a later restore may be processed after the restore; durable per-line/cycle ordering is still required.
+- The POS mirror adapter uses its own controlled order creation and intentionally does not depend on this hook.
+
+This is a safer trigger boundary, not a completed stock-cycle implementation or production sign-off.
