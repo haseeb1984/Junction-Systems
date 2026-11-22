@@ -9,7 +9,7 @@ final class VerifyCodOtpUseCase {
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly LoggerInterface $log) {}
     public function execute(string $rawPhone, string $orderId, string $submittedCode):string {
         if ($orderId === '' || strlen($orderId) > 32) {
-            throw new \\InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
+            throw new \InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
         }
         $phone=new PakistanPhoneNumber($rawPhone);
         $code=preg_replace('/\D/','',$submittedCode);
