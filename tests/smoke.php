@@ -413,7 +413,15 @@ if (!is_string($orderQueueRetrySource)
     || strpos($returnQueueRetrySource, "'needs_review' : 'pending'") === false
     || !is_string($stockQueueRetrySource)
     || strpos($stockQueueRetrySource, 'MAX_AUTOMATIC_SYNC_ATTEMPTS = 12') === false
-    || strpos($stockQueueRetrySource, "'needs_review' : 'pending'") === false) {
+    || strpos($stockQueueRetrySource, "'needs_review' : 'pending'") === false
+    || strpos($stockQueueRetrySource, "claim_token=%s") === false
+    || strpos($stockQueueRetrySource, "claim_token' => \$claimToken") === false
+    || substr_count($stockQueueRetrySource, "generation<>%s AND claim_token=%s") !== 2
+    || strpos($stockQueueRetrySource, "claim_token=NULL WHERE status='processing'") === false
+    || strpos($stockQueueRetrySource, "function completeWooCommerceSync(int \$id, string \$generation, string \$claimToken)") === false
+    || strpos($migrationRunnerSource, "'2.0.8' => [InventoryInstaller::class, 'installStockSyncQueue']") === false
+    || strpos($migrationRunnerSource, "Required stock sync queue claim-token column was not created.") === false
+    || strpos($inventoryEventsSource, "queueType === 'stock'") === false) {
     throw new \RuntimeException('WooCommerce inventory queues must stop automatic retries after 12 attempts and expose needs_review.');
 }
 
