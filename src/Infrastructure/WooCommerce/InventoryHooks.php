@@ -60,9 +60,8 @@ final class InventoryHooks {
                 // becomes visible in Sync Health instead of silently losing stock.
                 // If an older active cycle exists, its UUID remains on the order;
                 // the worker will fail closed on a conflicting snapshot.
-                $existingCycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
                 $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)
-                    ->enqueue($orderId, $existingCycleUuid !== '' ? $existingCycleUuid : null);
+                    ->enqueue($orderId, null);
                 $this->log->critical('WooCommerce stock-cycle capture failed; order was queued for safe reconciliation.', [
                     'order_id' => $orderId,
                     'error_class' => get_class($captureError),
