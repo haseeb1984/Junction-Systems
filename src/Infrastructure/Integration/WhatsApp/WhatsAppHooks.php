@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace PkStore\Infrastructure\Integration\WhatsApp;
 
-use PkStore\Application\Inventory\InventoryProductRepositoryInterface;
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
 use PkStore\Container\ServiceContainer;
 use PkStore\Domain\Inventory\Repository\StockRepositoryInterface;
 
