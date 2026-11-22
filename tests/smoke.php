@@ -370,6 +370,8 @@ $inventoryInstallerSource = file_get_contents($src . '/Infrastructure/Database/I
 if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'enqueueCancellation(') === false
     || strpos($returnQueueSource, 'enqueueRefund(') === false
+    || strpos($returnQueueSource, 'cycle_uuid') === false
+    || strpos($returnQueueSource, 'cycleUuid') === false
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
@@ -383,7 +385,8 @@ if (!is_string($returnQueueSource)
     || strpos($migrationRunnerSource, "'pkstore_wc_return_inventory_queue'") === false
     || strpos($returnHooks, 'ProcessWooCommerceReturnInventoryQueueUseCase::class') === false
     || strpos($returnHooks, 'enqueueCancellation(') === false
-    || strpos($returnHooks, 'enqueueRefund(') === false) {
+    || strpos($returnHooks, 'enqueueRefund(') === false
+    || strpos($returnHooks, '_pkstore_wc_active_cycle_uuid') === false) {
     throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
 
