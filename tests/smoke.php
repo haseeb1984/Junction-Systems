@@ -414,8 +414,8 @@ if (!is_string($orderQueueRetrySource)
     || !is_string($stockQueueRetrySource)
     || strpos($stockQueueRetrySource, 'MAX_AUTOMATIC_SYNC_ATTEMPTS = 12') === false
     || strpos($stockQueueRetrySource, "'needs_review' : 'pending'") === false
-    || strpos($stockQueueRetrySource, "$row['claim_token'] = \$claimToken") === false
-    || strpos($stockQueueRetrySource, "claim_token' => \$claimToken") === false
+    || strpos($stockQueueRetrySource, "\$row['claim_token'] = \$claimToken") === false
+    || strpos($stockQueueRetrySource, "\$row['claim_token'] = \$claimToken") === false
     || substr_count($stockQueueRetrySource, "generation<>%s AND claim_token=%s") !== 2
     || strpos($stockQueueRetrySource, "claim_token=NULL WHERE status='processing'") === false
     || strpos($stockQueueRetrySource, "function completeWooCommerceSync(int \$id, string \$generation, string \$claimToken)") === false
