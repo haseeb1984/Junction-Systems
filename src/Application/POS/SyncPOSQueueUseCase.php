@@ -199,6 +199,11 @@ final class SyncPOSQueueUseCase {
             $lineItem->update_meta_data('_pkstore_inventory_product_id', $inventoryProduct->id);
             $lineItem->update_meta_data('_pkstore_inventory_location_id', $posOrder->locationId);
             $lineItem->update_meta_data('_pkstore_pos_order_ref', $posOrder->orderRef);
+            // WooCommerce's native cancellation/refund-restock callbacks inspect
+            // this per-line marker before emitting their actual-restock hooks.
+            // The aggregate WC stock was already reduced by Junction, so record
+            // the quantity as bookkeeping without applying a second stock change.
+            $lineItem->update_meta_data('_reduced_stock', $quantity);
         }
 
         $wcOrder->set_discount_total(wc_format_decimal($posOrder->discountPkr, 0));
