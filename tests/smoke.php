@@ -943,6 +943,24 @@ if (!is_string($posAppSource)
     throw new \RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
 }
 
+$easyPaisaSource = file_get_contents($src . '/Infrastructure/Payment/EasyPaisaGateway.php');
+$settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
+if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
+    || strpos($easyPaisaSource, '/easypay-service/rest/v4/initiate-ma-transaction') !== false
+    || strpos($easyPaisaSource, '/initiate-ma-transaction') === false
+    || strpos($easyPaisaSource, '/inquire-transaction') === false
+    || strpos($easyPaisaSource, "'transactionType' => 'MA'") === false
+    || strpos($easyPaisaSource, "'Credentials' => base64_encode($username . ':' . $password)") === false
+    || strpos($easyPaisaSource, "transactionStatus === 'PAID'") === false
+    || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
+    || strpos($easyPaisaSource, 'applyProviderStatus(') === false
+    || strpos($settingsManagerSource, "'EASYPAISA_USERNAME'=>true") === false
+    || strpos($settingsManagerSource, "'EASYPAISA_PASSWORD'=>true") === false
+    || strpos($settingsManagerSource, "'EASYPAISA_ACCOUNT_NUMBER'=>false") === false
+    || strpos($settingsManagerSource, "'EASYPAISA_USERNAME','EASYPAISA_PASSWORD'") === false) {
+    throw new \RuntimeException('Easypaisa Mobile Account payments must use per-store encrypted credentials and authenticated transaction-status verification.');
+}
+
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
 if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
