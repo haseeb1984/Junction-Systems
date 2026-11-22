@@ -106,12 +106,16 @@ final class MigrationRunner {
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
-        // Any Junction-owned table means this is an existing installation.
-        // Looking at only a few core tables could misclassify a partial install
-        // and bypass the pre-migration backup confirmation gate.
-        $tablePattern = $wpdb->esc_like($wpdb->prefix . 'pkstore_') . '%';
-        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tablePattern));
+        // A recorded version or any Junction-owned table means this is an
+        // existing/partial installation and must pass the backup gate.
+        $recordedVersion = (string) get_option(self::VERSION_OPTION, '0.0.0');
+        if (version_compare($recordedVersion, '0.0.0', '>')) return true;
+
+        $pattern = $wpdb->esc_like($wpdb->prefix . 'pkstore_') . '%';
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pattern));
         if ($wpdb->last_error !== '') {
+            // Never interpret a failed schema probe as a fresh install:
+            // doing so could bypass the pre-migration backup confirmation.
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
