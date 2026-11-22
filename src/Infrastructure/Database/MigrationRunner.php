@@ -157,6 +157,61 @@ final class MigrationRunner {
             $required[] = 'pkstore_wc_stock_cycles';
             $required[] = 'pkstore_wc_stock_cycle_items';
             $required[] = 'pkstore_wc_stock_cycle_events';
+
+            $cycleChecks = [
+                'pkstore_wc_stock_cycles' => [
+                    'cycle_uuid', 'cycle_number', 'state', 'reduction_event_key',
+                ],
+                'pkstore_wc_stock_cycle_items' => [
+                    'cycle_uuid', 'wc_order_item_id', 'inventory_product_id',
+                    'inventory_location_id', 'reduced_quantity',
+                ],
+                'pkstore_wc_stock_cycle_events' => [
+                    'event_uuid', 'event_key', 'cycle_uuid', 'event_kind',
+                    'claim_token', 'status', 'next_attempt_at',
+                ],
+            ];
+            foreach ($cycleChecks as $suffix => $columns) {
+                $table = $wpdb->prefix . $suffix;
+                foreach ($columns as $columnName) {
+                    $column = $wpdb->get_var($wpdb->prepare(
+                        'SHOW COLUMNS FROM ' . $table . ' LIKE %s',
+                        $columnName
+                    ));
+                    if (!$column) {
+                        throw new \RuntimeException('Required WooCommerce stock-cycle column was not created.');
+                    }
+                }
+            }
+
+            $cycleTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            foreach (['idx_cycle_uuid', 'idx_order_cycle', 'idx_reduction_event'] as $indexName) {
+                $index = $wpdb->get_var($wpdb->prepare(
+                    'SHOW INDEX FROM ' . $cycleTable . ' WHERE Key_name = %s',
+                    $indexName
+                ));
+                if (!$index) {
+                    throw new \RuntimeException('Required WooCommerce stock-cycle uniqueness index was not created.');
+                }
+            }
+            $cycleItems = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+            $lineIndex = $wpdb->get_var($wpdb->prepare(
+                'SHOW INDEX FROM ' . $cycleItems . ' WHERE Key_name = %s',
+                'idx_cycle_order_item'
+            ));
+            if (!$lineIndex) {
+                throw new \RuntimeException('Required WooCommerce stock-cycle line uniqueness index was not created.');
+            }
+            $cycleEvents = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            foreach (['idx_event_uuid', 'idx_event_key'] as $indexName) {
+                $index = $wpdb->get_var($wpdb->prepare(
+                    'SHOW INDEX FROM ' . $cycleEvents . ' WHERE Key_name = %s',
+                    $indexName
+                ));
+                if (!$index) {
+                    throw new \RuntimeException('Required WooCommerce stock-cycle event uniqueness index was not created.');
+                }
+            }
         }
         if (version_compare($version, '2.0.8', '>=')) {
             $stockQueue = $wpdb->prefix . 'pkstore_wc_stock_sync';
