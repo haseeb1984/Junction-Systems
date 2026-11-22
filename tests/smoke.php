@@ -719,7 +719,8 @@ $themeBootstrapperSource = file_get_contents($src . '/Bootstrap/ThemeBootstrappe
 if (!is_string($themeBootstrapperSource)
     || strpos($themeBootstrapperSource, 'wc_get_order($orderId)') === false
     || strpos($themeBootstrapperSource, 'update_meta_data(\'_ga4_client_id\', $clientId)') === false
-    || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false) {
+    || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false
+    || strpos($themeBootstrapperSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')") === false) {
     throw new \RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
 }
 
