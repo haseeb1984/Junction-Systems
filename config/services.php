@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Settings\SettingsManager;
 use PkStore\Infrastructure\Logger\WpLogger;
 use PkStore\Infrastructure\Payment\{JazzCashGateway,EasyPaisaGateway};
@@ -42,7 +43,14 @@ return static function(ServiceContainer $c):void{
     $c->singleton(TcsCourier::class,fn()=>new TcsCourier(new WpLogger(),$c->make(CityMappingService::class),$c->make(RateCalculator::class),$c->make(LogisticsLogger::class),$s));
     $c->singleton(LeopardsCourier::class,fn()=>new LeopardsCourier(new WpLogger(),$c->make(CityMappingService::class),$c->make(RateCalculator::class),$c->make(LogisticsLogger::class),$s));
     $c->singleton(TraxCourier::class,fn()=>new TraxCourier(new WpLogger(),$c->make(CityMappingService::class),$c->make(RateCalculator::class),$c->make(LogisticsLogger::class),$s));
-    $c->singleton(CourierCircuitBreaker::class,fn()=>new CourierCircuitBreaker([$c->make(TcsCourier::class),$c->make(LeopardsCourier::class),$c->make(TraxCourier::class)]));
+    $c->singleton(CourierCircuitBreaker::class,function()use($c){
+        $features=FeatureManager::getInstance();
+        $couriers=[];
+        if($features->isEnabled('courier_tcs'))$couriers[]=$c->make(TcsCourier::class);
+        if($features->isEnabled('courier_leopards'))$couriers[]=$c->make(LeopardsCourier::class);
+        if($features->isEnabled('courier_trax'))$couriers[]=$c->make(TraxCourier::class);
+        return new CourierCircuitBreaker($couriers);
+    });
     $c->singleton(BookShipmentUseCase::class,fn()=>new BookShipmentUseCase($c->make(CourierCircuitBreaker::class),$c->make(OrderMetaRepository::class),new WpLogger()));
     $c->singleton(DashboardService::class,function(){global $wpdb;return new DashboardService($wpdb);});
     $c->singleton(SetupWizard::class,fn()=>new SetupWizard($s));
