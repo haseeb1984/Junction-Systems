@@ -184,6 +184,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         $responseCode = (string) ($body['pp_ResponseCode'] ?? '');
         if ($responseCode === '000') {
+            $order->update_meta_data('_pkstore_jazzcash_state', 'confirmed');
             $retrievalReference = sanitize_text_field((string) ($body['pp_RetrievalReferenceNo'] ?? $body['pp_RetreivalReferenceNo'] ?? ''));
             $freshOrder = wc_get_order($order_id);
             if ($freshOrder && !$freshOrder->is_paid()) {
@@ -298,7 +299,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || !hash_equals($expectedDateTime, $txnDateTime)
             || $currency !== 'PKR'
             || (string) $billReference !== (string) $orderId
-            || !in_array($responseCode, ['000', '157'], true)) {
+            || $responseCode === '') {
             $order->add_order_note('JazzCash callback rejected: transaction details did not match the initiated payment.');
             status_header(400);
             exit;
@@ -320,8 +321,14 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             $retrievalReference = sanitize_text_field((string) ($payload['pp_RetrievalReferenceNo'] ?? $payload['pp_RetreivalReferenceNo'] ?? ''));
             $order->payment_complete($txnRef);
             $order->add_order_note('JazzCash payment confirmed by callback.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
-        } else {
+        } elseif ($responseCode === '157') {
+            $order->update_meta_data('_pkstore_jazzcash_state', 'pending');
+            $order->save();
             $order->update_status('pending', 'JazzCash payment remains pending customer/provider confirmation.');
+        } else {
+            $message = sanitize_text_field((string) ($payload['pp_ResponseMessage'] ?? 'Payment was declined.'));
+            $order->update_meta_data('_pkstore_jazzcash_state', 'failed');
+            $order->update_status('failed', 'JazzCash payment failed: ' . $message);
         }
 
         status_header(200);
