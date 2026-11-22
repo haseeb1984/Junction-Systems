@@ -959,7 +959,7 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, 'applyProviderStatus(') === false
     || strpos($settingsManagerSource, "'EASYPAISA_USERNAME'=>true") === false
     || strpos($settingsManagerSource, "'EASYPAISA_PASSWORD'=>true") === false
-    || strpos($settingsManagerSource, "'EASYPAISA_ACCOUNT_NUMBER'=>false") === false
+    || strpos($settingsManagerSource, "'EASYPAISA_ACCOUNT_NUMBER'=>true") === false
     || strpos($settingsManagerSource, "'EASYPAISA_USERNAME','EASYPAISA_PASSWORD'") === false) {
     throw new \RuntimeException('Easypaisa Mobile Account payments must use per-store encrypted credentials and authenticated transaction-status verification.');
 }
