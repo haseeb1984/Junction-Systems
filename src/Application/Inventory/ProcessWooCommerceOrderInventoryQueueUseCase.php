@@ -52,6 +52,29 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
     }
 
+    public function acknowledgeCompleted(int $orderId, string $cycleUuid): void {
+        if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+            throw new \InvalidArgumentException('A valid WooCommerce order and cycle identity are required.');
+        }
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('WordPress database is unavailable for order inventory queue.');
+        }
+
+        $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        // A worker may already own the row. Leave claimed rows fenced for that
+        // worker; remove only an unclaimed pending row after the ledger commit.
+        $deleted = $wpdb->delete($table, [
+            'wc_order_id' => $orderId,
+            'cycle_uuid' => $cycleUuid,
+            'status' => 'pending',
+            'claimed_at' => null,
+        ], ['%d', '%s', '%s', '%s']);
+        if ($deleted === false) {
+            throw new \RuntimeException('Unable to acknowledge synchronously completed WooCommerce inventory event.');
+        }
+    }
+
     private function recoverUnqueuedCycleSales(int $limit): void {
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle sale recovery.');
