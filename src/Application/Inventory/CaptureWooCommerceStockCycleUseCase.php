@@ -70,7 +70,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 continue;
             }
             if (!is_numeric($reduced)) {
-                throw new \\RuntimeException('WooCommerce stock-cycle line has malformed reduced-stock metadata.');
+                throw new \RuntimeException('WooCommerce stock-cycle line has malformed reduced-stock metadata.');
             }
             if ((float) $reduced === 0.0) {
                 continue;
