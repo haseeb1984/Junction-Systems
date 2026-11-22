@@ -153,7 +153,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                     $now,
                     $cycleUuid
                 ));
-                if ($updated === false) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
+                if ($updated !== 1) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
 
                 if ($wpdb->query('COMMIT') === false) {
                     throw new \RuntimeException('Unable to commit WooCommerce cycle return capture.');
