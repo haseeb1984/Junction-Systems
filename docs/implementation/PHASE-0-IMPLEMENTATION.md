@@ -348,3 +348,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The five-minute EasyPaisa transaction-reconciliation cron was previously registered regardless of the customer's payment entitlement. That could continue querying the provider after a package downgrade or local feature disable.
 - Cron scheduling and callback registration now require `payment_easypaisa`, and the callback re-checks the entitlement at execution time before contacting the provider. Existing dormant scheduled events do not execute provider calls while the feature is disabled.
 - Added a source smoke guard; actual downgrade/cron execution remains part of staging acceptance.
+
+
+## Per-order payment initiation serialization
+
+- JazzCash and EasyPaisa now acquire a per-order MySQL advisory lock before reading prior transaction state or initiating a provider request. Concurrent checkout submissions for the same WooCommerce order cannot race past the duplicate-charge guard and create separate provider transactions.
+- The lock is released in `finally`; lock acquisition failure fails closed, and an unconfirmed release is logged for operator visibility. Existing provider timeout/unknown-state handling remains in force.
+- Added source-level smoke guards. Runtime acceptance still needs concurrent checkout requests, provider timeout-after-acceptance simulation, and MySQL/MariaDB lock-release tests.
