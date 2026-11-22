@@ -244,8 +244,10 @@ final class SyncPOSQueueUseCase {
             $inventoryProductId = (int) $item->get_meta('_pkstore_inventory_product_id', true);
             $locationId = (int) $item->get_meta('_pkstore_inventory_location_id', true);
             $posOrderRef = (string) $item->get_meta('_pkstore_pos_order_ref', true);
+            $reducedStock = (int) $item->get_meta('_reduced_stock', true);
             $mappedProduct = $this->productRepo->findById($inventoryProductId);
-            if (!$mappedProduct
+            if ($reducedStock !== (int) $item->get_quantity()
+                || !$mappedProduct
                 || !$mappedProduct->wcProductId
                 || !in_array((int) $mappedProduct->wcProductId, array_filter([
                     (int) $item->get_variation_id(),
