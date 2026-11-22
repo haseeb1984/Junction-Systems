@@ -104,6 +104,39 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
     }
 
+    /**
+     * Restore the WooCommerce order's prior fulfilment status only after its
+     * shared Junction stock ledger event has committed successfully.
+     */
+    public function releaseInventorySyncHold(\WC_Order $order): void {
+        if ($order->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
+
+        $orderId = (int) $order->get_id();
+        $currentStatus = $order->get_status();
+        $previousStatus = sanitize_key((string) $order->get_meta('_pkstore_wc_inventory_sync_previous_status', true));
+
+        if ($currentStatus === 'on-hold') {
+            if (!in_array($previousStatus, ['pending', 'processing', 'completed', 'on-hold'], true)) {
+                throw new \RuntimeException('WooCommerce inventory hold has no safe prior order status.');
+            }
+            if ($previousStatus !== 'on-hold') {
+                $order->update_status(
+                    $previousStatus,
+                    'Junction has committed the shared inventory ledger; the previous order status is restored.'
+                );
+            }
+        }
+
+        // If an operator or WooCommerce has since moved the order to a different
+        // or terminal status, do not overwrite that newer decision.
+        $order->delete_meta_data('_pkstore_wc_inventory_sync_hold');
+        $order->delete_meta_data('_pkstore_wc_inventory_sync_previous_status');
+        $order->delete_meta_data('_pkstore_wc_inventory_sync_cycle_uuid');
+        if ($orderId < 1 || (int) $order->save() !== $orderId) {
+            throw new \RuntimeException('Unable to clear the completed WooCommerce inventory hold marker.');
+        }
+    }
+
     public function execute(int $limit = 20): array {
         try {
             $this->recoverUnqueuedCycleSales($limit);
@@ -141,6 +174,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
                     $this->ensureActiveCycleMeta($order, $orderId, $cycleUuid);
                 }
                 $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
+                $this->releaseInventorySyncHold($order);
                 $this->complete($id, $generation, $claimToken);
                 $result['processed']++;
             } catch (\Throwable $error) {
