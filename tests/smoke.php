@@ -601,6 +601,7 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !
     || strpos($codOtpControllerSource, "update_meta_data('_pkstore_cod_otp_verified', 'yes')") === false
     || strpos($otpRepositorySource, 'consumed_at IS NULL') === false
     || strpos($otpRepositorySource, 'consumed_order_id=%s') === false
+    || strpos($otpRepositorySource, 'WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC LIMIT 1') === false
     || strpos($otpCheckoutJsSource, 'order_id: state.orderId') !== false
     || strpos($otpCheckoutJsSource, 'state.orderId') !== false) {
     throw new \\RuntimeException('COD OTP must be session-bound, single-use and enforced by server-side checkout validation.');
