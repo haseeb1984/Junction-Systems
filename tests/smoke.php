@@ -905,11 +905,15 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "isEnabled('courier_tcs')") === false
     || strpos($shippingRegistrySource, "isEnabled('courier_leopards')") === false
     || strpos($shippingRegistrySource, "isEnabled('courier_trax')") === false
+    || strpos($shippingRegistrySource, "\$order->get_status() !== 'processing'") === false
+    || strpos($shippingRegistrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_trax\'))') === false
     || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false
+    || strpos($courierRetrySource, "\$order->get_status() !== 'processing'") === false
+    || strpos($courierRetrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($courierRetrySource, "_pkstore_pos_origin") === false
     || strpos($courierRetrySource, "str_starts_with(\$existingTracking, 'PENDING-')") === false
     || strpos($courierRetrySource, "str_starts_with(\$result->trackingNumber, 'PENDING-')") === false
