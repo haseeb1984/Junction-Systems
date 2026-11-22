@@ -265,8 +265,8 @@ final class InventoryInstaller {
 
 
     /**
-     * Durable WooCommerce stock-cycle history. This migration installs storage
-     * only; capture/workers remain disabled until the cycle-aware path is complete.
+     * Durable WooCommerce stock-cycle history used by the actual reduction hook
+     * and cycle-aware sale/return ledger processing.
      */
     public static function installWooCommerceStockCycles(): void {
         global $wpdb;
