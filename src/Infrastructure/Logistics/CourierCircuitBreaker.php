@@ -9,6 +9,7 @@ final class CourierCircuitBreaker {
     public function bookWithFailover(ShipmentRequestDTO $s):ShipmentResultDTO{
         $lastFailure = null;
         $providerException = false;
+        $transientProviderFailure = false;
 
         foreach($this->couriers as $courier){
             $code=$courier->getCourierCode();
@@ -31,6 +32,7 @@ final class CourierCircuitBreaker {
                 $transientFailure = str_starts_with($message, 'HTTP error:')
                     || (preg_match('/^HTTP\s+(5\d{2})$/', $message) === 1);
                 if ($transientFailure) {
+                    $transientProviderFailure = true;
                     $this->fail($code);
                     if ($this->fails($code) >= self::THRESH) {
                         $this->openCircuit($code);
@@ -46,7 +48,7 @@ final class CourierCircuitBreaker {
         // A transport/provider exception or a fully open circuit is retryable.
         // If every provider returned a definitive rejection, return that failure
         // for operator correction instead of scheduling an endless retry loop.
-        if ($providerException || $lastFailure === null) {
+        if ($providerException || $transientProviderFailure || $lastFailure === null) {
             return $this->optimistic($s);
         }
 
