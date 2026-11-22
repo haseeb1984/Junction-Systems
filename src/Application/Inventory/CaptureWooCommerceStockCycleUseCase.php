@@ -320,7 +320,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 $orderId
             ));
             if ($wpdb->last_error !== '' || $openRestoringCycle) {
-                throw new \\RuntimeException('A previous WooCommerce stock cycle is still restoring and must finish before another sale cycle can be captured.');
+                throw new \RuntimeException('A previous WooCommerce stock cycle is still restoring and must finish before another sale cycle can be captured.');
             }
 
             if (is_array($existing)) {
