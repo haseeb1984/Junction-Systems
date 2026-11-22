@@ -143,15 +143,13 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         ]);
         if (is_wp_error($response)) {
             $order->add_order_note('JazzCash request could not reach the payment service.');
-            wc_add_notice('Payment connection failed. Please try again.', 'error');
-            return ['result' => 'fail'];
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
         if (!is_array($body)) {
             $order->add_order_note('JazzCash returned an unreadable payment response.');
-            wc_add_notice('JazzCash returned an invalid response. Please try again.', 'error');
-            return ['result' => 'fail'];
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
         if (!$this->verifySecureHash($body)
@@ -162,8 +160,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || (string) ($body['pp_BillReference'] ?? '') !== (string) $order_id
             || (isset($body['pp_TxnDateTime']) && (string) $body['pp_TxnDateTime'] !== $txnDateTime)) {
             $order->add_order_note('JazzCash response rejected: signature or transaction details did not match the initiated payment.');
-            wc_add_notice('JazzCash could not verify the payment response. Please contact the store administrator.', 'error');
-            return ['result' => 'fail'];
+            return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
         $responseCode = (string) ($body['pp_ResponseCode'] ?? '');
