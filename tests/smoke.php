@@ -366,7 +366,7 @@ if (!is_string($inventoryEventsSource)
     || strpos($inventoryEventsTemplate, "Last error category") === false
     || strpos($inventoryEventsTemplate, "Queue status totals") === false
     || strpos($inventoryEventsTemplate, "needs_review") === false
-    || strpos($inventoryEventsTemplate, "does not force-complete events or change stock") === false
+    || strpos($inventoryEventsTemplate, "Ignore does not change stock") === false
     || strpos($inventoryEventsTemplate, "esc_html(") === false) {
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
 }
@@ -381,6 +381,10 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "ignore_inventory_event") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
     || strpos($queueOperatorSource, "pkstore_inventory_queue_audit") === false
+    || strpos($queueOperatorSource, "'previous_status' => 'needs_review'") === false
+    || strpos($queueOperatorSource, "'resulting_status' =>") === false
+    || strpos($queueOperatorSource, "'START TRANSACTION'") === false
+    || strpos($queueOperatorSource, "'ROLLBACK'") === false
     || strpos($queueOperatorSource, "strlen(trim($reason)) < 5") === false
     || !is_string($queueOperatorTemplate)
     || strpos($queueOperatorTemplate, "Recent operator audit") === false
@@ -388,6 +392,8 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorTemplate, "ignore_inventory_event") === false
     || !is_string($queueOperatorSchema)
     || strpos($queueOperatorSchema, "CREATE TABLE {$wpdb->prefix}pkstore_inventory_queue_audit") === false
+    || strpos($queueOperatorSchema, "previous_status VARCHAR(20)") === false
+    || strpos($queueOperatorSchema, "resulting_status VARCHAR(20)") === false
     || !is_string($queueOperatorMigration)
     || strpos($queueOperatorMigration, "'2.0.7' => [InventoryInstaller::class, 'installInventoryQueueAudit']") === false
     || strpos($queueOperatorMigration, "'pkstore_inventory_queue_audit'") === false) {
