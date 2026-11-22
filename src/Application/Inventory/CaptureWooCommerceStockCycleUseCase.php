@@ -138,8 +138,8 @@ final class CaptureWooCommerceStockCycleUseCase {
                     if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear recovered cycle return capture marker.');
                     return;
                 }
-                if ($cycle['state'] === 'closed') {
-                    throw new \RuntimeException('WooCommerce stock cycle is already closed for this return event.');
+                if (!in_array($cycle['state'], ['reducing', 'active', 'restoring'], true)) {
+                    throw new \RuntimeException('WooCommerce stock cycle is not eligible for return capture.');
                 }
 
                 if (!is_array($existingEvent)) {
@@ -182,7 +182,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                     $now,
                     $cycleUuid
                 ));
-                if ($updated !== 1) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
+                if ($updated === false) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
 
                 if ($wpdb->query('COMMIT') === false) {
                     throw new \RuntimeException('Unable to commit WooCommerce cycle return capture.');
