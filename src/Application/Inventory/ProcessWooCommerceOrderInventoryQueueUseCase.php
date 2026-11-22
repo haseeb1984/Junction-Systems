@@ -52,7 +52,43 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
     }
 
+    private function recoverUnqueuedCycleSales(int $limit): void {
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle sale recovery.');
+
+        $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+        $queueTable = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT e.wc_order_id,e.cycle_uuid
+             FROM {$eventsTable} e
+             LEFT JOIN {$queueTable} q
+                ON q.wc_order_id=e.wc_order_id AND q.cycle_uuid=e.cycle_uuid
+             WHERE e.event_kind='reduction' AND e.status='pending'
+               AND e.next_attempt_at<=%s AND q.id IS NULL
+             ORDER BY e.created_at ASC LIMIT %d",
+            current_time('mysql'),
+            max(1, min(100, $limit))
+        ), ARRAY_A);
+        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect pending WooCommerce stock-cycle sale events.');
+
+        foreach ($rows as $row) {
+            $orderId = (int) $row['wc_order_id'];
+            $cycleUuid = (string) $row['cycle_uuid'];
+            if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+                throw new \RuntimeException('Pending WooCommerce stock-cycle sale event cannot be reconstructed safely.');
+            }
+            $this->enqueue($orderId, $cycleUuid);
+        }
+    }
+
     public function execute(int $limit = 20): array {
+        try {
+            $this->recoverUnqueuedCycleSales($limit);
+        } catch (\Throwable $recoveryError) {
+            $this->log->critical('WooCommerce cycle sale queue recovery failed; pending cycle events remain durable.', [
+                'error_class' => get_class($recoveryError),
+            ]);
+        }
         $jobs = $this->claimBatch($limit);
         $result = ['processed' => 0, 'failed' => 0];
 
