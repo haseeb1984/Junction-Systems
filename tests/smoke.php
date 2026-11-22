@@ -572,7 +572,12 @@ if (!is_string($stockCycleInstallerSource)
     || strpos($stockCycleInstallerSource, 'UNIQUE INDEX idx_cycle_uuid') === false
     || strpos($stockCycleInstallerSource, 'UNIQUE INDEX idx_order_cycle') === false
     || strpos($stockCycleInstallerSource, 'claim_token CHAR(36) DEFAULT NULL') === false
-    || strpos($stockCycleInstallerSource, 'cycle_uuid CHAR(36) DEFAULT NULL') === false\n    || strpos($stockCycleInstallerSource, 'allocation_snapshot LONGTEXT DEFAULT NULL') === false\n    || strpos($stockCycleInstallerSource, 'refund_cumulative_baseline INT UNSIGNED NOT NULL DEFAULT 0') === false\n    || strpos($stockCycleMigrationSource, "'2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime']") === false\n    || strpos($stockCycleMigrationSource, "'2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime']") === false\n    || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.12', '>=')") === false
+    || strpos($stockCycleInstallerSource, 'cycle_uuid CHAR(36) DEFAULT NULL') === false
+    || strpos($stockCycleInstallerSource, 'allocation_snapshot LONGTEXT DEFAULT NULL') === false
+    || strpos($stockCycleInstallerSource, 'refund_cumulative_baseline INT UNSIGNED NOT NULL DEFAULT 0') === false
+    || strpos($stockCycleMigrationSource, "'2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime']") === false
+    || strpos($stockCycleMigrationSource, "'2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime']") === false
+    || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.12', '>=')") === false
     || strpos($stockCycleMigrationSource, "'2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles']") === false
     || strpos($stockCycleMigrationSource, "version_compare(\$version, '2.0.9', '>=')") === false
     || strpos($stockCycleMigrationSource, 'SHOW INDEX FROM ') === false
