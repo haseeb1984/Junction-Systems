@@ -7,4 +7,5 @@ interface LocationRepositoryInterface {
     public function findById(int $id): ?Location;
     public function findPOS(): array;
     public function findOnline(): ?Location;
+    public function create(string $name, string $type, string $address, bool $isPos): int;
 }
