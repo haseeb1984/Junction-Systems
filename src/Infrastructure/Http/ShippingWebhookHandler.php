@@ -53,10 +53,16 @@ final class ShippingWebhookHandler {
         }
         $raw=match($cc){'tcs'=>(string)($payload['status_code']??$payload['status']??'UNKNOWN'),'leopards'=>(string)($payload['packet_status']??'0'),'trax'=>(string)($payload['status']??'unknown'),default=>'unknown'};
         $status=TrackingStatus::fromCourierCode($raw,$cc);
-        if(in_array($order->get_status(),['completed','processing'],true)&&$status===TrackingStatus::Delivered)return new \WP_REST_Response(['status'=>'ok'],200);
-        $loc=sanitize_text_field($payload['location']??$payload['city']??$payload['current_city']??'');
-        $order->update_status($status->toWooCommerceStatus(),"[{$cc}] ".ucwords(str_replace('_',' ',$status->value)).($loc?" ({$loc})":""));
-        if($status===TrackingStatus::Delivered&&str_contains($order->get_payment_method(),'cod')){$order->update_meta_data('_cod_delivered_at',current_time('mysql'));$order->update_meta_data('_cod_delivered_by',$cc);$order->save_meta_data();do_action('pkstore_cod_delivered',$order->get_id(),$cc,$tn);}
+        if ($status->canAdvanceFrom($order->get_status())) {
+            $loc=sanitize_text_field($payload['location']??$payload['city']??$payload['current_city']??'');
+            $order->update_status($status->toWooCommerceStatus(),"[{$cc}] ".ucwords(str_replace('_',' ',$status->value)).($loc?" ({$loc})":""));
+        }
+        if($status===TrackingStatus::Delivered&&str_contains($order->get_payment_method(),'cod')&&!$order->get_meta('_cod_delivered_at')){
+            $order->update_meta_data('_cod_delivered_at',current_time('mysql'));
+            $order->update_meta_data('_cod_delivered_by',$cc);
+            $order->save_meta_data();
+            do_action('pkstore_cod_delivered',$order->get_id(),$cc,$tn);
+        }
         return new \WP_REST_Response(['status'=>'ok'],200);
     }
 }
