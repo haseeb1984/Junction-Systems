@@ -40,6 +40,6 @@ final class HandleAiChatUseCase {
         while(!empty($hist)&&$total>24000){$r=array_shift($hist);$total-=strlen($r->content);}
         return array_merge([$sys],$hist,[$cur]);
     }
-    private function sanitize(string $r):string{$c=wp_strip_all_tags($r);$c=preg_replace('/\s+/',' ',$c)??$c;return mb_substr(trim($c),0,self::MAXCHARS);}
+    private function sanitize(string $r):string{$c=wp_strip_all_tags($r);$c=preg_replace('/\\s+/',' ',$c)??$c;$c=trim($c);return function_exists('mb_substr')?mb_substr($c,0,self::MAXCHARS):substr($c,0,self::MAXCHARS);}
     private function validUuid(string $u):bool{return(bool)preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',$u);}
 }
