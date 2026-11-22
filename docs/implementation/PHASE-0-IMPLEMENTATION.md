@@ -390,3 +390,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Review found that storefront purchases were blocked while the cycle-aware schema migration was incomplete, but authenticated POS and inventory REST endpoints could still register and run against the old schema.
 - POS session/sale/sync routes and inventory read/manage routes now require database schema version `2.0.13` in their permission callbacks, in addition to the existing central feature entitlement and WordPress capability checks. A blocked backup-gated upgrade therefore cannot leave staff APIs operating on an incomplete schema.
 - Added source smoke guards. Runtime acceptance must cover fresh install, existing-store backup gate, partial migration failure and recovery.
+
+- The same migration readiness gate now covers Inventory/POS admin pages and mutation forms, and the POS-to-WooCommerce background mirror worker waits for schema `2.0.13` rather than the older `2.0.0` baseline. This prevents staff UI actions or already-queued POS mirrors from touching partially migrated inventory tables while the backup gate is holding an upgrade.
