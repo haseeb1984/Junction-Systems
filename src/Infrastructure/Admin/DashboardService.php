@@ -19,6 +19,9 @@ final class DashboardService {
             'date_created' => '>' . $since,
         ], static function ($order) use (&$summary): void {
             if (!($order instanceof \WC_Order)) return;
+            $status = $order->get_status();
+            if (in_array($status, ['cancelled', 'failed', 'refunded'], true)) return;
+
             $courier = strtoupper((string) $order->get_meta('_booked_courier'));
             if ($courier === '') return;
 
@@ -33,10 +36,9 @@ final class DashboardService {
             }
 
             $summary[$courier]['total']++;
-            $status = $order->get_status();
             if ($status === 'completed') $summary[$courier]['delivered']++;
             if ($status === 'returned') $summary[$courier]['rto']++;
-            if (in_array($status, ['shipped', 'out-for-delivery'], true)) {
+            if (in_array($status, ['shipped', 'out-for-delivery', 'delivery-failed', 'on-hold'], true)) {
                 $summary[$courier]['in_transit']++;
             }
         });
@@ -101,12 +103,12 @@ final class DashboardService {
             "SELECT COUNT(*) AS total,SUM(is_verified=1) AS verified FROM {$table} WHERE created_at>=%s",
             $since24h
         ), ARRAY_A);
-        $total = max(1, (int) ($row['total'] ?? 0));
+        $total = (int) ($row['total'] ?? 0);
         $verified = (int) ($row['verified'] ?? 0);
         $summary = [
             'total_24h' => $total,
             'verified_24h' => $verified,
-            'verification_rate' => round(($verified / $total) * 100, 1),
+            'verification_rate' => $total > 0 ? round(($verified / $total) * 100, 1) : 0.0,
         ];
         set_transient('pkstore_dash_otp', $summary, self::TTL);
         return $summary;
@@ -116,18 +118,18 @@ final class DashboardService {
         $cached = get_transient('pkstore_dash_ai');
         if ($cached !== false) return $cached;
 
-        $since24h = date('Y-m-d H:i:s', strtotime('-24 hours'));
+        $since24h = wp_date('Y-m-d H:i:s', time() - DAY_IN_SECONDS);
         $table = $this->db->prefix . 'pkstore_chat_history';
         $row = $this->db->get_row($this->db->prepare(
             "SELECT COUNT(DISTINCT session_uuid) AS sessions,COUNT(*) AS messages FROM {$table} WHERE created_at>=%s",
             $since24h
         ), ARRAY_A);
-        $sessions = max(1, (int) ($row['sessions'] ?? 0));
+        $sessions = (int) ($row['sessions'] ?? 0);
         $messages = (int) ($row['messages'] ?? 0);
         $summary = [
             'total_sessions_24h' => $sessions,
             'total_messages_24h' => $messages,
-            'avg_messages_per_session' => round($messages / $sessions, 1),
+            'avg_messages_per_session' => $sessions > 0 ? round($messages / $sessions, 1) : 0.0,
         ];
         set_transient('pkstore_dash_ai', $summary, self::TTL);
         return $summary;
