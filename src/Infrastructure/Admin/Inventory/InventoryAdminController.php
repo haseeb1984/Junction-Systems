@@ -350,7 +350,7 @@ final class InventoryAdminController {
         $returnEvents = $available['returns'] ? ($wpdb->get_results(
             "SELECT id, CONCAT('WooCommerce ',event_kind,' restock') AS event,
                     CONCAT('#',wc_order_id) AS reference,
-                    CONCAT('Item ',COALESCE(wc_order_item_id,'—'),' · Product ',wc_product_id,' · Qty ',quantity) AS details,
+                    CONCAT('Cycle ',LEFT(COALESCE(cycle_uuid,'legacy'),8),' · Item ',COALESCE(wc_order_item_id,'—'),' · Product ',wc_product_id,' · Qty ',quantity) AS details,
                     status, attempts, next_attempt_at, claimed_at, last_error, created_at
              FROM {$tables['returns']} ORDER BY updated_at DESC LIMIT 100",
             ARRAY_A
