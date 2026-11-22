@@ -69,8 +69,9 @@ final class AiChatController {
             $ipCount = (int) get_transient($ipKey);
             if ($sessionCount >= 20 || $ipCount >= 100) return true;
 
-            set_transient($sessionKey, $sessionCount + 1, HOUR_IN_SECONDS);
-            set_transient($ipKey, $ipCount + 1, HOUR_IN_SECONDS);
+            $sessionSaved = set_transient($sessionKey, $sessionCount + 1, HOUR_IN_SECONDS);
+            $ipSaved = set_transient($ipKey, $ipCount + 1, HOUR_IN_SECONDS);
+            if (!$sessionSaved || !$ipSaved) return true;
             return false;
         } finally {
             foreach (array_reverse($acquired) as $lockName) {
