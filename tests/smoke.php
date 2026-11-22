@@ -394,6 +394,9 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'cycle_uuid') === false
     || strpos($returnQueueSource, 'cycleUuid') === false
     || strpos($returnQueueSource, 'markReturnPending(') === false
+    || strpos($returnQueueSource, 'public function acknowledgeCompleted(string $eventKey)') === false
+    || strpos($returnQueueSource, 'enqueueCancellation(int $orderId, int $itemId, int $productId, int $quantity, ?string $cycleUuid = null): string') === false
+    || strpos($returnQueueSource, 'enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null, ?string $cycleUuid = null): string') === false
     || strpos($returnQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($returnQueueSource, 'recoverUnqueuedCycleEvents') === false
     || strpos($returnQueueSource, 'pkstore_wc_stock_cycle_events') === false
@@ -411,6 +414,9 @@ if (!is_string($returnQueueSource)
     || strpos($returnHooks, 'ProcessWooCommerceReturnInventoryQueueUseCase::class') === false
     || strpos($returnHooks, 'enqueueCancellation(') === false
     || strpos($returnHooks, 'enqueueRefund(') === false
+    || strpos($returnHooks, 'onWooCommerceOrderItemRestored(') === false
+    || strpos($returnHooks, 'onWooCommerceRefundItemRestocked(') === false
+    || strpos($returnHooks, 'acknowledgeCompleted($eventKey)') === false
     || strpos($returnHooks, '_pkstore_wc_active_cycle_uuid') === false) {
     throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
