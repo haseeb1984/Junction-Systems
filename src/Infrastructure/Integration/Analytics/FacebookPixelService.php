@@ -7,7 +7,7 @@ final class FacebookPixelService {
     public function __construct(private readonly SettingsManager $s) {}
 
     public function register(): void {
-        add_action('wp_head',[\$this,'injectPixel'],1);
+        add_action('wp_head',[$this,'injectPixel'],1);
         add_action('wp_footer',[$this,'injectEvents']);
         add_action('woocommerce_payment_complete',[$this,'serverSideConversion']);
     }
