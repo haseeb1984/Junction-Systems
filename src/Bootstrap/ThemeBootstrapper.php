@@ -111,7 +111,7 @@ final class ThemeBootstrapper {
                 wp_schedule_event(time() + 90, 'pkstore_five_minutes', 'pkstore_process_pos_order_sync');
             }
             add_action('pkstore_process_pos_order_sync', function(): void {
-                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.0', '<')) return;
+                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) return;
                 try {
                     $result = $this->c->make(\PkStore\Application\POS\SyncPOSQueueUseCase::class)->execute();
                     if (($result['failed'] ?? 0) > 0) {
