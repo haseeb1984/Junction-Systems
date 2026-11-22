@@ -277,3 +277,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Runtime acceptance still needs classic checkout guest/customer sessions, changed billing phone, session expiry, concurrent checkout replay, digital-only carts, and WooCommerce Checkout Blocks (if supported by the product) tested. Checkout Blocks support is not claimed by the current classic-checkout hooks.
 
 - COD exemption is deliberately limited to carts/orders whose every product is WooCommerce `virtual`. A downloadable-but-shippable product is still physical and cannot bypass OTP.
+
+
+## Courier webhook delivery semantics
+
+- Invalid provider signatures now return HTTP 401, missing tracking references return 422, unmatched orders return 404, ambiguous duplicate references return 409, and lookup outages return 503 instead of acknowledging every failure with HTTP 200.
+- Exact duplicate webhook payloads are deduplicated using a bounded last-20 event-hash list stored through `WC_Order` metadata. The status transition guard and one-time COD delivered marker remain in force for provider retries and stale events.
+- Runtime provider retry policy, concurrent duplicate delivery, and event-ordering acceptance remain pending sandbox tests.
