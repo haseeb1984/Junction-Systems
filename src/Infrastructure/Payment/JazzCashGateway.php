@@ -38,6 +38,12 @@ class JazzCashGateway extends \WC_Payment_Gateway {
     public function process_payment($order_id):array{
         $order=wc_get_order($order_id);
         if (!$order || $order->is_paid()) { wc_add_notice('This order cannot be paid through JazzCash.','error'); return ['result'=>'fail']; }
+        $existingTxn = (string) $order->get_meta('_pkstore_jazzcash_txn_ref');
+        $existingState = (string) $order->get_meta('_pkstore_jazzcash_state');
+        if ($existingTxn !== '' && $existingState !== 'failed') {
+            wc_add_notice('A JazzCash payment attempt is already awaiting confirmation. Do not retry until the previous transaction is reconciled.', 'error');
+            return ['result' => 'fail'];
+        }
         $mid=$this->cfg->get('JAZZCASH_MERCHANT_ID');$pass=$this->cfg->get('JAZZCASH_PASSWORD');$ik=$this->cfg->get('JAZZCASH_INTEGRITY_KEY');
         if(!$mid||!$pass||!$ik){wc_add_notice('JazzCash not configured. Contact store admin.','error');return['result'=>'fail'];}
         if (get_woocommerce_currency() !== 'PKR') {
@@ -75,9 +81,16 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $order->update_meta_data('_pkstore_jazzcash_txn_ref',$txn);
         $order->update_meta_data('_pkstore_jazzcash_expected_amount',$amt);
         $order->update_meta_data('_pkstore_jazzcash_merchant_id',$mid);
+        $order->update_meta_data('_pkstore_jazzcash_state', 'initiated');
         $order->save();
         $r=wp_remote_post($isSandbox?self::S:self::L,['timeout'=>15,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode($pd)]);
-        if(is_wp_error($r)){wc_add_notice('Payment connection failed.','error');return['result'=>'fail'];}
+        if(is_wp_error($r)){
+            $order->update_meta_data('_pkstore_jazzcash_state', 'unknown');
+            $order->add_order_note('JazzCash payment status is unknown because the gateway connection failed. Reconcile the transaction before retrying.');
+            $order->save();
+            wc_add_notice('Payment status could not be confirmed. Please contact the store before retrying.', 'error');
+            return ['result' => 'fail'];
+        }
         $httpStatus = (int) wp_remote_retrieve_response_code($r);
         $b = json_decode(wp_remote_retrieve_body($r), true);
         $responseTxn = is_array($b) ? (string) ($b['pp_TxnRefNo'] ?? '') : '';
@@ -90,13 +103,17 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || !hash_equals($amt, $responseAmount)
             || $responseCurrency !== 'PKR'
             || !hash_equals((string) $mid, $responseMerchant)) {
-            $order->add_order_note('JazzCash response rejected: HTTP status or signed transaction details did not match the initiated payment.');
+            $order->update_meta_data('_pkstore_jazzcash_state', 'unknown');
+            $order->add_order_note('JazzCash response could not be verified. Reconcile the transaction before retrying.');
+            $order->save();
             wc_add_notice('JazzCash could not verify the payment response. Please contact the store before retrying.', 'error');
             return ['result' => 'fail'];
         }
 
         $responseCode = (string) ($b['pp_ResponseCode'] ?? '');
         if ($responseCode === '000') {
+            $order->update_meta_data('_pkstore_jazzcash_state', 'paid');
+            $order->save();
             if (!$order->is_paid()) {
                 $order->payment_complete($txn);
                 $order->add_order_note('JazzCash payment confirmed by signed API response. TxID: ' . $txn);
@@ -105,11 +122,15 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         if ($responseCode === '157') {
+            $order->update_meta_data('_pkstore_jazzcash_state', 'pending_confirmation');
+            $order->save();
             $order->update_status('pending', 'JazzCash wallet payment is awaiting customer confirmation.');
             wc_add_notice('Please approve the payment request in your JazzCash app. Your order will remain pending until confirmation.', 'notice');
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
         }
 
+        $order->update_meta_data('_pkstore_jazzcash_state', 'failed');
+        $order->save();
         $order->update_status('failed', 'JazzCash payment was declined. Response code: ' . sanitize_text_field($responseCode));
         wc_add_notice('JazzCash payment was not completed. Please try another payment method.', 'error');
         return ['result' => 'fail'];
@@ -156,6 +177,8 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         // Replayed callbacks must not complete or mutate an already paid order.
+        $order->update_meta_data('_pkstore_jazzcash_state', 'paid');
+        $order->save();
         if (!$order->is_paid()) {
             $order->payment_complete($txnRef);
             $order->add_order_note('JazzCash payment confirmed. TxID: ' . $txnRef);
