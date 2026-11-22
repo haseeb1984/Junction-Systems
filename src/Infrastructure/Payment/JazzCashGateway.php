@@ -168,7 +168,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         $responseCode = (string) ($body['pp_ResponseCode'] ?? '');
         if ($responseCode === '000') {
-            $retrievalReference = sanitize_text_field((string) ($body['pp_RetrievalReferenceNo'] ?? ''));
+            $retrievalReference = sanitize_text_field((string) ($body['pp_RetrievalReferenceNo'] ?? $body['pp_RetreivalReferenceNo'] ?? ''));
             $order->payment_complete($txn);
             $order->add_order_note('JazzCash payment confirmed.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
             return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
@@ -290,7 +290,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         if ($responseCode === '000') {
-            $retrievalReference = sanitize_text_field((string) ($payload['pp_RetrievalReferenceNo'] ?? ''));
+            $retrievalReference = sanitize_text_field((string) ($payload['pp_RetrievalReferenceNo'] ?? $payload['pp_RetreivalReferenceNo'] ?? ''));
             $order->payment_complete($txnRef);
             $order->add_order_note('JazzCash payment confirmed by callback.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
         } else {
