@@ -31,6 +31,15 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         add_action('woocommerce_api_easypaisa_ipn', [$this, 'handleIpn']);
     }
 
+    public function is_available(): bool {
+        return parent::is_available()
+            && get_woocommerce_currency() === 'PKR'
+            && (string) $this->cfg->get('EASYPAISA_USERNAME') !== ''
+            && (string) $this->cfg->get('EASYPAISA_PASSWORD') !== ''
+            && (string) $this->cfg->get('EASYPAISA_STORE_ID') !== ''
+            && (string) $this->cfg->get('EASYPAISA_ACCOUNT_NUMBER') !== '';
+    }
+
     public function init_form_fields(): void {
         $this->form_fields = [
             'enabled' => ['title' => 'Enable/Disable', 'type' => 'checkbox', 'label' => 'Enable Easypaisa', 'default' => 'yes'],
@@ -57,7 +66,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
     public function process_payment($order_id): array {
         $order = wc_get_order($order_id);
-        if (!$order || $order->is_paid()) {
+        if (!$order || $order->is_paid() || in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
             wc_add_notice('This order cannot be paid through Easypaisa.', 'error');
             return ['result' => 'fail'];
         }
@@ -209,16 +218,17 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
 
         $orders = wc_get_orders([
-            'limit' => 1,
+            'limit' => 2,
             'return' => 'objects',
             'meta_key' => '_pkstore_easypaisa_order_id',
             'meta_value' => $orderRef,
         ]);
-        $order = is_array($orders) ? ($orders[0] ?? null) : null;
-        if (!$order) {
-            status_header(404);
+        if (!is_array($orders) || count($orders) !== 1 || !$orders[0] instanceof \\WC_Order
+            || $orders[0]->get_payment_method() !== $this->id) {
+            status_header(is_array($orders) && count($orders) > 1 ? 409 : 404);
             exit;
         }
+        $order = $orders[0];
 
         $status = $this->inquireTransactionStatus($orderRef);
         if (!is_array($status)) {
@@ -260,7 +270,8 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
         if (!is_array($body) || (string) ($body['responseCode'] ?? '') !== '0000'
             || (string) ($body['orderId'] ?? '') !== $orderRef
-            || (string) ($body['storeId'] ?? '') !== $storeId) {
+            || (string) ($body['storeId'] ?? '') !== $storeId
+            || (string) ($body['accountNum'] ?? '') !== $accountNum) {
             $this->log->warning('Easypaisa transaction inquiry returned an unverified response.', [
                 'response_code' => is_array($body) ? sanitize_text_field((string) ($body['responseCode'] ?? 'unknown')) : 'invalid',
             ]);
@@ -282,7 +293,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $paymentMode = strtoupper((string) ($status['paymentMode'] ?? ''));
         $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? ''));
         $expectedPhone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
-        if (($paymentMode !== '' && $paymentMode !== 'MA')
+        if ($paymentMode !== 'MA'
             || ($reportedPhone !== '' && $expectedPhone !== '' && !hash_equals($expectedPhone, $reportedPhone))) {
             $order->add_order_note('Easypaisa status rejected: payment mode or customer mobile number does not match this order. Manual reconciliation is required.');
             $order->update_meta_data('_pkstore_easypaisa_state', 'review');
