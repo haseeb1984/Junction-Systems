@@ -240,3 +240,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Circuit-breaker classification was tightened: only transport errors and HTTP 5xx responses count toward opening a courier circuit and trigger queued retry. HTTP 4xx/input validation rejections still try the next provider but do not poison that provider's health score.
 
 - HPOS metadata lookup was made explicit: webhook order matching uses WooCommerce `meta_query` when HPOS is active and the legacy `meta_key`/`meta_value` arguments otherwise, rather than assuming one datastore's query syntax works on both.
+
+
+## Admin list-table repair
+
+- Repaired malformed PHP in the logistics and OTP audit list-table renderers, including duration styling, endpoint rendering, relative-time output, and correct WordPress sortable-column header structure.
+- OTP order links now use `WC_Order::get_edit_order_url()` so they work with HPOS as well as legacy order storage.
+- The rewritten list-table sources were independently syntax-checked with PHP 8.4; full repository lint remains pending the consolidated CI run.
