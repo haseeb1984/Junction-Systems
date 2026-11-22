@@ -592,7 +592,9 @@ if (!is_string($dashboardServiceSource)
 }
 
 $trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
-if (!$trackingStatus->canAdvanceFrom('shipped')
+if (\\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Booked->toWooCommerceStatus() !== 'shipped'
+    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Returned->toWooCommerceStatus() !== 'returned'
+    || !$trackingStatus->canAdvanceFrom('shipped')
     || $trackingStatus->canAdvanceFrom('out-for-delivery')
     || $trackingStatus->canAdvanceFrom('completed')
     || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')
