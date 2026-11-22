@@ -229,9 +229,11 @@ final class SetupWizard {
                 'JAZZCASH_SANDBOX'        => ['label' => 'Sandbox Mode',             'sensitive' => false, 'desc' => '1 = sandbox, 0 = live'],
             ],
             'easypaisa' => [
-                'EASYPAISA_STORE_ID'      => ['label' => 'Store ID',                 'sensitive' => false, 'desc' => 'From EasyPaisa merchant portal'],
-                'EASYPAISA_HASH_KEY'      => ['label' => 'Hash Key',                 'sensitive' => true,  'desc' => 'For SHA-256 signature'],
-                'EASYPAISA_SANDBOX'       => ['label' => 'Sandbox Mode',             'sensitive' => false, 'desc' => '1 = sandbox, 0 = live'],
+                'EASYPAISA_USERNAME'      => ['label' => 'Partner Username',         'sensitive' => true,  'desc' => 'From EasyPaisa merchant portal / Manage Partner Accounts'],
+                'EASYPAISA_PASSWORD'      => ['label' => 'Partner Password',         'sensitive' => true,  'desc' => 'Encrypted at rest; never exposed to checkout customers'],
+                'EASYPAISA_STORE_ID'      => ['label' => 'Store ID',                 'sensitive' => false, 'desc' => 'Must belong to the same EasyPaisa partner account'],
+                'EASYPAISA_ACCOUNT_NUMBER'=> ['label' => 'EWP Account Number',       'sensitive' => true,  'desc' => 'Account number shown in the EasyPaisa merchant profile; used for status inquiry'],
+                'EASYPAISA_SANDBOX'       => ['label' => 'Sandbox Mode',             'sensitive' => false, 'desc' => '1 = staging, 0 = live'],
             ],
             'tcs' => [
                 'TCS_API_KEY'             => ['label' => 'API Key',                  'sensitive' => true,  'desc' => 'From TCS merchant portal'],
