@@ -586,12 +586,12 @@ $inventoryControllerSource = file_get_contents($src . '/Infrastructure/Http/Inve
 $inventoryAdminSource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
 $inventoryTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/inventory/inventory.php');
 if (!is_string($inventoryControllerSource) || !is_string($inventoryAdminSource) || !is_string($inventoryTemplateSource)
-    || strpos($inventoryControllerSource, "if ($canViewCosts) $row['cost_price'] = $p->costPricePkr") === false
-    || strpos($inventoryControllerSource, "if (current_user_can('manage_options')) $productData['cost_price']") === false
-    || strpos($inventoryAdminSource, "current_user_can('manage_options') ? filter_var($_POST['cost_price']") === false
-    || strpos($inventoryAdminSource, "add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders','manage_options'") === false
-    || strpos($inventoryTemplateSource, "if(current_user_can('manage_options')):") === false) {
-    throw new \\RuntimeException('Inventory cost and purchase-order financial data must be administrator-only.');
+    || strpos($inventoryControllerSource, 'if ($canViewCosts) $row[\'cost_price\'] = $p->costPricePkr') === false
+    || strpos($inventoryControllerSource, 'if (current_user_can(\'manage_options\')) $productData[\'cost_price\']') === false
+    || strpos($inventoryAdminSource, 'current_user_can(\'manage_options\') ? filter_var($_POST[\'cost_price\']') === false
+    || strpos($inventoryAdminSource, 'add_submenu_page(\'pkstore-operations\',\'Purchase Orders\',\'🚚 Purchase Orders\',\'manage_options\'') === false
+    || strpos($inventoryTemplateSource, 'if(current_user_can(\'manage_options\')):') === false) {
+    throw new \RuntimeException('Inventory cost and purchase-order financial data must be administrator-only.');
 }
 
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
