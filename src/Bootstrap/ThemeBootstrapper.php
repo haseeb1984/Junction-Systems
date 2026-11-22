@@ -64,15 +64,18 @@ final class ThemeBootstrapper {
                 wp_schedule_event(time() + 60, 'pkstore_five_minutes', 'pkstore_process_wc_stock_sync');
             }
             add_action('pkstore_process_wc_stock_sync', function(): void {
+                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) return;
                 $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceStockSyncQueueUseCase::class)->execute();
             });
             add_action('pkstore_process_wc_stock_sync', function(): void {
+                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) return;
                 $result = $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase::class)->execute();
                 if (($result['failed'] ?? 0) > 0) {
                     error_log('[PK Store] WooCommerce order inventory queue has retryable failures.');
                 }
             });
             add_action('pkstore_process_wc_stock_sync', function(): void {
+                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) return;
                 $result = $this->c->make(\PkStore\Application\Inventory\ProcessWooCommerceReturnInventoryQueueUseCase::class)->execute();
                 if (($result['failed'] ?? 0) > 0) {
                     error_log('[PK Store] WooCommerce return inventory queue has retryable failures.');
