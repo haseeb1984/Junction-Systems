@@ -52,6 +52,23 @@ final class ThemeBootstrapper {
             (new AffiliateHooks($this->c))->register();
         }
 
+        // ── Easypaisa payment reconciliation ──────────────────────
+        add_filter('cron_schedules', static function(array $schedules): array {
+            $schedules['pkstore_payment_five_minutes'] = ['interval' => 300, 'display' => 'Every five minutes'];
+            return $schedules;
+        });
+        if (!wp_next_scheduled('pkstore_easypaisa_reconcile_pending')) {
+            wp_schedule_event(time() + 120, 'pkstore_payment_five_minutes', 'pkstore_easypaisa_reconcile_pending');
+        }
+        add_action('pkstore_easypaisa_reconcile_pending', function(): void {
+            if (!class_exists(\WC_Payment_Gateway::class)) return;
+            try {
+                $this->c->make(\PkStore\Infrastructure\Payment\EasyPaisaGateway::class)->reconcilePendingOrders(20);
+            } catch (\Throwable $error) {
+                error_log('[PK Store] Easypaisa payment reconciliation failed: ' . get_class($error));
+            }
+        });
+
         // ── Inventory + POS ───────────────────────────────────────
         if ($this->fm->isEnabled('inventory')) {
             (new InventoryController($this->c))->register();
