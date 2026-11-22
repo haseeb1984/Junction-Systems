@@ -31,7 +31,7 @@ final class ThemeBootstrapper {
 
         // ── Payments (feature-gated) ──────────────────────────────
         (new GatewayRegistry($this->c, $this->fm))->register();
-        (new ShippingRegistry($this->c))->register();
+        (new ShippingRegistry($this->c, $this->fm))->register();
         (new AssetEnqueuer($this->bm))->register();
 
         // ── Core features (always on) ─────────────────────────────
