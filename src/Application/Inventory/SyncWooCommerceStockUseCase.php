@@ -35,14 +35,19 @@ final class SyncWooCommerceStockUseCase {
             // Only count lines WooCommerce actually reduced. An order can also
             // contain virtual, untracked, or otherwise non-stock-managed lines.
             $reducedStock = $item->get_meta('_reduced_stock', true);
-            if ($reducedStock === '' || $reducedStock === null || (float) $reducedStock === 0.0) {
+            if ($reducedStock === '' || $reducedStock === null) {
+                continue;
+            }
+            if (!is_numeric($reducedStock)) {
+                throw new \\RuntimeException('WooCommerce order contains a malformed actual stock-reduction quantity.');
+            }
+            $rawQuantity = (float) $reducedStock;
+            if ($rawQuantity === 0.0) {
                 continue;
             }
             $wcProductId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
-            $rawQuantity = (float) $reducedStock;
-            if ($wcProductId < 1 || !is_numeric($reducedStock) || $rawQuantity < 0
-                || floor($rawQuantity) !== $rawQuantity) {
+            if ($wcProductId < 1 || $rawQuantity < 0 || floor($rawQuantity) !== $rawQuantity) {
                 throw new \RuntimeException('WooCommerce order contains an invalid actual stock-reduction quantity.');
             }
             // Prefer an explicitly mapped variation so separately stocked
