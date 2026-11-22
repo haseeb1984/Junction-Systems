@@ -15,6 +15,14 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         add_action('woocommerce_update_options_payment_gateways_'.$this->id,[$this,'process_admin_options']);
         add_action('woocommerce_api_jazzcash_callback',[$this,'handleCallback']);
     }
+    public function is_available(): bool {
+        return parent::is_available()
+            && get_woocommerce_currency() === 'PKR'
+            && (string) $this->cfg->get('JAZZCASH_MERCHANT_ID') !== ''
+            && (string) $this->cfg->get('JAZZCASH_PASSWORD') !== ''
+            && (string) $this->cfg->get('JAZZCASH_INTEGRITY_KEY') !== '';
+    }
+
     public function init_form_fields():void{$this->form_fields=['enabled'=>['title'=>'Enable/Disable','type'=>'checkbox','label'=>'Enable JazzCash','default'=>'yes'],'title'=>['title'=>'Title','type'=>'text','default'=>'JazzCash'],'description'=>['title'=>'Description','type'=>'textarea','default'=>'Pay via JazzCash Mobile Wallet or Debit Card']];}
     public function payment_fields(): void {
         if ($this->description) {
