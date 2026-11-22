@@ -24,6 +24,21 @@ final class WhatsAppHooks {
             ]);
         });
 
+        // Meta's GET verification challenge must be returned as raw text,
+        // not JSON-encoded by the WordPress REST server.
+        add_filter('rest_pre_serve_request', function ($served, $result, $request, $server) {
+            if ($request instanceof \\WP_REST_Request
+                && $request->get_route() === '/pkstore/v1/webhooks/whatsapp'
+                && $request->get_method() === 'GET'
+                && $result instanceof \\WP_REST_Response
+                && $result->get_status() === 200) {
+                header('Content-Type: text/plain; charset=utf-8');
+                echo (string) $result->get_data();
+                return true;
+            }
+            return $served;
+        }, 10, 4);
+
         if (!wp_next_scheduled('pkstore_whatsapp_low_stock_scan')) {
             wp_schedule_event(time() + 600, 'hourly', 'pkstore_whatsapp_low_stock_scan');
         }
