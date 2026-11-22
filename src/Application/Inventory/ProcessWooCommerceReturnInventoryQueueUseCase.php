@@ -44,7 +44,54 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         if ($result === false) throw new \RuntimeException('Unable to persist WooCommerce return inventory event.');
     }
 
+    private function recoverUnqueuedCycleEvents(int $limit): void {
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle event recovery.');
+
+        $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+        $itemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+        $queueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT e.cycle_uuid,e.wc_order_id,e.wc_order_item_id,e.event_kind,e.quantity,
+                    e.cumulative_quantity,i.refund_cumulative_baseline,
+                    COALESCE(NULLIF(i.wc_variation_id,0),i.wc_parent_product_id) AS wc_product_id
+             FROM {$eventsTable} e
+             INNER JOIN {$itemsTable} i
+                ON i.cycle_uuid=e.cycle_uuid AND i.wc_order_item_id=e.wc_order_item_id
+             LEFT JOIN {$queueTable} q
+                ON q.event_key=CASE
+                    WHEN e.event_kind='cancellation' THEN CONCAT('cancel:',e.cycle_uuid,':',e.wc_order_id,':',e.wc_order_item_id,':',e.quantity)
+                    WHEN e.event_kind='refund' THEN CONCAT('refund:',e.cycle_uuid,':',e.wc_order_id,':',COALESCE(NULLIF(i.wc_variation_id,0),i.wc_parent_product_id),':',e.wc_order_item_id,':',e.cumulative_quantity+i.refund_cumulative_baseline)
+                    ELSE ''
+                END
+             WHERE e.event_kind IN ('cancellation','refund')
+               AND e.status='pending' AND e.next_attempt_at<=%s AND q.id IS NULL
+             ORDER BY e.created_at ASC LIMIT %d",
+            current_time('mysql'),
+            max(1, min(100, $limit))
+        ), ARRAY_A);
+        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect pending WooCommerce stock-cycle events.');
+
+        foreach ($rows as $row) {
+            $orderId = (int) $row['wc_order_id'];
+            $itemId = (int) $row['wc_order_item_id'];
+            $productId = (int) $row['wc_product_id'];
+            $quantity = (int) $row['quantity'];
+            $cycleUuid = (string) $row['cycle_uuid'];
+            if ($orderId < 1 || $itemId < 1 || $productId < 1 || $quantity < 1) {
+                throw new \RuntimeException('Pending WooCommerce cycle event cannot be reconstructed safely.');
+            }
+            if ($row['event_kind'] === 'cancellation') {
+                $this->enqueueCancellation($orderId, $itemId, $productId, $quantity, $cycleUuid);
+            } else {
+                $cumulative = (int) $row['cumulative_quantity'] + (int) $row['refund_cumulative_baseline'];
+                $this->enqueueRefund($orderId, $productId, $quantity, $cumulative, $itemId, $cycleUuid);
+            }
+        }
+    }
+
     public function execute(int $limit = 20): array {
+        $this->recoverUnqueuedCycleEvents($limit);
         $jobs = $this->claimBatch($limit);
         $result = ['processed' => 0, 'failed' => 0];
         foreach ($jobs as $job) {
