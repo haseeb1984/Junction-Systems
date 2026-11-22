@@ -263,3 +263,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Dashboard cache refresh is no longer a GET side effect. It now uses a `manage_woocommerce` capability check, an `admin-post.php` POST action, and a WordPress nonce before invalidating caches; the template submits a protected form.
 
 - WooCommerce status API correction: `TrackingStatus::toWooCommerceStatus()` now returns unprefixed CRUD slugs (`shipped`, `out-for-delivery`, `delivery-failed`, `returned`, etc.) for `WC_Order::update_status()`. The `wc-` prefix remains only in order-query/registration contexts where WooCommerce expects it. Source smoke assertions added; runtime custom-status tests remain pending.
+
+- HPOS audit follow-up: GA4 attribution no longer writes order metadata with `update_post_meta()`. It parses the `_ga` cookie to the GA client-ID component and persists it through `WC_Order::update_meta_data()`/`save_meta_data()`.
