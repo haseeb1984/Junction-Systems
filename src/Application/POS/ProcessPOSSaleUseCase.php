@@ -159,12 +159,12 @@ final class ProcessPOSSaleUseCase {
 
     private function assertNoPendingOnlineStockReductions(): void {
         if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) {
-            throw new \RuntimeException('Online store inventory reconciliation is not ready; POS sales are paused to prevent overselling.');
+            throw new \OnlineStockReconciliationPendingException('Online store inventory reconciliation is not ready; POS sales are paused to prevent overselling.');
         }
 
         global $wpdb;
         if (!$wpdb instanceof \wpdb) {
-            throw new \RuntimeException('Online store inventory reconciliation is unavailable; POS sales are paused to prevent overselling.');
+            throw new \OnlineStockReconciliationPendingException('Online store inventory reconciliation is unavailable; POS sales are paused to prevent overselling.');
         }
 
         $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
@@ -175,7 +175,7 @@ final class ProcessPOSSaleUseCase {
             "SELECT COUNT(*) FROM {$eventsTable} WHERE event_kind='reduction' AND status<>'processed'"
         );
         if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) {
-            throw new \RuntimeException('Online store inventory reconciliation could not be verified; POS sales are paused.');
+            throw new \OnlineStockReconciliationPendingException('Online store inventory reconciliation could not be verified; POS sales are paused.');
         }
 
         $legacyCycleUuid = '00000000-0000-0000-0000-000000000000';
@@ -189,11 +189,11 @@ final class ProcessPOSSaleUseCase {
             $legacyCycleUuid
         ));
         if ($wpdb->last_error !== '' || !is_numeric($unresolvedQueueRows)) {
-            throw new \RuntimeException('Online store inventory queue could not be verified; POS sales are paused.');
+            throw new \OnlineStockReconciliationPendingException('Online store inventory queue could not be verified; POS sales are paused.');
         }
 
         if ((int) $pendingEvents > 0 || (int) $unresolvedQueueRows > 0) {
-            throw new \RuntimeException('Online store sales are still being reconciled. Wait briefly and retry the POS sale.');
+            throw new \OnlineStockReconciliationPendingException('Online store sales are still being reconciled. Wait briefly and retry the POS sale.');
         }
     }
 
