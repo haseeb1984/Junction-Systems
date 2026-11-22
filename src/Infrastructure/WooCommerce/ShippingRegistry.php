@@ -110,7 +110,7 @@ final class ShippingRegistry {
 
                 $nextStatus = $update->status->toWooCommerceStatus();
                 if ($update->status->canAdvanceFrom($order->get_status())
-                    && ('wc-' . $order->get_status()) !== $nextStatus) {
+                    && $order->get_status() !== $nextStatus) {
                     $location = $update->location !== '' ? ' (' . sanitize_text_field($update->location) . ')' : '';
                     $description = $update->description !== '' ? ': ' . sanitize_text_field($update->description) : '';
                     $order->update_status(
