@@ -118,13 +118,14 @@ final class InventoryHooks {
                 || (int) $newStock <= (int) $oldStock) {
                 throw new \InvalidArgumentException('WooCommerce cancellation restock quantity must be a positive whole number.');
             }
+            $quantity = (int) $newStock - (int) $oldStock;
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
             $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
             if ($cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
-                        ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $newStock - $oldStock);
+                        ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $quantity);
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
@@ -136,7 +137,7 @@ final class InventoryHooks {
                 }
             }
             $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class)->enqueueCancellation(
-                (int) $order->get_id(), (int) $item->get_id(), $productId, $newStock - $oldStock, $cycleUuid !== '' ? $cycleUuid : null
+                (int) $order->get_id(), (int) $item->get_id(), $productId, $quantity, $cycleUuid !== '' ? $cycleUuid : null
             );
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to persist cancellation restock event ('.get_class($e).').');
