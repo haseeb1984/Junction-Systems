@@ -168,6 +168,8 @@ if (!is_string($posCapabilitySource)
     || strpos($bootstrapSource, '(new PosCapabilityManager())->register();') === false
     || !is_string($posHttpSource)
     || strpos($posHttpSource, 'canAccessLocation(') === false
+    || strpos($posHttpSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=')") === false
+    || strpos($posHttpSource, '$schemaReady()') === false
     || strpos($posHttpSource, "current_user_can('use_junction_pos')") === false
     || strpos($posHttpSource, 'AND is_pos=1 FOR UPDATE') === false) {
     throw new \RuntimeException('Cashier role, assigned POS location and POS-only session access must be enforced.');
@@ -214,6 +216,10 @@ if (!is_string($inventoryHttpSource)
 
 
 if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=')") === false
+    || strpos($inventoryHttpSource, '$schemaReady()') === false
+    || strpos($inventoryHttpSource, '$readAuth = fn()=>$schemaReady()') === false
+    || strpos($inventoryHttpSource, '$manageAuth = fn()=>$schemaReady()') === false
     || strpos($inventoryHttpSource, '$readAuth = fn()=>(current_user_can(\'manage_woocommerce\') || current_user_can(\'use_junction_pos\'))') === false
     || strpos($inventoryHttpSource, '$manageAuth = fn()=>current_user_can(\'manage_woocommerce\')') === false
     || strpos($inventoryHttpSource, "permission_callback'=>\$manageAuth") === false
