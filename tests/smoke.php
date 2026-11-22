@@ -850,7 +850,11 @@ $posAppSource = file_get_contents(dirname(__DIR__) . '/templates/pos/pos-app.php
 if (!is_string($posAppSource)
     || strpos($posAppSource, 'location_id=${this.locationId}') === false
     || strpos($posAppSource, 'p.location_id === this.locationId') === false
-    || strpos($posAppSource, 'Insufficient stock at this POS location.') === false) {
+    || strpos($posAppSource, 'Insufficient stock at this POS location.') === false
+    || strpos($posAppSource, 'applyLocalStockDelta(items, -1)') === false
+    || strpos($posAppSource, "item.status = 'needs_review'") === false
+    || strpos($posAppSource, 'local_stock_decremented:true') === false
+    || strpos($posAppSource, 'Sale saved. WhatsApp receipt could not be generated.') === false) {
     throw new \\RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
 }
 
