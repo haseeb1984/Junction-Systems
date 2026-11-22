@@ -74,8 +74,8 @@ final class SyncWooCommerceStockUseCase {
                 throw new \RuntimeException('WooCommerce order item changed after its stock-cycle mapping was captured.');
             }
             $product = $this->productRepo->findById((int) $capturedLine['inventory_product_id']);
-            if (!$product || !$product->isActive) {
-                throw new \RuntimeException('Captured Junction inventory product is unavailable or inactive.');
+            if (!$product) {
+                throw new \RuntimeException('Captured Junction inventory product is unavailable.');
             }
 
             $rawStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
@@ -113,13 +113,30 @@ final class SyncWooCommerceStockUseCase {
         $hasSnapshot = $metadataCount === count($lines);
 
         $locations = $this->locationRepo->findAll();
-        if (!$locations) throw new \RuntimeException('No active Junction inventory locations are available for online order allocation.');
+        if (!$locations && !$hasSnapshot) {
+            throw new \RuntimeException('No active Junction inventory locations are available for online order allocation.');
+        }
         $onlineLocation = $this->locationRepo->findOnline();
         usort($locations, static function ($a, $b) use ($onlineLocation): int {
             $aOnline = $onlineLocation && $a->id === $onlineLocation->id ? 0 : 1;
             $bOnline = $onlineLocation && $b->id === $onlineLocation->id ? 0 : 1;
             return ($aOnline <=> $bOnline) ?: ($a->id <=> $b->id);
         });
+        if ($hasSnapshot) {
+            $knownLocationIds = array_fill_keys(array_map(static fn($location): int => (int) $location->id, $locations), true);
+            foreach ($lines as $line) {
+                foreach (($line['cycle_state']['allocations'] ?? []) as $allocation) {
+                    $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
+                    if ($locationId < 1 || isset($knownLocationIds[$locationId])) continue;
+                    $savedLocation = $this->locationRepo->findById($locationId);
+                    if (!$savedLocation) {
+                        throw new \RuntimeException('A saved WooCommerce cycle allocation location no longer exists.');
+                    }
+                    $locations[] = $savedLocation;
+                    $knownLocationIds[$locationId] = true;
+                }
+            }
+        }
 
         if ($wpdb->query('START TRANSACTION') === false) {
             throw new \RuntimeException('Unable to start cycle-aware WooCommerce inventory transaction.');
@@ -1007,7 +1024,7 @@ final class SyncWooCommerceStockUseCase {
             $seenLocations[$productId . ':' . $locationId] = true;
             $location = $this->locationRepo->findById($locationId);
             $product = $this->productRepo->findById($productId);
-            if (!$location || !$location->isActive || !$product) {
+            if (!$location || !$product) {
                 throw new \RuntimeException('An original Junction stock-cycle product or location is unavailable.');
             }
             $normalized[] = [
