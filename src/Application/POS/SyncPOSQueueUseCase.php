@@ -93,10 +93,13 @@ final class SyncPOSQueueUseCase {
                     $wcOrder = $this->createWooCommerceOrder($order);
                 }
 
-                // A crash after WooCommerce creation but before POS linkage is
-                // recoverable by the unique POS reference metadata lookup above.
+                // A crash before payment is recoverable: rebuild the unpaid
+                // order's lines from the immutable POS record before marking paid.
                 if (!$wcOrder->is_paid()) {
+                    $this->replaceWooCommerceOrderItems($wcOrder, $order);
                     $wcOrder->payment_complete('POS-' . $order->orderRef);
+                } elseif (!$this->paidWooCommerceOrderMatches($wcOrder, $order)) {
+                    throw new \\RuntimeException('Paid WooCommerce order does not match its POS source record.');
                 }
                 $wcOrder->save();
 
@@ -140,9 +143,23 @@ final class SyncPOSQueueUseCase {
         // combined stock snapshot. This flag prevents WooCommerce reducing it again.
         $wcOrder->update_meta_data('_order_stock_reduced', 'yes');
 
+        // Persist the idempotency marker before adding items or invoking payment
+        // hooks, so a retry can always find and repair this same WooCommerce order.
+        $wcOrder->save();
+        if ((int) $wcOrder->get_id() < 1) {
+            throw new \RuntimeException('WooCommerce did not persist the POS order.');
+        }
+        return $wcOrder;
+    }
+
+    private function replaceWooCommerceOrderItems(\WC_Order $wcOrder, POSOrder $posOrder): void {
         $items = $posOrder->getItems();
         if (!$items) {
             throw new \RuntimeException('POS order has no persisted line items.');
+        }
+
+        foreach ($wcOrder->get_items('line_item') as $existingItem) {
+            $wcOrder->remove_item($existingItem->get_id());
         }
 
         foreach ($items as $item) {
@@ -174,7 +191,32 @@ final class SyncPOSQueueUseCase {
         $wcOrder->set_shipping_tax('0');
         $wcOrder->set_total(wc_format_decimal($posOrder->totalPkr, 0));
         $wcOrder->save();
+    }
 
-        return $wcOrder;
+    private function paidWooCommerceOrderMatches(\WC_Order $wcOrder, POSOrder $posOrder): bool {
+        if ((int) round((float) $wcOrder->get_total()) !== $posOrder->totalPkr) {
+            return false;
+        }
+
+        $expected = [];
+        foreach ($posOrder->getItems() as $item) {
+            $inventoryProduct = $this->productRepo->findById((int) $item['product_id']);
+            if (!$inventoryProduct || !$inventoryProduct->wcProductId) return false;
+            $product = wc_get_product($inventoryProduct->wcProductId);
+            if (!$product instanceof \WC_Product) return false;
+            $parentId = $product->is_type('variation') ? (int) $product->get_parent_id() : (int) $product->get_id();
+            $variationId = $product->is_type('variation') ? (int) $product->get_id() : 0;
+            $key = $parentId . ':' . $variationId;
+            $expected[$key] = ($expected[$key] ?? 0) + (int) $item['quantity'];
+        }
+
+        $actual = [];
+        foreach ($wcOrder->get_items('line_item') as $item) {
+            $key = (int) $item->get_product_id() . ':' . (int) $item->get_variation_id();
+            $actual[$key] = ($actual[$key] ?? 0) + (int) $item->get_quantity();
+        }
+        ksort($expected);
+        ksort($actual);
+        return $expected === $actual;
     }
 }
