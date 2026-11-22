@@ -1069,7 +1069,7 @@ final class SyncWooCommerceStockUseCase {
             }
 
             $cycleItem = $wpdb->get_row($wpdb->prepare(
-                "SELECT allocation_snapshot,reduced_quantity,refund_cumulative_baseline,
+                "SELECT inventory_product_id,wc_parent_product_id,wc_variation_id,allocation_snapshot,reduced_quantity,refund_cumulative_baseline,
                         cancellation_restored_quantity,refund_restored_quantity
                  FROM {$itemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d FOR UPDATE",
                 $cycleUuid,
@@ -1079,7 +1079,11 @@ final class SyncWooCommerceStockUseCase {
                 throw new \RuntimeException('WooCommerce stock-cycle item is unavailable.');
             }
             $storedAllocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
-            if ((int) $cycleItem['reduced_quantity'] !== $reducedQuantity
+            $currentParentId = (int) $item->get_product_id();
+            $currentVariationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+            if ((int) $cycleItem['wc_parent_product_id'] !== $currentParentId
+                || (int) $cycleItem['wc_variation_id'] !== $currentVariationId
+                || (int) $cycleItem['reduced_quantity'] !== $reducedQuantity
                 || (int) $cycleItem['refund_cumulative_baseline'] !== $refundBaseline
                 || !is_array($storedAllocations) || $storedAllocations !== $normalized
                 || (int) $cycleItem['cancellation_restored_quantity'] !== $cancellationReturned
