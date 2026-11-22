@@ -147,7 +147,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                         "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d AND state<>'closed'",
                         $orderId
                     ));
-                    if ($wpdb->last_error !== '' || !is_numeric($openCycleCount) || (int) $openCycleCount > 1) {
+                    if ($wpdb->last_error !== '' || !is_numeric($openCycleCount) || ($kind === 'refund' && (int) $openCycleCount > 1)) {
                         throw new \RuntimeException('WooCommerce return event is ambiguous because multiple stock cycles are still open.');
                     }
 
@@ -280,6 +280,18 @@ final class CaptureWooCommerceStockCycleUseCase {
             ), ARRAY_A);
             if ($wpdb->last_error !== '') {
                 throw new \RuntimeException('Unable to inspect existing WooCommerce stock cycles.');
+            }
+
+            $openRefundCycle = $wpdb->get_var($wpdb->prepare(
+                "SELECT c.cycle_uuid FROM {$cyclesTable} c
+                 WHERE c.wc_order_id=%d AND c.state='restoring'
+                   AND EXISTS (SELECT 1 FROM {$eventsTable} e WHERE e.cycle_uuid=c.cycle_uuid AND e.event_kind='refund')
+                   AND NOT EXISTS (SELECT 1 FROM {$eventsTable} e WHERE e.cycle_uuid=c.cycle_uuid AND e.event_kind='cancellation')
+                 LIMIT 1",
+                $orderId
+            ));
+            if ($wpdb->last_error !== '' || $openRefundCycle) {
+                throw new \RuntimeException('A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.');
             }
 
             if (is_array($existing)) {
