@@ -568,6 +568,19 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
 }
 
+$aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
+$aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
+if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
+    || strpos($aiChatControllerSource, 'validSessionUuid(') === false
+    || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
+    || strpos($aiChatControllerSource, '$ipCount >= 100') === false
+    || strpos($aiChatControllerSource, '$sessionCount >= 20') === false
+    || strpos($aiChatControllerSource, 'streamError(') === false
+    || strpos($aiChatModuleSource, 'p.error') === false
+    || strpos($aiChatModuleSource, 'new ApiError') === false) {
+    throw new \\RuntimeException('AI chat must validate session IDs, rate-limit by IP and session, and surface stream errors.');
+}
+
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
 if (!is_string($affiliateControllerSource)
     || strpos($affiliateControllerSource, 'maskPaymentAccount(') === false
