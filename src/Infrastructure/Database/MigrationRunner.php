@@ -98,8 +98,8 @@ final class MigrationRunner {
 
     private static function hasExistingTables(): bool {
         global $wpdb;
-        if (!$wpdb instanceof \\wpdb) {
-            throw new \\RuntimeException('Unable to determine whether this is an existing Junction installation.');
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
         foreach (['pkstore_city_mappings', 'pkstore_pos_sessions', 'pkstore_inventory_products'] as $suffix) {
@@ -108,7 +108,7 @@ final class MigrationRunner {
             if ($wpdb->last_error !== '') {
                 // Never interpret a failed schema probe as a fresh install:
                 // doing so could bypass the pre-migration backup confirmation.
-                throw new \\RuntimeException('Unable to determine whether this is an existing Junction installation.');
+                throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
             }
             if ($found === $table) return true;
         }
