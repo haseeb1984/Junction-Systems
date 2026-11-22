@@ -185,6 +185,9 @@ if (!is_string($bootstrapSource)
     throw new \RuntimeException('Inventory and barcode admin registration must enforce package entitlements.');
 }
 if (!is_string($adminInventorySource)
+    || strpos($adminInventorySource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=')") === false
+    || strpos($adminInventorySource, '$this->requireSchemaReady()') === false
+    || strpos($adminInventorySource, 'if (!$this->schemaReady()) return;') === false
     || strpos($adminInventorySource, "if (!\$features->isEnabled('inventory')) return;") === false
     || strpos($adminInventorySource, "if (\$features->isEnabled('pos'))") === false
     || strpos($adminInventorySource, "add_menu_page('Junction POS','🖥 Junction POS','use_junction_pos'") === false
@@ -194,7 +197,9 @@ if (!is_string($adminInventorySource)
 
 
 if (!is_string($bootstrapSource)
-    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('pos') && \$this->fm->isEnabled('inventory'))") === false) {
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('pos') && \$this->fm->isEnabled('inventory'))") === false
+    || strpos($bootstrapSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) return;") === false
+    || strpos($bootstrapSource, "version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.0', '<')) return;") !== false) {
     throw new \RuntimeException('POS runtime registration must require both POS and shared inventory entitlements.');
 }
 
