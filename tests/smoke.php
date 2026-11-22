@@ -553,6 +553,13 @@ if (!is_string($stockCycleInstallerSource)
 
 
 
+$shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/ShippingWebhookHandler.php');
+if (!is_string($shippingWebhookSource)
+    || strpos($shippingWebhookSource, "isEnabled($featureMap[$cc])") === false
+    || strpos($shippingWebhookSource, "return new \\WP_REST_Response(['status'=>'disabled'],403)") === false) {
+    throw new \\RuntimeException('Courier webhooks must be unavailable when the corresponding licensed feature is disabled.');
+}
+
 $shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
 $servicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $courierRetrySource = file_get_contents($src . '/Application/Logistics/BookShipmentUseCase.php');
