@@ -53,9 +53,14 @@ final class ShippingWebhookHandler {
         }
         $raw=match($cc){'tcs'=>(string)($payload['status_code']??$payload['status']??'UNKNOWN'),'leopards'=>(string)($payload['packet_status']??'0'),'trax'=>(string)($payload['status']??'unknown'),default=>'unknown'};
         $status=TrackingStatus::fromCourierCode($raw,$cc);
-        if ($status->canAdvanceFrom($order->get_status())) {
+        $targetStatus = $status->toWooCommerceStatus();
+        $normalizedTargetStatus = str_starts_with($targetStatus, 'wc-')
+            ? substr($targetStatus, 3)
+            : $targetStatus;
+        if ($status->canAdvanceFrom($order->get_status())
+            && $order->get_status() !== $normalizedTargetStatus) {
             $loc=sanitize_text_field($payload['location']??$payload['city']??$payload['current_city']??'');
-            $order->update_status($status->toWooCommerceStatus(),"[{$cc}] ".ucwords(str_replace('_',' ',$status->value)).($loc?" ({$loc})":""));
+            $order->update_status($targetStatus,"[{$cc}] ".ucwords(str_replace('_',' ',$status->value)).($loc?" ({$loc})":""));
         }
         if($status===TrackingStatus::Delivered&&str_contains($order->get_payment_method(),'cod')&&!$order->get_meta('_cod_delivered_at')){
             $order->update_meta_data('_cod_delivered_at',current_time('mysql'));
