@@ -520,6 +520,187 @@ final class SyncWooCommerceStockUseCase {
     }
 
     /**
+     * Restore an online order's stock to the exact locations used by its sale.
+     * Cumulative return counters live on the order item and are committed in
+     * the same transaction as the return movements, making queue replay safe.
+     */
+    private function applyAllocatedOnlineReturn(
+        \WC_Order $order,
+        $item,
+        string $kind,
+        int $quantity,
+        ?int $refundCumulative
+    ): bool {
+        if (!in_array($kind, ['cancellation', 'refund'], true)
+            || !is_object($item) || !method_exists($item, 'get_id') || $quantity < 1) {
+            throw new \InvalidArgumentException('WooCommerce allocated return event is malformed.');
+        }
+
+        $orderId = (int) $order->get_id();
+        $itemId = (int) $item->get_id();
+        $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+        $allocations = is_array($rawAllocations)
+            ? $rawAllocations
+            : (is_string($rawAllocations) ? json_decode($rawAllocations, true) : null);
+        $reducedQuantity = (int) $item->get_meta('_pkstore_inventory_reduced_quantity', true);
+        $returnedQuantity = (int) $item->get_meta('_pkstore_inventory_returned_quantity', true);
+        $refundReturned = (int) $item->get_meta('_pkstore_inventory_refund_returned_quantity', true);
+        $cancellationReturned = (int) $item->get_meta('_pkstore_inventory_cancellation_returned_quantity', true);
+
+        if ($orderId < 1 || $itemId < 1 || !is_array($allocations) || !$allocations
+            || $reducedQuantity < 1 || $returnedQuantity < 0
+            || $refundReturned < 0 || $cancellationReturned < 0
+            || $returnedQuantity !== $refundReturned + $cancellationReturned) {
+            throw new \RuntimeException('WooCommerce order has an invalid saved stock-allocation return snapshot.');
+        }
+
+        $allocatedQuantity = 0;
+        $normalized = [];
+        foreach ($allocations as $allocation) {
+            if (!is_array($allocation)
+                || (int) ($allocation['product_id'] ?? 0) < 1
+                || (int) ($allocation['location_id'] ?? 0) < 1
+                || (int) ($allocation['quantity'] ?? 0) < 1) {
+                throw new \RuntimeException('WooCommerce order has a malformed stock-allocation return line.');
+            }
+            $productId = (int) $allocation['product_id'];
+            $locationId = (int) $allocation['location_id'];
+            $allocationQuantity = (int) $allocation['quantity'];
+            $location = $this->locationRepo->findById($locationId);
+            if (!$location || !$location->isActive) {
+                throw new \RuntimeException('An original Junction stock-allocation location is unavailable.');
+            }
+            $normalized[] = [
+                'product_id' => $productId,
+                'location_id' => $locationId,
+                'quantity' => $allocationQuantity,
+            ];
+            $allocatedQuantity += $allocationQuantity;
+        }
+        if ($allocatedQuantity !== $reducedQuantity || $returnedQuantity > $reducedQuantity) {
+            throw new \RuntimeException('WooCommerce stock-allocation quantities do not reconcile to the original sale.');
+        }
+
+        if ($kind === 'cancellation') {
+            // WooCommerce's native cancellation restore callback represents the
+            // remaining reduced quantity for this line. A duplicate callback
+            // after a committed restore is an acknowledgement, not a new return.
+            if ($cancellationReturned > 0) return true;
+            $remaining = $reducedQuantity - $returnedQuantity;
+            if ($quantity !== $remaining) {
+                throw new \RuntimeException('Cancellation restock quantity does not match the remaining allocated sale quantity.');
+            }
+            $targetReturned = $reducedQuantity;
+            $nextCancellationReturned = $cancellationReturned + $quantity;
+            $nextRefundReturned = $refundReturned;
+            $referenceType = 'wc_order_restore';
+            $note = "WooCommerce cancellation restock for order #{$orderId}, item #{$itemId}";
+        } else {
+            if ($refundCumulative === null || $refundCumulative < 1) {
+                throw new \InvalidArgumentException('WooCommerce refund cumulative restock quantity is invalid.');
+            }
+            if ($refundCumulative <= $refundReturned) return true;
+            if ($refundCumulative !== $refundReturned + $quantity
+                || $returnedQuantity + $quantity > $reducedQuantity) {
+                throw new \RuntimeException('WooCommerce refund restock sequence does not match the saved allocation return state.');
+            }
+            $targetReturned = $returnedQuantity + $quantity;
+            $nextCancellationReturned = $cancellationReturned;
+            $nextRefundReturned = $refundCumulative;
+            $referenceType = 'wc_refund_restock';
+            $note = "WooCommerce refund restock for order #{$orderId}, item #{$itemId}";
+        }
+
+        $productIds = [];
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start allocated WooCommerce return transaction.');
+        }
+
+        try {
+            $cursor = 0;
+            foreach ($normalized as $allocation) {
+                $start = $cursor;
+                $end = $cursor + $allocation['quantity'];
+                $cursor = $end;
+                $chunk = max(0, min($targetReturned, $end) - max($returnedQuantity, $start));
+                if ($chunk < 1) continue;
+
+                $productId = $allocation['product_id'];
+                $locationId = $allocation['location_id'];
+                $this->stockRepo->getStock($productId, $locationId);
+
+                $saleReference = $orderId . ':' . $locationId;
+                if (!$this->stockRepo->hasMovementReference(
+                    $productId,
+                    $locationId,
+                    'wc_order',
+                    $saleReference,
+                    MovementType::OnlineSale
+                )) {
+                    if ($wpdb->query('COMMIT') === false) {
+                        throw new \RuntimeException('Unable to commit deferred allocated WooCommerce return.');
+                    }
+                    return false;
+                }
+
+                $returnReference = $orderId . ':' . $itemId . ':' . $targetReturned . ':' . $locationId;
+                if (!$this->stockRepo->hasMovementReference(
+                    $productId,
+                    $locationId,
+                    $referenceType,
+                    $returnReference,
+                    MovementType::OnlineReturn
+                )) {
+                    $this->adjustStock->execute(
+                        $productId,
+                        $locationId,
+                        $chunk,
+                        MovementType::OnlineReturn,
+                        $note,
+                        $referenceType,
+                        $returnReference,
+                        false
+                    );
+                }
+                $productIds[$productId] = $productId;
+            }
+
+            $item->update_meta_data('_pkstore_inventory_returned_quantity', $targetReturned);
+            $item->update_meta_data('_pkstore_inventory_refund_returned_quantity', $nextRefundReturned);
+            $item->update_meta_data('_pkstore_inventory_cancellation_returned_quantity', $nextCancellationReturned);
+            if ((int) $item->save() !== $itemId) {
+                throw new \RuntimeException('Unable to persist WooCommerce allocated return state.');
+            }
+
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \RuntimeException('Unable to commit allocated WooCommerce return transaction.');
+            }
+        } catch (\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            $this->log->error('WooCommerce allocated return was rolled back; event must be retried.', [
+                'order_id' => $orderId,
+                'order_item_id' => $itemId,
+                'error_class' => get_class($error),
+            ]);
+            throw $error;
+        }
+
+        foreach ($productIds as $productId) {
+            try {
+                $this->adjustStock->syncProductToWooCommerce($productId);
+            } catch (\Throwable $error) {
+                $this->log->error('WooCommerce allocated return committed; aggregate stock sync remains queued.', [
+                    'order_id' => $orderId,
+                    'product_id' => $productId,
+                    'error_class' => get_class($error),
+                ]);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Serialize sale ingestion and all return callbacks for one WooCommerce
      * order. MySQL releases this advisory lock automatically if the request dies.
      */
