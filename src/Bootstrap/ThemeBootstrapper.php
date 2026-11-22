@@ -84,8 +84,23 @@ final class ThemeBootstrapper {
         }
         // POS is an operational layer over the shared inventory ledger; it
         // must never run when inventory entitlement is disabled.
-        if ($this->fm->isEnabled('pos') && $this->fm->isEnabled('inventory'))
+        if ($this->fm->isEnabled('pos') && $this->fm->isEnabled('inventory')) {
             (new POSController($this->c))->register();
+            if (!wp_next_scheduled('pkstore_process_pos_order_sync')) {
+                wp_schedule_event(time() + 90, 'pkstore_five_minutes', 'pkstore_process_pos_order_sync');
+            }
+            add_action('pkstore_process_pos_order_sync', function(): void {
+                if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.0', '<')) return;
+                try {
+                    $result = $this->c->make(\\PkStore\\Application\\POS\\SyncPOSQueueUseCase::class)->execute();
+                    if (($result['failed'] ?? 0) > 0) {
+                        error_log('[PK Store] POS-to-WooCommerce order sync has pending failures.');
+                    }
+                } catch (\\Throwable $error) {
+                    error_log('[PK Store] POS-to-WooCommerce order sync worker failed (' . get_class($error) . ').');
+                }
+            });
+        }
 
         // ── Analytics ─────────────────────────────────────────────
         if ($this->fm->isEnabled('google_analytics'))
