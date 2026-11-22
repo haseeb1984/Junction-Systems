@@ -560,9 +560,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "isEnabled('courier_tcs')") === false
     || strpos($shippingRegistrySource, "isEnabled('courier_leopards')") === false
     || strpos($shippingRegistrySource, "isEnabled('courier_trax')") === false
-    || strpos($servicesSource, "if($features->isEnabled('courier_tcs'))") === false
-    || strpos($servicesSource, "if($features->isEnabled('courier_leopards'))") === false
-    || strpos($servicesSource, "if($features->isEnabled('courier_trax'))") === false
+    || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
+    || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
+    || strpos($servicesSource, 'if($features->isEnabled(\'courier_trax\'))') === false
     || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false) {
     throw new \\RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
 }
