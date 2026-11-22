@@ -152,3 +152,22 @@ A second queue-worker race was found during source review. The order queue previ
 Order queue claims now receive a persisted UUID \`claim_token\`. Stale-claim recovery clears the token; each new claim writes a fresh token; completion and retry require the exact token as well as the expected generation and processing state. A worker whose lease was reclaimed cannot delete or reschedule the newer worker's row. Generation handling remains in place to release a newer duplicate-hook event for another idempotent pass.
 
 Migration 2.0.6 re-runs the order queue schema installer and verifies the new column. A source-level smoke guard checks the fencing contract. No PHP execution, database migration, stale-lease simulation, or multi-worker test has been run yet; those remain part of the temporary-public CI/runtime batch.
+
+
+## POS-to-WooCommerce order mirroring — implementation update
+
+The POS sale already commits the Junction stock movement, location quantity, order lines, and cashier-session totals before WooCommerce synchronization. The WooCommerce mirror must therefore not create a second inventory deduction.
+
+The POS sync worker now:
+- serializes each POS order with a per-order MySQL advisory lock;
+- uses the immutable POS order reference as WooCommerce order metadata, so a retry can find a WooCommerce order created before the POS-to-WooCommerce link was saved;
+- requires PKR store currency because Junction POS prices are stored as PKR and no FX conversion contract exists;
+- requires every POS line to resolve to a mapped WooCommerce product;
+- writes the POS origin, tender, original Junction product/location, and already-deducted stock markers before payment completion;
+- marks the WooCommerce order paid with the POS reference as its transaction identifier, then persists the WooCommerce order ID on the POS record;
+- skips mirrored POS orders in the online-sale ingestion hook, preventing the POS stock movement from being deducted again;
+- on cancellation or explicit refund restock, uses the line's persisted Junction product/location metadata and verifies the original \`pos_order\` sale movement before applying the return to the same location.
+
+An unpaid WooCommerce order found during retry has its line items rebuilt from the immutable POS record before payment completion. A paid order is linked only after its line-item product/variation quantities and total match the POS source. Multiple matching WooCommerce orders, missing mappings, currency mismatch, or inconsistent paid orders fail closed and remain pending for operator investigation.
+
+This is source implementation, not runtime acceptance. Required tests include duplicate sync requests, crash after WooCommerce order creation, crash after payment completion but before POS linkage, variation products, unmapped items, cancellation and refund restock at a non-online POS location, and ensuring the WooCommerce stock quantity remains the combined Junction stock snapshot without a second deduction. The actual WooCommerce/MySQL/HPOS runtime matrix is still outstanding.
