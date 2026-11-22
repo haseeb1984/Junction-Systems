@@ -568,6 +568,25 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
 }
 
+$whatsAppHooksSource = file_get_contents($src . '/Infrastructure/Integration/WhatsApp/WhatsAppHooks.php');
+$whatsAppServiceSource = file_get_contents($src . '/Infrastructure/Integration/WhatsApp/WhatsAppService.php');
+$setupWizardSource = file_get_contents($src . '/Settings/SetupWizard.php');
+$settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
+if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !is_string($setupWizardSource) || !is_string($settingsManagerSource)
+    || strpos($whatsAppHooksSource, "woocommerce_order_status_shipped") === false
+    || strpos($whatsAppHooksSource, "woocommerce_order_status_wc-shipped") !== false
+    || strpos($whatsAppHooksSource, "get_meta('_tracking_courier', true)") === false
+    || strpos($whatsAppHooksSource, 'X-Hub-Signature-256') === false
+    || strpos($whatsAppHooksSource, 'wp_json_encode($req->get_json_params())') !== false
+    || strpos($whatsAppHooksSource, 'pkstore_whatsapp_low_stock_scan') === false
+    || strpos($whatsAppServiceSource, "'type' => 'template'") === false
+    || strpos($whatsAppServiceSource, 'v26.0') === false
+    || strpos($whatsAppServiceSource, "'phone'=>$clean") !== false
+    || strpos($setupWizardSource, "'whatsapp'  => 'WhatsApp Business API'") === false
+    || strpos($settingsManagerSource, "'whatsapp'=>['WHATSAPP_TOKEN'=>true") === false) {
+    throw new \\RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
+}
+
 $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
 if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
