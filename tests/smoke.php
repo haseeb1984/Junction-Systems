@@ -880,6 +880,8 @@ if (!is_string($courierCircuitBreakerSource)
     || strpos($courierCircuitBreakerSource, '$providerException = false') === false
     || strpos($courierCircuitBreakerSource, '$transientProviderFailure = false') === false
     || strpos($courierCircuitBreakerSource, 'HTTP error:') === false
+    || strpos($courierCircuitBreakerSource, "as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',[\\$orderId]") === false
+    || strpos($courierCircuitBreakerSource, "as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>") !== false
     || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
     || strpos($courierCircuitBreakerSource, '$this->fail($code);') === false) {
     throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
