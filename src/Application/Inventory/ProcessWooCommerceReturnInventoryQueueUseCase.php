@@ -14,14 +14,16 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
     ) {}
 
     public function enqueueCancellation(int $orderId, int $itemId, int $productId, int $quantity, ?string $cycleUuid = null): void {
-        if ($orderId < 1 || $itemId < 1 || $productId < 1 || $quantity < 1) {
+        if ($orderId < 1 || $itemId < 1 || $productId < 1 || $quantity < 1
+            || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
             throw new \InvalidArgumentException('Invalid WooCommerce cancellation restock event.');
         }
         $this->enqueue('cancel:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $itemId . ':' . $quantity, 'cancellation', $orderId, $itemId, $productId, $quantity, 0, $cycleUuid);
     }
 
     public function enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null, ?string $cycleUuid = null): void {
-        if ($orderId < 1 || $productId < 1 || $quantity < 1 || $cumulativeQuantity < $quantity) {
+        if ($orderId < 1 || $productId < 1 || $quantity < 1 || $cumulativeQuantity < $quantity
+            || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
             throw new \InvalidArgumentException('Invalid WooCommerce refund restock event.');
         }
         $this->enqueue('refund:' . ($cycleUuid ?? 'legacy') . ':' . $orderId . ':' . $productId . ':' . ($itemId ?? 0) . ':' . $cumulativeQuantity, 'refund', $orderId, $itemId, $productId, $quantity, $cumulativeQuantity, $cycleUuid);
@@ -35,8 +37,8 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $result = $wpdb->query($wpdb->prepare(
             "INSERT IGNORE INTO {$table}
              (event_key,event_kind,wc_order_id,wc_order_item_id,wc_product_id,cycle_uuid,quantity,cumulative_quantity,status,attempts,next_attempt_at,claimed_at,last_error,created_at,updated_at)
-             VALUES (%s,%s,%d,NULLIF(%d,0),%d,%s,%d,%d,'pending',0,%s,NULL,'',%s,%s)",
-            $key, $kind, $orderId, $itemId ?? 0, $productId, $cycleUuid, $quantity, $cumulative, $now, $now, $now
+             VALUES (%s,%s,%d,NULLIF(%d,0),%d,NULLIF(%s,''),%d,%d,'pending',0,%s,NULL,'',%s,%s)",
+            $key, $kind, $orderId, $itemId ?? 0, $productId, $cycleUuid ?? '', $quantity, $cumulative, $now, $now, $now
         ));
         if ($result === false) throw new \RuntimeException('Unable to persist WooCommerce return inventory event.');
     }
@@ -57,7 +59,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                     $item = $order->get_item((int) $job['wc_order_item_id']);
                     if (!$item) throw new \RuntimeException('WooCommerce order item is unavailable.');
                     $applied = $this->syncInventory->onWooCommerceOrderItemRestored($item, $quantity, 0, $order, $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null);
-                    if (!$applied && !in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending'], true)) {
+                    if (!$applied) {
                         throw new \RuntimeException('Cancellation return is waiting for its matching sale movement.');
                     }
                 } elseif ($kind === 'refund') {
