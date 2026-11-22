@@ -577,7 +577,8 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
     || strpos($aiChatControllerSource, '$sessionCount >= 20') === false
     || strpos($aiChatControllerSource, 'streamError(') === false
     || strpos($aiChatModuleSource, 'p.error') === false
-    || strpos($aiChatModuleSource, 'new ApiError') === false) {
+    || strpos($aiChatModuleSource, 'new ApiError') === false
+    || strpos($aiChatModuleSource, 'if(!res.ok)') === false) {
     throw new \\RuntimeException('AI chat must validate session IDs, rate-limit by IP and session, and surface stream errors.');
 }
 
