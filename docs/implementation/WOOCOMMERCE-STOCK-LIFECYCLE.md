@@ -212,3 +212,6 @@ No cycle schema or cycle-aware processing has been enabled by this documentation
 - The order-level reduction hook may include mixed carts where only some lines actually had stock reduced. Sale ingestion now reads each line's `_reduced_stock` metadata and skips lines without an actual reduction, instead of deducting every ordered line quantity.
 - Variation-first Junction mapping and fail-closed behavior for unmapped reduced lines remain in place.
 - A source smoke guard covers the metadata-based ingestion. Runtime acceptance still needs mixed managed/unmanaged carts and supported WooCommerce stock-management modes.
+
+
+- Follow-up hardening: both the active sale-ingestion worker and the isolated cycle-capture service now reject non-numeric `_reduced_stock` metadata. Previously malformed non-empty text could cast to zero and be silently treated as a non-stock-managed line. Numeric zero remains a valid no-reduction signal. Source smoke guards added; runtime metadata-corruption tests remain pending.
