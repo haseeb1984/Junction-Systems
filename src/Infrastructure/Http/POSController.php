@@ -123,6 +123,9 @@ final class POSController {
         $clientOrderRef = sanitize_text_field($req->get_param('order_ref') ?? '');
         if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) return new \WP_REST_Response(['success'=>false,'message'=>'A valid POS request reference is required.'],422);
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
+        if (!$this->canAccessLocation($locationId)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS location.'],403);
+        }
         // A retry after a lost response must return the already-committed
         // order even if the cashier has since closed the session.
         $existingOrder = $this->c->make(POSOrderRepositoryInterface::class)->findByRef($clientOrderRef);
@@ -182,8 +185,9 @@ final class POSController {
         $sessionId = (int)($req->get_param('session_id')??0);
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
         if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'Session not found.'],404);
-        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        if (($session->cashierId !== get_current_user_id() && !current_user_can('manage_options'))
+            || !$this->canAccessLocation($session->locationId)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session or location.'],403);
         }
         $orders = $this->c->make(POSOrderRepositoryInterface::class)->findBySession($sessionId);
         return new \WP_REST_Response(['success'=>true,'orders'=>array_map(fn($o)=>['id'=>$o->id,'ref'=>$o->orderRef,'total'=>$o->totalPkr,'method'=>$o->paymentMethod,'customer'=>$o->customerName,'sync'=>$o->getSyncStatus()->value,'created_at'=>$o->createdAt->format('H:i:s')],$orders)],200);
@@ -209,8 +213,9 @@ final class POSController {
 
         $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($order->sessionId);
         if (!$session) return new \WP_REST_Response(['success'=>false,'message'=>'POS session not found.'],404);
-        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+        if (($session->cashierId !== get_current_user_id() && !current_user_can('manage_options'))
+            || !$this->canAccessLocation($order->locationId)) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session or location.'],403);
         }
 
         $clean = preg_replace('/[^\d]/', '', $phone);
