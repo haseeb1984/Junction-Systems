@@ -355,30 +355,28 @@ const POS = {
         const cphone   = document.getElementById('pos-cphone').value.trim();
         const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
         const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
-        // Stable request identity survives timeouts and offline retries.
         const orderRef = 'P-' + Array.from(crypto.getRandomValues(new Uint8Array(13))).map(b=>b.toString(16).padStart(2,'0')).join('');
         const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
 
         try {
+            await this.applyLocalStockDelta(items, -1);
             const r = await this.api('/pos/sale','POST',payload);
-            // WhatsApp receipt if phone provided
+            await this.loadProducts();
             if (cphone) {
                 const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:r.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
                 if (wr.whatsapp_url) window.open(wr.whatsapp_url,'_blank');
             }
-            // Thermal print
             this.printReceipt({ref:r.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
             this.clearCart();
-            this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
+            this.toast(\`✓ Sale \${r.order_ref} — PKR \${total.toLocaleString()}\`);
         } catch(e) {
-            // Queue only transport failures. Validation/authorization errors must
-            // remain visible and must not be silently converted into offline sales.
             if (e.status) {
+                await this.applyLocalStockDelta(items, 1);
                 this.toast('Sale rejected: ' + e.message);
             } else {
-                await DB.put('queue', {...payload, ref:orderRef, total, offline:true});
+                await DB.put('queue', {...payload, ref:orderRef, total, offline:true, status:'pending', queued_at:Date.now()});
                 this.clearCart();
-                this.toast(`⚡ Network unavailable — sale queued (${orderRef})`);
+                this.toast(\`⚡ Network unavailable — sale queued (\${orderRef})\`);
             }
         }
         btn.disabled = false; this.updateTotals();
@@ -464,17 +462,43 @@ const POS = {
 
     async flushOfflineQueue() {
         const queue = await DB.getAll('queue');
-        if (!queue.length) return;
-        this.toast(`Syncing ${queue.length} offline sale(s)...`);
-        for (const item of queue) {
+        const pending = queue.filter(item => item.status !== 'needs_review');
+        if (!pending.length) {
+            if (queue.length) this.toast(\`\${queue.length} offline sale(s) need operator review.\`);
+            return;
+        }
+        this.toast(\`Syncing \${pending.length} offline sale(s)...\`);
+        for (const item of pending) {
             try {
-                const {ref, offline, total, ...payload} = item;
+                const {ref, offline, total, status, last_error, queued_at, ...payload} = item;
                 await this.api('/pos/sale','POST',payload);
                 await DB.delete('queue', ref);
-            } catch(e) { /* leave in queue, retry next time */ }
+            } catch(e) {
+                if (e.status >= 400 && e.status < 500) {
+                    item.status = 'needs_review';
+                    item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
+                    await DB.put('queue', item);
+                    await this.applyLocalStockDelta(item.items || [], 1);
+                }
+                // Network and 5xx failures remain pending and retry idempotently.
+            }
         }
         const remaining = await DB.getAll('queue');
-        if (!remaining.length) this.toast('✓ All offline sales synced!');
+        await this.loadProducts();
+        const review = remaining.filter(item => item.status === 'needs_review').length;
+        const stillPending = remaining.length - review;
+        if (review) this.toast(\`\${review} offline sale(s) need operator review; \${stillPending} pending.\`);
+        else if (!stillPending) this.toast('✓ All offline sales synced!');
+    },
+
+    async applyLocalStockDelta(items, direction) {
+        for (const line of items) {
+            const product = this.products.find(p => p.id === Number(line.product_id));
+            if (!product || product.location_id !== this.locationId) continue;
+            product.total_stock = Math.max(0, Number(product.total_stock || 0) + (Number(line.quantity || 0) * direction));
+            await DB.put('products', product);
+        }
+        this.renderProducts(this.products);
     },
 
     toast(msg, duration=3000) {
