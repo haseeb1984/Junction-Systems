@@ -293,3 +293,8 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Runtime tests for guest orders, logged-in ownership, invalid keys, and key leakage/cache behavior remain pending.
 
 - The customer tracking widget no longer caches the order key or returned tracking/location data in `sessionStorage`; each lookup is authorized server-side and the response is rendered in memory only.
+
+
+## Affiliate payout data minimization
+
+- The affiliate self-service dashboard API now masks the payout destination account, revealing only the final four characters. The full account remains stored for payout processing and is not returned in the ordinary affiliate dashboard response.
