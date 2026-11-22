@@ -596,7 +596,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_trax\'))') === false
-    || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false) {
+    || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false
+    || strpos($courierRetrySource, 'wp_schedule_single_event') === false
+    || strpos($shippingRegistrySource, 'wp_schedule_single_event') === false) {
     throw new \\RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
 }
 
