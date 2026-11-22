@@ -24,14 +24,13 @@ final class SyncWooCommerceStockUseCase {
         if (!($order instanceof \WC_Order)) {
             throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
         }
-        if (in_array((string) $order->get_status(), ['cancelled', 'failed', 'pending'], true)) {
-            return;
-        }
-
         $lines = [];
         $metadataCount = 0;
         foreach ($order->get_items('line_item') as $item) {
             $reducedStock = $item->get_meta('_reduced_stock', true);
+            if ($reducedStock === '' || $reducedStock === null) {
+                $reducedStock = $item->get_meta('_pkstore_wc_reduced_stock_snapshot', true);
+            }
             if ($reducedStock === '' || $reducedStock === null) continue;
             if (!is_numeric($reducedStock)) {
                 throw new \RuntimeException('WooCommerce order contains a malformed actual stock-reduction quantity.');
