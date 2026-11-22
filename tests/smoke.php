@@ -383,6 +383,8 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'cycleUuid') === false
     || strpos($returnQueueSource, 'markReturnPending(') === false
     || strpos($returnQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
+    || strpos($returnQueueSource, 'recoverUnqueuedCycleEvents') === false
+    || strpos($returnQueueSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
     || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
