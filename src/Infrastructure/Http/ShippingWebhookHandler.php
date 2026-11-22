@@ -28,9 +28,9 @@ final class ShippingWebhookHandler {
         $payload=$r->get_json_params()??[];$headers=array_map(fn($v)=>is_array($v)?$v[0]:$v,$r->get_headers());
         $map=['tcs'=>TcsCourier::class,'leopards'=>LeopardsCourier::class,'trax'=>TraxCourier::class];
         $courier=$this->c->make($map[$cc]);
-        if(!$courier->verifyWebhookSignature($payload,$headers))return new \WP_REST_Response(['status'=>'ok'],200);
+        if(!$courier->verifyWebhookSignature($payload,$headers)){error_log('[PK Store] Rejected courier webhook with invalid signature ('.$cc.').');return new \WP_REST_Response(['status'=>'invalid_signature'],401);}
         $tn=match($cc){'tcs'=>sanitize_text_field($payload['cn_number']??$payload['tracking_number']??''),'leopards'=>sanitize_text_field($payload['track_number']??''),'trax'=>sanitize_text_field($payload['tracking_number']??''),default=>''};
-        if(empty($tn))return new \WP_REST_Response(['status'=>'ok'],200);
+        if(empty($tn))return new \WP_REST_Response(['status'=>'missing_tracking_number'],422);
         if (!function_exists('wc_get_orders')) {
             return new \WP_REST_Response(['status'=>'unavailable'],503);
         }
@@ -52,14 +52,26 @@ final class ShippingWebhookHandler {
             $orderQuery['meta_value'] = $tn;
         }
         $matches = wc_get_orders($orderQuery);
-        if (!is_array($matches) || count($matches) !== 1) {
-            // Duplicate tracking references are ambiguous; never update an
-            // arbitrary customer's order from a courier callback.
-            return new \WP_REST_Response(['status'=>'ok'],200);
+        if (!is_array($matches)) {
+            return new \WP_REST_Response(['status'=>'lookup_unavailable'],503);
+        }
+        if (count($matches) === 0) {
+            error_log('[PK Store] Courier webhook could not match an order ('.$cc.').');
+            return new \WP_REST_Response(['status'=>'order_not_found'],404);
+        }
+        if (count($matches) !== 1) {
+            error_log('[PK Store] Courier webhook tracking reference is ambiguous ('.$cc.').');
+            return new \WP_REST_Response(['status'=>'ambiguous_order'],409);
         }
         $order = $matches[0];
         if (!($order instanceof \WC_Order)) {
             return new \WP_REST_Response(['status'=>'ok'],200);
+        }
+        $eventHash = hash('sha256', $cc . '|' . $tn . '|' . (string) wp_json_encode($payload));
+        $seenEvents = $order->get_meta('_pkstore_courier_webhook_hashes', true);
+        if (!is_array($seenEvents)) $seenEvents = [];
+        if (in_array($eventHash, $seenEvents, true)) {
+            return new \WP_REST_Response(['status'=>'duplicate'],200);
         }
         $raw=match($cc){'tcs'=>(string)($payload['status_code']??$payload['status']??'UNKNOWN'),'leopards'=>(string)($payload['packet_status']??'0'),'trax'=>(string)($payload['status']??'unknown'),default=>'unknown'};
         $status=TrackingStatus::fromCourierCode($raw,$cc);
@@ -78,6 +90,9 @@ final class ShippingWebhookHandler {
             $order->save_meta_data();
             do_action('pkstore_cod_delivered',$order->get_id(),$cc,$tn);
         }
+        $seenEvents[] = $eventHash;
+        $order->update_meta_data('_pkstore_courier_webhook_hashes', array_slice($seenEvents, -20));
+        $order->save_meta_data();
         return new \WP_REST_Response(['status'=>'ok'],200);
     }
 }
