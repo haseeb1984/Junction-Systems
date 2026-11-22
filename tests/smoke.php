@@ -613,7 +613,7 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     || strpos($trackingModuleSource, "body:{order_key:orderKey}") === false
     || strpos($trackingModuleSource, "get('order_key')") === false
     || strpos($trackingModuleSource, 'sessionStorage') !== false) {
-    throw new \\RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
+    throw new \RuntimeException('Customer tracking must require the secret WooCommerce order key and enforce logged-in ownership.');
 }
 
 $whatsAppHooksSource = file_get_contents($src . '/Infrastructure/Integration/WhatsApp/WhatsAppHooks.php');
@@ -646,7 +646,7 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatModuleSource)
     || strpos($aiChatModuleSource, 'p.error') === false
     || strpos($aiChatModuleSource, 'new ApiError') === false
     || strpos($aiChatModuleSource, 'if(!res.ok)') === false) {
-    throw new \\RuntimeException('AI chat must validate session IDs, rate-limit by IP and session, and surface stream errors.');
+    throw new \RuntimeException('AI chat must validate session IDs, rate-limit by IP and session, and surface stream errors.');
 }
 
 $inventoryControllerSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
@@ -676,7 +676,7 @@ if (!is_string($affiliateControllerSource)
     || strpos($affiliateControllerSource, 'maskPaymentAccount(') === false
     || strpos($affiliateControllerSource, "'payment_account'=>$this->maskPaymentAccount($a->paymentAccount)") === false
     || strpos($affiliateControllerSource, "'payment_account'=>$a->paymentAccount") !== false) {
-    throw new \\RuntimeException('Affiliate dashboard API must mask payout account details by default.');
+    throw new \RuntimeException('Affiliate dashboard API must mask payout account details by default.');
 }
 
 $trackingControllerSource = file_get_contents($src . '/Infrastructure/Http/TrackingController.php');
@@ -691,7 +691,7 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     || strpos($shippingRegistryLifecycleSource, "'return' => 'objects'") === false
     || strpos($shippingRegistryLifecycleSource, "'wc-delivery-failed'") === false
     || strpos($shippingRegistryLifecycleSource, "'wc-on-hold'") === false) {
-    throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
+    throw new \RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
 $adminMenuSource = file_get_contents($src . '/Infrastructure/Admin/AdminMenuController.php');
@@ -702,7 +702,7 @@ if (!is_string($adminMenuSource) || !is_string($dashboardTemplateSource)
     || strpos($adminMenuSource, "isset(\$_GET['bust_cache'])") !== false
     || strpos($dashboardTemplateSource, "wp_nonce_field('pkstore_bust_dashboard_cache')") === false
     || strpos($dashboardTemplateSource, 'name="action" value="pkstore_bust_dashboard_cache"') === false) {
-    throw new \\RuntimeException('Dashboard cache invalidation must use a capability-checked, nonce-protected POST action.');
+    throw new \RuntimeException('Dashboard cache invalidation must use a capability-checked, nonce-protected POST action.');
 }
 
 $themeBootstrapperSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
@@ -710,7 +710,7 @@ if (!is_string($themeBootstrapperSource)
     || strpos($themeBootstrapperSource, 'wc_get_order($orderId)') === false
     || strpos($themeBootstrapperSource, 'update_meta_data(\'_ga4_client_id\', $clientId)') === false
     || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false) {
-    throw new \\RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
+    throw new \RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
 }
 
 $codOtpControllerSource = file_get_contents($src . '/Infrastructure/Http/CodOtpController.php');
@@ -731,7 +731,7 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !
     || strpos($otpRepositorySource, 'WHERE phone_e164=%s AND order_id=%s ORDER BY created_at DESC LIMIT 1') === false
     || strpos($otpCheckoutJsSource, 'order_id: state.orderId') !== false
     || strpos($otpCheckoutJsSource, 'state.orderId') !== false) {
-    throw new \\RuntimeException('COD OTP must be session-bound, single-use and enforced by server-side checkout validation.');
+    throw new \RuntimeException('COD OTP must be session-bound, single-use and enforced by server-side checkout validation.');
 }
 
 $dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
@@ -743,7 +743,7 @@ if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, "['cancelled', 'failed', 'refunded']") === false
     || strpos($dashboardServiceSource, "'verification_rate' => $total > 0") === false
     || strpos($dashboardServiceSource, "'avg_messages_per_session' => $sessions > 0") === false) {
-    throw new \\RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
+    throw new \RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
 }
 
 $trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
@@ -754,7 +754,7 @@ if (\\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Booked->toWooCommerceStat
     || $trackingStatus->canAdvanceFrom('completed')
     || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')
     || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('refunded')) {
-    throw new \\RuntimeException('Courier tracking must reject stale status regressions and preserve terminal order states.');
+    throw new \RuntimeException('Courier tracking must reject stale status regressions and preserve terminal order states.');
 }
 
 $shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/ShippingWebhookHandler.php');
@@ -772,7 +772,7 @@ if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'array_slice($seenEvents, -20)') === false
     || strpos($shippingWebhookSource, '$order->get_status() !== $normalizedTargetStatus') === false
     || strpos($shippingWebhookSource, "return new \\WP_REST_Response(['status'=>'disabled'],403)") === false) {
-    throw new \\RuntimeException('Courier webhooks must be unavailable when the corresponding licensed feature is disabled.');
+    throw new \RuntimeException('Courier webhooks must be unavailable when the corresponding licensed feature is disabled.');
 }
 
 $courierCircuitBreakerSource = file_get_contents($src . '/Infrastructure/Logistics/CourierCircuitBreaker.php');
@@ -783,7 +783,7 @@ if (!is_string($courierCircuitBreakerSource)
     || strpos($courierCircuitBreakerSource, 'HTTP error:') === false
     || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
     || strpos($courierCircuitBreakerSource, '$this->fail($code);') === false) {
-    throw new \\RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
+    throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
 }
 
 $shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
@@ -799,7 +799,7 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false
     || strpos($courierCircuitBreakerSource, 'wp_schedule_single_event') === false
     || strpos($shippingRegistrySource, 'wp_schedule_single_event') === false) {
-    throw new \\RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
+    throw new \RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
 }
 
 $stockRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
@@ -807,7 +807,7 @@ if (!is_string($stockRepositorySource)
     || strpos($stockRepositorySource, 'Unable to verify stock movement idempotency reference.') === false
     || strpos($stockRepositorySource, 'Unable to read aggregate inventory stock.') === false
     || strpos($stockRepositorySource, 'if ($this->db->last_error !== \'\')') === false) {
-    throw new \\RuntimeException('A failed movement-reference query must not be treated as an unseen stock movement.');
+    throw new \RuntimeException('A failed movement-reference query must not be treated as an unseen stock movement.');
 }
 
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
@@ -847,7 +847,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
     || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false
     || strpos($stockCycleCaptureSource, 'new \\\\RuntimeException') !== false) {
-    throw new \\RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
+    throw new \RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
 if (!is_string($stockCycleHooksSource)
@@ -887,7 +887,7 @@ if (!is_string($posAppSource)
     || strpos($posAppSource, "item.status = 'needs_review'") === false
     || strpos($posAppSource, 'local_stock_decremented:true') === false
     || strpos($posAppSource, 'Sale saved. WhatsApp receipt could not be generated.') === false) {
-    throw new \\RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
+    throw new \RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
 }
 
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
@@ -912,7 +912,7 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "'_pkstore_jazzcash_state', 'unknown'") === false
     || strpos($jazzCashSource, "'_pkstore_jazzcash_state', 'pending_confirmation'") === false
     || strpos($jazzCashSource, "if (\$responseCode === '157')") === false) {
-    throw new \\RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
+    throw new \RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
 }
 
 echo "Smoke tests passed.\n";
