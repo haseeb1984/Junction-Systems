@@ -12,7 +12,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
         if ($inserted === false || (int)$this->db->insert_id < 1) throw new \RuntimeException('Unable to persist POS order.');
         return (int)$this->db->insert_id;
     }
-    public function update(POSOrder $o): void { $updated = $this->db->update($this->t(),['sync_status'=>$o->getSyncStatus()->value,'wc_order_id'=>$o->wcOrderId,'synced_at'=>$o->getSyncStatus() === SyncStatus::Synced ? current_time('mysql') : null],['id'=>$o->id]); if ($updated === false) throw new \RuntimeException('Unable to persist POS WooCommerce sync state.'); }
+    public function update(POSOrder $o): void { $updated = $this->db->update($this->t(),['sync_status'=>$o->getSyncStatus()->value,'wc_order_id'=>$o->wcOrderId,'synced_at'=>$o->getSyncStatus() === SyncStatus::Synced ? current_time('mysql') : null],['id'=>$o->id]); if ($updated !== 1) throw new \RuntimeException('Unable to persist POS WooCommerce sync state.'); }
     public function findById(int $id): ?POSOrder { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
     public function findByRef(string $ref): ?POSOrder { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE order_ref=%s",$ref),ARRAY_A); return $r?$this->h($r):null; }
     public function findPending(): array { $r=$this->db->get_results("SELECT * FROM {$this->t()} WHERE sync_status='pending' ORDER BY created_at ASC LIMIT 50",ARRAY_A)?:[]; return array_map(fn($r)=>$this->h($r),$r); }
