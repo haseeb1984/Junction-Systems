@@ -370,12 +370,12 @@ if (strpos($wcLifecycleSource, 'applyWooCommerceOrderItemRestored($item, $newSto
     || strpos($wcLifecycleSource, 'applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid)') === false
     || strpos($wcLifecycleSource, 'private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null)') === false
     || strpos($wcLifecycleSource, '?string $cycleUuid = null): bool') === false) {
-    throw new \\RuntimeException('Cycle identity must reach the online cancellation and refund ledger handlers.');
+    throw new \RuntimeException('Cycle identity must reach the online cancellation and refund ledger handlers.');
 }
 
 if (strpos($wcLifecycleSource, "elseif (!in_array(\$cycle['state'], ['active', 'restoring'], true))") === false
     || strpos($wcLifecycleSource, 'A cancellation/refund callback may arrive before the sale') === false) {
-    throw new \\RuntimeException('WooCommerce sale processing must commit the sale even when its return callback arrived first.');
+    throw new \RuntimeException('WooCommerce sale processing must commit the sale even when its return callback arrived first.');
 }
 
 $inventoryHooksLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
@@ -546,7 +546,7 @@ if (strpos($bootstrapSource, "wp_schedule_event(time() + 90, 'pkstore_five_minut
     || strpos($posHttpSource, "'/pos/sync'") === false
     || strpos($posHttpSource, "'permission_callback'=>\$managerAuth") === false
     || strpos($posHttpSource, '$managerAuth = fn()') === false) {
-    throw new \\RuntimeException('Committed POS sales must mirror to WooCommerce automatically, and global sync must remain manager-only.');
+    throw new \RuntimeException('Committed POS sales must mirror to WooCommerce automatically, and global sync must remain manager-only.');
 }
 
 $posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
