@@ -41,18 +41,45 @@ final class AiChatController {
     }
 
     private function rateLimited(string $sessionUuid): bool {
+        global $wpdb;
+        if (!($wpdb instanceof \wpdb)) return true;
+
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $ipHash = substr(hash_hmac('sha256', $ip, wp_salt('auth')), 0, 32);
-        $sessionKey = 'pkstore_chat_session_rl_' . hash('sha256', $sessionUuid);
+        $sessionHash = hash('sha256', $sessionUuid);
+        $sessionKey = 'pkstore_chat_session_rl_' . $sessionHash;
         $ipKey = 'pkstore_chat_ip_rl_' . $ipHash;
-        $sessionCount = (int) get_transient($sessionKey);
-        $ipCount = (int) get_transient($ipKey);
+        $lockNames = [
+            'pkstore_chat_ip_' . $ipHash,
+            'pkstore_chat_session_' . substr($sessionHash, 0, 32),
+        ];
+        sort($lockNames, SORT_STRING);
+        $acquired = [];
 
-        if ($sessionCount >= 20 || $ipCount >= 100) return true;
+        try {
+            // Serialize both counters. Transient get/increment/set alone is
+            // racy under concurrent requests and can exceed the provider-cost cap.
+            foreach ($lockNames as $lockName) {
+                $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 1));
+                if ($wpdb->last_error !== '' || (int) $locked !== 1) return true;
+                $acquired[] = $lockName;
+            }
 
-        set_transient($sessionKey, $sessionCount + 1, HOUR_IN_SECONDS);
-        set_transient($ipKey, $ipCount + 1, HOUR_IN_SECONDS);
-        return false;
+            $sessionCount = (int) get_transient($sessionKey);
+            $ipCount = (int) get_transient($ipKey);
+            if ($sessionCount >= 20 || $ipCount >= 100) return true;
+
+            set_transient($sessionKey, $sessionCount + 1, HOUR_IN_SECONDS);
+            set_transient($ipKey, $ipCount + 1, HOUR_IN_SECONDS);
+            return false;
+        } finally {
+            foreach (array_reverse($acquired) as $lockName) {
+                $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+                if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                    error_log('[PK Store] AI chat rate-limit lock release could not be confirmed.');
+                }
+            }
+        }
     }
 
     private function validMessage(string $message): bool {
