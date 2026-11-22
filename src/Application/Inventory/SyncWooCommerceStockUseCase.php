@@ -835,6 +835,279 @@ final class SyncWooCommerceStockUseCase {
         return true;
     }
 
+    private function applyAllocatedCycleReturn(
+        \WC_Order $order,
+        $item,
+        string $kind,
+        int $quantity,
+        ?int $refundCumulative,
+        string $cycleUuid
+    ): bool {
+        if (!in_array($kind, ['cancellation', 'refund'], true)
+            || !is_object($item) || !method_exists($item, 'get_id')
+            || $quantity < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+            throw new \InvalidArgumentException('WooCommerce cycle return event is malformed.');
+        }
+
+        $orderId = (int) $order->get_id();
+        $itemId = (int) $item->get_id();
+        $rawStates = $item->get_meta('_pkstore_inventory_cycle_states', true);
+        $states = is_array($rawStates)
+            ? $rawStates
+            : (is_string($rawStates) ? json_decode($rawStates, true) : null);
+        $state = is_array($states) ? ($states[$cycleUuid] ?? null) : null;
+        if (!is_array($state)) {
+            throw new \RuntimeException('WooCommerce stock-cycle allocation snapshot is not ready for return processing.');
+        }
+
+        $reducedQuantity = (int) ($state['reduced_quantity'] ?? 0);
+        $returnedQuantity = (int) ($state['returned_quantity'] ?? 0);
+        $refundReturned = (int) ($state['refund_returned_quantity'] ?? 0);
+        $cancellationReturned = (int) ($state['cancellation_returned_quantity'] ?? 0);
+        $refundBaseline = (int) ($state['refund_cumulative_baseline'] ?? -1);
+        $allocations = $state['allocations'] ?? null;
+        if ($orderId < 1 || $itemId < 1 || $reducedQuantity < 1
+            || $returnedQuantity < 0 || $refundReturned < 0 || $cancellationReturned < 0
+            || $refundBaseline < 0 || !is_array($allocations) || !$allocations
+            || $returnedQuantity !== $refundReturned + $cancellationReturned
+            || $returnedQuantity > $reducedQuantity) {
+            throw new \RuntimeException('WooCommerce stock-cycle return state is invalid.');
+        }
+
+        if ($kind === 'cancellation') {
+            if ($cancellationReturned > 0) return true;
+            $remaining = $reducedQuantity - $returnedQuantity;
+            if ($quantity !== $remaining) {
+                throw new \RuntimeException('Cancellation restock quantity does not match the remaining stock cycle.');
+            }
+            $targetReturned = $reducedQuantity;
+            $nextCancellationReturned = $cancellationReturned + $quantity;
+            $nextRefundReturned = $refundReturned;
+            $eventKind = 'cancellation';
+            $sourceHook = 'woocommerce_restore_order_item_stock';
+            $note = "WooCommerce cancellation restock for order #{$orderId}, cycle {$cycleUuid}";
+        } else {
+            if ($refundCumulative === null || $refundCumulative < 1) {
+                throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
+            }
+            $cycleRefundCumulative = $refundCumulative - $refundBaseline;
+            if ($cycleRefundCumulative <= $refundReturned) return true;
+            if ($cycleRefundCumulative < 1
+                || $cycleRefundCumulative !== $refundReturned + $quantity
+                || $returnedQuantity + $quantity > $reducedQuantity) {
+                throw new \RuntimeException('WooCommerce refund restock sequence does not match this stock cycle.');
+            }
+            $targetReturned = $returnedQuantity + $quantity;
+            $nextCancellationReturned = $cancellationReturned;
+            $nextRefundReturned = $cycleRefundCumulative;
+            $eventKind = 'refund';
+            $sourceHook = 'woocommerce_restock_refunded_item';
+            $note = "WooCommerce refund restock for order #{$orderId}, cycle {$cycleUuid}";
+        }
+
+        $normalized = [];
+        $allocatedQuantity = 0;
+        $seenLocations = [];
+        foreach ($allocations as $allocation) {
+            $productId = is_array($allocation) ? filter_var($allocation['product_id'] ?? null, FILTER_VALIDATE_INT) : false;
+            $locationId = is_array($allocation) ? filter_var($allocation['location_id'] ?? null, FILTER_VALIDATE_INT) : false;
+            $allocationQuantity = is_array($allocation) ? filter_var($allocation['quantity'] ?? null, FILTER_VALIDATE_INT) : false;
+            if (!$productId || $productId < 1 || !$locationId || $locationId < 1
+                || !$allocationQuantity || $allocationQuantity < 1
+                || isset($seenLocations[$productId . ':' . $locationId])) {
+                throw new \RuntimeException('WooCommerce stock-cycle allocation line is malformed or duplicated.');
+            }
+            $seenLocations[$productId . ':' . $locationId] = true;
+            $location = $this->locationRepo->findById($locationId);
+            $product = $this->productRepo->findById($productId);
+            if (!$location || !$location->isActive || !$product) {
+                throw new \RuntimeException('An original Junction stock-cycle product or location is unavailable.');
+            }
+            $normalized[] = [
+                'product_id' => $productId,
+                'location_id' => $locationId,
+                'quantity' => $allocationQuantity,
+            ];
+            $allocatedQuantity += $allocationQuantity;
+        }
+        if ($allocatedQuantity !== $reducedQuantity) {
+            throw new \RuntimeException('WooCommerce stock-cycle allocation does not reconcile to the original reduction.');
+        }
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('Unable to start WooCommerce stock-cycle return transaction.');
+        }
+        $productIds = [];
+        try {
+            $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            $itemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+            $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            $cycle = $wpdb->get_row($wpdb->prepare(
+                "SELECT state FROM {$cyclesTable} WHERE cycle_uuid=%s AND wc_order_id=%d FOR UPDATE",
+                $cycleUuid,
+                $orderId
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($cycle)) {
+                throw new \RuntimeException('WooCommerce stock-cycle header is unavailable.');
+            }
+            if ($cycle['state'] === 'reducing') {
+                if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to defer early cycle return.');
+                return false;
+            }
+            if ($cycle['state'] !== 'active') {
+                throw new \RuntimeException('WooCommerce stock cycle is not active for return processing.');
+            }
+
+            $cycleItem = $wpdb->get_row($wpdb->prepare(
+                "SELECT allocation_snapshot,reduced_quantity,refund_cumulative_baseline,
+                        cancellation_restored_quantity,refund_restored_quantity
+                 FROM {$itemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d FOR UPDATE",
+                $cycleUuid,
+                $itemId
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($cycleItem)) {
+                throw new \RuntimeException('WooCommerce stock-cycle item is unavailable.');
+            }
+            $storedAllocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
+            if ((int) $cycleItem['reduced_quantity'] !== $reducedQuantity
+                || (int) $cycleItem['refund_cumulative_baseline'] !== $refundBaseline
+                || !is_array($storedAllocations) || $storedAllocations !== $normalized
+                || (int) $cycleItem['cancellation_restored_quantity'] !== $cancellationReturned
+                || (int) $cycleItem['refund_restored_quantity'] !== $refundReturned) {
+                throw new \RuntimeException('WooCommerce stock-cycle allocation or return ledger is inconsistent.');
+            }
+
+            $cursor = 0;
+            foreach ($normalized as $allocation) {
+                $start = $cursor;
+                $end = $cursor + $allocation['quantity'];
+                $cursor = $end;
+                $chunk = max(0, min($targetReturned, $end) - max($returnedQuantity, $start));
+                if ($chunk < 1) continue;
+
+                $productId = $allocation['product_id'];
+                $locationId = $allocation['location_id'];
+                $this->stockRepo->getStock($productId, $locationId);
+                $saleReference = $cycleUuid . ':' . $locationId;
+                if (!$this->stockRepo->hasMovementReference(
+                    $productId, $locationId, 'wc_stock_cycle', $saleReference, MovementType::OnlineSale
+                )) {
+                    if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to defer cycle return pending its sale movement.');
+                    return false;
+                }
+
+                $returnReference = $cycleUuid . ':' . $itemId . ':' . $targetReturned . ':' . $locationId;
+                if (!$this->stockRepo->hasMovementReference(
+                    $productId, $locationId, 'wc_stock_cycle_return', $returnReference, MovementType::OnlineReturn
+                )) {
+                    $this->adjustStock->execute(
+                        $productId,
+                        $locationId,
+                        $chunk,
+                        MovementType::OnlineReturn,
+                        $note,
+                        'wc_stock_cycle_return',
+                        $returnReference,
+                        false
+                    );
+                }
+                $productIds[$productId] = $productId;
+            }
+
+            $states[$cycleUuid]['returned_quantity'] = $targetReturned;
+            $states[$cycleUuid]['refund_returned_quantity'] = $nextRefundReturned;
+            $states[$cycleUuid]['cancellation_returned_quantity'] = $nextCancellationReturned;
+            $encodedStates = wp_json_encode($states);
+            if (!is_string($encodedStates)) throw new \RuntimeException('Unable to encode WooCommerce cycle return state.');
+            $item->update_meta_data('_pkstore_inventory_cycle_states', $encodedStates);
+            if ((int) $item->save() !== $itemId) {
+                throw new \RuntimeException('Unable to persist WooCommerce cycle return state.');
+            }
+
+            $updated = $wpdb->update($itemsTable, [
+                'cancellation_restored_quantity' => $nextCancellationReturned,
+                'refund_restored_quantity' => $nextRefundReturned,
+                'updated_at' => current_time('mysql'),
+            ], [
+                'cycle_uuid' => $cycleUuid,
+                'wc_order_item_id' => $itemId,
+            ]);
+            if ($updated === false) throw new \RuntimeException('Unable to persist WooCommerce cycle return counters.');
+
+            $openItems = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$itemsTable}
+                 WHERE cycle_uuid=%s AND reduced_quantity > cancellation_restored_quantity + refund_restored_quantity",
+                $cycleUuid
+            ));
+            if ($wpdb->last_error !== '' || !is_numeric($openItems)) {
+                throw new \RuntimeException('Unable to verify WooCommerce stock-cycle completion.');
+            }
+
+            $now = current_time('mysql');
+            if ((int) $openItems === 0) {
+                $updated = $wpdb->update($cyclesTable, [
+                    'state' => 'closed',
+                    'closed_at' => $now,
+                    'updated_at' => $now,
+                ], ['cycle_uuid' => $cycleUuid, 'state' => 'active']);
+                if ($updated === false) throw new \RuntimeException('Unable to close WooCommerce stock cycle.');
+            }
+
+            $eventKey = 'wc_stock_cycle_' . $eventKind . ':' . $cycleUuid . ':' . $itemId . ':' . $targetReturned;
+            $eventInserted = $wpdb->insert($eventsTable, [
+                'event_uuid' => wp_generate_uuid4(),
+                'event_key' => $eventKey,
+                'cycle_uuid' => $cycleUuid,
+                'wc_order_id' => $orderId,
+                'wc_order_item_id' => $itemId,
+                'event_kind' => $eventKind,
+                'quantity' => $quantity,
+                'cumulative_quantity' => $eventKind === 'refund' ? $nextRefundReturned : $targetReturned,
+                'source_hook' => $sourceHook,
+                'source_metadata' => wp_json_encode(['allocation_count' => count($normalized)]),
+                'status' => 'processed',
+                'attempts' => 0,
+                'next_attempt_at' => $now,
+                'claimed_at' => null,
+                'claim_token' => null,
+                'last_error' => '',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            if ($eventInserted !== 1) {
+                throw new \RuntimeException('Unable to persist WooCommerce stock-cycle return event.');
+            }
+
+            if ($wpdb->query('COMMIT') === false) {
+                throw new \RuntimeException('Unable to commit WooCommerce stock-cycle return transaction.');
+            }
+        } catch (\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            $this->log->error('WooCommerce stock-cycle return was rolled back; event must be retried.', [
+                'order_id' => $orderId,
+                'order_item_id' => $itemId,
+                'cycle_uuid' => $cycleUuid,
+                'error_class' => get_class($error),
+            ]);
+            throw $error;
+        }
+
+        foreach ($productIds as $productId) {
+            try {
+                $this->adjustStock->syncProductToWooCommerce($productId);
+            } catch (\Throwable $error) {
+                $this->log->error('WooCommerce stock-cycle return committed; aggregate stock sync remains queued.', [
+                    'order_id' => $orderId,
+                    'cycle_uuid' => $cycleUuid,
+                    'product_id' => $productId,
+                    'error_class' => get_class($error),
+                ]);
+            }
+        }
+        return true;
+    }
+
     /**
      * Restore an online order's stock to the exact locations used by its sale.
      * Cumulative return counters live on the order item and are committed in
@@ -848,6 +1121,9 @@ final class SyncWooCommerceStockUseCase {
         ?int $refundCumulative,
         ?string $cycleUuid = null
     ): bool {
+        if ($cycleUuid !== null) {
+            return $this->applyAllocatedCycleReturn($order, $item, $kind, $quantity, $refundCumulative, $cycleUuid);
+        }
         if (!in_array($kind, ['cancellation', 'refund'], true)
             || !is_object($item) || !method_exists($item, 'get_id') || $quantity < 1) {
             throw new \InvalidArgumentException('WooCommerce allocated return event is malformed.');
