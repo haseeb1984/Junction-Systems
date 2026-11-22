@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Http;
 use PkStore\Application\POS\{ProcessPOSSaleUseCase, SyncPOSQueueUseCase};
+use PkStore\Application\POS\Exception\OnlineStockReconciliationPendingException;
 use PkStore\Container\ServiceContainer;
 use PkStore\Domain\POS\Repository\{POSSessionRepositoryInterface, POSOrderRepositoryInterface};
 use PkStore\Domain\POS\Entity\POSSession;
@@ -145,33 +146,15 @@ final class POSController {
                     $sessionId, $locationId, $items, $method, $customerPhone,
                     $customerName, $discount, $split
                 );
-            } catch (\Throwable $error) {
-                return new \WP_REST_Response(['success'=>false,'message'=>'POS retry payload is invalid.'],422);
-            }
-            if (!$existingOrder->requestFingerprint
-                || !hash_equals($existingOrder->requestFingerprint, $fingerprint)) {
-                return new \WP_REST_Response(['success'=>false,'message'=>'POS request reference was reused with a different or unverifiable sale payload.'],409);
-            }
-            return new \WP_REST_Response(['success'=>true,'order_ref'=>$existingOrder->orderRef,'total'=>$existingOrder->totalPkr,'message'=>'Previously processed sale returned.','idempotent'=>true],200);
-        }
-
-        $session = $this->c->make(POSSessionRepositoryInterface::class)->findById($sessionId);
-        $location = $this->c->make(LocationRepositoryInterface::class)->findById($locationId);
-        if (!$session || !$session->isOpen() || $session->locationId !== $locationId
-            || !$location || !$location->isPos || !$location->isActive
-            || !$this->canAccessLocation($locationId)) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'The POS session or POS-enabled location is invalid or closed.'],409);
-        }
-        if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
-            return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
-        }
-        try {
-            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split,$clientOrderRef);
-            return new \WP_REST_Response(['success'=>true,'order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'message'=>'Sale processed.'],201);
+            } catch (OnlineStockReconciliationPendingException $e) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'retryable' => true,
+                'message' => 'Online store stock is still being reconciled. This sale was not committed; retry shortly.',
+            ], 503);
         } catch (\Throwable $e) {
             error_log('[PK Store POS] Sale processing failed: ' . get_class($e));
             return new \WP_REST_Response(['success'=>false,'message'=>'Sale could not be completed. Please retry or contact support.'],422);
-        }
     }
     public function syncQueue(\WP_REST_Request $req): \WP_REST_Response {
         $result = $this->c->make(SyncPOSQueueUseCase::class)->execute();
