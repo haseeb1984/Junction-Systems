@@ -279,7 +279,7 @@ final class CodOtpController {
         foreach ($items as $item) {
             $product = $item->get_product();
             if (!($product instanceof \WC_Product)) return false;
-            if (!$product->is_virtual() && !$product->is_downloadable()) return false;
+            if (!$product->is_virtual()) return false;
         }
         return true;
     }
