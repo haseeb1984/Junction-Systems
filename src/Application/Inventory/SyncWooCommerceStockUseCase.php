@@ -1079,6 +1079,11 @@ final class SyncWooCommerceStockUseCase {
                 throw new \RuntimeException('WooCommerce stock-cycle item is unavailable.');
             }
             $storedAllocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
+            foreach ($normalized as $allocation) {
+                if ((int) $allocation['product_id'] !== (int) $cycleItem['inventory_product_id']) {
+                    throw new \RuntimeException('Saved return allocation does not match the captured Junction product.');
+                }
+            }
             $currentParentId = (int) $item->get_product_id();
             $currentVariationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ((int) $cycleItem['wc_parent_product_id'] !== $currentParentId
