@@ -691,15 +691,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a cancellation restock only after WooCommerce has actually restored
      * the individual order item. The callback's stock delta is authoritative.
      */
-    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): bool {
+    public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
         $orderId = (int) $order->get_id();
-        return $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order): bool {
-            return $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order);
+        return $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order, $cycleUuid): bool {
+            return $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order, $cycleUuid);
         });
     }
 
-    private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order): bool {
+    private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order) || !is_object($item)
             || !method_exists($item, 'get_id') || !method_exists($item, 'get_product_id')) {
             throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
@@ -807,15 +807,15 @@ final class SyncWooCommerceStockUseCase {
      * Mirror a refund only when WooCommerce's explicit restock action fires.
      * The original order item carries cumulative _restock_refunded_items metadata.
      */
-    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null): bool {
+    public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         $orderId = (int) $order->get_id();
-        return $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked): bool {
-            return $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked);
+        return $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid): bool {
+            return $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid);
         });
     }
 
-    private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null): bool {
+    private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
             throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         }
