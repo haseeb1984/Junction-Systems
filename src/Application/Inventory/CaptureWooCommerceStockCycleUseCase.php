@@ -61,7 +61,8 @@ final class CaptureWooCommerceStockCycleUseCase {
         string $kind,
         int $quantity,
         ?int $refundCumulative = null,
-        ?string $cycleUuidOverride = null
+        ?string $cycleUuidOverride = null,
+        ?int $wcProductId = null
     ): void {
         if (!in_array($kind, ['cancellation', 'refund'], true) || $itemId < 1 || $quantity < 1) {
             throw new \InvalidArgumentException('WooCommerce cycle return capture is invalid.');
@@ -71,6 +72,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ($orderId < 1 || !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
             throw new \RuntimeException('WooCommerce order has no valid stock-cycle identity for return capture.');
         }
+        if ($wcProductId !== null && $wcProductId < 1) throw new \\InvalidArgumentException('WooCommerce cycle return product ID is invalid.');
         if ($kind === 'refund' && ($refundCumulative === null || $refundCumulative < $quantity)) {
             throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
         }
@@ -165,7 +167,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                         $quantity,
                         $eventCumulative,
                         $sourceHook,
-                        wp_json_encode(['captured_at_hook' => true]),
+                        wp_json_encode(['captured_at_hook' => true, 'wc_product_id' => $wcProductId]),
                         $now,
                         $now,
                         $now
