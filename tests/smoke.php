@@ -405,4 +405,17 @@ if (!is_string($returnQueueSource)
     throw new \RuntimeException('WooCommerce return queue workers must be fenced by persisted claim tokens.');
 }
 
+$orderQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceOrderInventoryQueueUseCase.php');
+if (!is_string($orderQueueSource)
+    || strpos($orderQueueSource, 'claim_token=NULL') === false
+    || strpos($orderQueueSource, 'claim_token=%s') === false
+    || strpos($orderQueueSource, '$claimToken = wp_generate_uuid4()') === false
+    || strpos($orderQueueSource, "'claim_token' => $claimToken") === false
+    || strpos($orderQueueSource, 'function complete(int $id, string $generation, string $claimToken)') === false
+    || strpos($inventoryInstallerSource, 'claim_token CHAR(36) DEFAULT NULL') === false
+    || strpos($migrationRunnerSource, "'2.0.6' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueue']") === false
+    || strpos($migrationRunnerSource, 'Required order queue claim-token column was not created.') === false) {
+    throw new \RuntimeException('WooCommerce order queue workers must be fenced by persisted claim tokens.');
+}
+
 echo "Smoke tests passed.\n";
