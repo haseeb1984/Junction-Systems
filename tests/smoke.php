@@ -589,7 +589,7 @@ if (!$trackingStatus->canAdvanceFrom('shipped')
 $shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/ShippingWebhookHandler.php');
 if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'isEnabled($featureMap[$cc])') === false
-    || strpos($shippingWebhookSource, 'wc_get_orders([') === false
+    || strpos($shippingWebhookSource, 'wc_get_orders($orderQuery)') === false
     || strpos($shippingWebhookSource, 'OrderUtil::custom_orders_table_usage_is_enabled()') === false
     || strpos($shippingWebhookSource, "'meta_query'] = [[") === false
     || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . $cc") === false
