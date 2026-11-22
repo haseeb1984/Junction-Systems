@@ -234,3 +234,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Courier failover now proceeds to the next enabled provider when a courier returns a structured unsuccessful booking result, not only when it throws a transport exception.
 - Provider failures contribute to the circuit-breaker threshold. A definitive rejection from every provider is surfaced as a failed booking with an operator-facing order note; transport failures or all-open circuits remain retryable.
 - Added source smoke guards. Provider sandbox rejection/failover and circuit reset timing still require runtime tests.
+
+- Tracking worker coverage now includes `delivery-failed` and `on-hold` shipments, so a failed delivery attempt or temporary provider exception does not permanently remove the order from subsequent tracking checks.
