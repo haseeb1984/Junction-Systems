@@ -9,12 +9,36 @@ final class SyncWooCommerceStockUseCase {
         private readonly InventoryProductRepositoryInterface $productRepo,
         private readonly StockRepositoryInterface $stockRepo,
         private readonly LocationRepositoryInterface $locationRepo,
+        private readonly CaptureWooCommerceStockCycleUseCase $cycleCapture,
         private readonly AdjustStockUseCase $adjustStock,
         private readonly LoggerInterface $log,
     ) {}
-    public function onWooCommerceSale(int $orderId): void {
-        if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
-        $this->withOrderLock($orderId, function () use ($orderId): void {
+    public function onWooCommerceSale(int $orderId, ?string $cycleUuid = null): void {
+        if ($orderId < 1 || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
+            throw new \InvalidArgumentException('Invalid WooCommerce order or stock-cycle identity.');
+        }
+        $this->withOrderLock($orderId, function () use ($orderId, $cycleUuid): void {
+            if ($cycleUuid !== null) {
+                $order = wc_get_order($orderId);
+                if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
+                $this->applyWooCommerceSaleCycle($order, $cycleUuid);
+                return;
+            }
+
+            $order = wc_get_order($orderId);
+            if ($order instanceof \WC_Order
+                && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+                // A previous capture attempt may have failed transiently. Retry
+                // capture from the persisted hook-time quantity snapshot.
+                $newCycleUuid = $this->cycleCapture->capture($order);
+                $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $newCycleUuid);
+                if ((int) $order->save() !== $orderId) {
+                    throw new \RuntimeException('Unable to persist retried WooCommerce stock-cycle identity.');
+                }
+                $this->applyWooCommerceSaleCycle($order, $newCycleUuid);
+                return;
+            }
+
             $this->applyWooCommerceSale($orderId);
         });
     }
@@ -362,11 +386,6 @@ final class SyncWooCommerceStockUseCase {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) {
             throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
-        }
-        $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
-        if ($cycleUuid !== '') {
-            $this->applyWooCommerceSaleCycle($order, $cycleUuid);
-            return;
         }
         $lines = [];
         $metadataCount = 0;
