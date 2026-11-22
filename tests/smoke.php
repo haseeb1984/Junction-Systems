@@ -426,6 +426,9 @@ if (!is_string($inventoryEventsSource)
     || strpos($inventoryEventsTemplate, "Queue status totals") === false
     || strpos($inventoryEventsTemplate, "needs_review") === false
     || strpos($inventoryEventsTemplate, "Ignore does not change stock") === false
+    || strpos($inventoryEventsSource, 'pkstore_wc_stock_cycle_events') === false
+    || strpos($inventoryEventsSource, '$cycleEvents') === false
+    || strpos($inventoryEventsTemplate, 'WooCommerce stock-cycle events') === false
     || strpos($inventoryEventsTemplate, "esc_html(") === false) {
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
 }
