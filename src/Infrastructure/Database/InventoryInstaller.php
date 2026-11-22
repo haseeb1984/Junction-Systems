@@ -261,6 +261,24 @@ final class InventoryInstaller {
         ) ENGINE=InnoDB {$cs};");
     }
 
+    public static function installInventoryQueueAudit(): void {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $cs = $wpdb->get_charset_collate();
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_inventory_queue_audit (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            queue_type VARCHAR(20) NOT NULL,
+            queue_id BIGINT UNSIGNED NOT NULL,
+            action VARCHAR(20) NOT NULL,
+            reason TEXT NOT NULL,
+            actor_id BIGINT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            INDEX idx_queue (queue_type, queue_id),
+            INDEX idx_actor (actor_id, created_at)
+        ) ENGINE=InnoDB {$cs};");
+    }
+
     private static function seedLocations(): void {
         global $wpdb;
         $t = $wpdb->prefix . 'pkstore_inventory_locations';
