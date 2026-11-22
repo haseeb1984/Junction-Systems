@@ -25,6 +25,9 @@ final class BookShipmentUseCase {
         try {
             $order = wc_get_order($orderId);
             if (!($order instanceof \WC_Order)) return;
+            if ($order->get_status() !== 'processing'
+                || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
+
             if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
 
             $existingTracking = (string) $order->get_meta('_tracking_courier', true);
