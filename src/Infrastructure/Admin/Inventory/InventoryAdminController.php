@@ -22,6 +22,10 @@ final class InventoryAdminController {
 
         add_submenu_page('pkstore-operations','Inventory','📦 Inventory',self::CAP,'pkstore-inventory',[$this,'inventory']);
         if ($features->isEnabled('pos')) {
+            // Cashiers have only use_junction_pos, not manage_woocommerce. Give
+            // them a direct top-level POS entry instead of hiding it under the
+            // manager-only operations menu.
+            add_menu_page('Junction POS','🖥 Junction POS','use_junction_pos','pkstore-pos-register',[$this,'pos'],'dashicons-store',56);
             add_submenu_page('pkstore-operations','POS Register','🖥 POS Register',self::CAP,'pkstore-pos',[$this,'pos']);
         }
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
