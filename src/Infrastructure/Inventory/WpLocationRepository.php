@@ -12,7 +12,7 @@ final class WpLocationRepository implements LocationRepositoryInterface {
     public function findOnline(): ?Location { $r=$this->db->get_row("SELECT * FROM {$this->t()} WHERE is_online=1 AND is_active=1 LIMIT 1",ARRAY_A); return $r?$this->h($r):null; }
     public function create(string $name, string $type, string $address, bool $isPos): int {
         $name = trim($name);
-        if ($name === '' || strlen($name) > 100
+        if ($name === '' || strlen($name) > 100 || strlen($address) > 255
             || !in_array($type, ['physical', 'warehouse'], true)
             || ($isPos && $type !== 'physical')) {
             throw new \InvalidArgumentException('Inventory location details are invalid.');
