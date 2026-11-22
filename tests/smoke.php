@@ -573,7 +573,7 @@ $dashboardTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admi
 if (!is_string($adminMenuSource) || !is_string($dashboardTemplateSource)
     || strpos($adminMenuSource, 'admin_post_pkstore_bust_dashboard_cache') === false
     || strpos($adminMenuSource, "check_admin_referer('pkstore_bust_dashboard_cache')") === false
-    || strpos($adminMenuSource, "isset($_GET['bust_cache'])") !== false
+    || strpos($adminMenuSource, "isset(\$_GET['bust_cache'])") !== false
     || strpos($dashboardTemplateSource, "wp_nonce_field('pkstore_bust_dashboard_cache')") === false
     || strpos($dashboardTemplateSource, 'name="action" value="pkstore_bust_dashboard_cache"') === false) {
     throw new \\RuntimeException('Dashboard cache invalidation must use a capability-checked, nonce-protected POST action.');
