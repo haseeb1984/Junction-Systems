@@ -728,8 +728,25 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
 
 $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
 $aiChatUseCaseSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
+$groqBridgeSource = file_get_contents($src . '/Infrastructure/AI/GroqBridge.php');
+$licenseManagerSource = file_get_contents($src . '/License/LicenseManager.php');
+$aiServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
-if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource) || !is_string($aiChatModuleSource)
+if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
+    || !is_string($groqBridgeSource) || !is_string($licenseManagerSource) || !is_string($aiServicesSource)
+    || !is_string($aiChatModuleSource)
+    || strpos($groqBridgeSource, 'https://api.groq.com/openai/v1/chat/completions') === false
+    || strpos($groqBridgeSource, 'getGroqProviderConfig()') === false
+    || strpos($groqBridgeSource, '$status === 429') === false
+    || strpos($groqBridgeSource, '$status === 401 || $status === 403') === false
+    || strpos($groqBridgeSource, '$status >= 500') === false
+    || strpos($groqBridgeSource, "hash('sha256', $key)") === false
+    || strpos($licenseManagerSource, 'getGroqProviderConfig(): array') === false
+    || strpos($licenseManagerSource, "'groq_api_keys'") === false
+    || strpos($licenseManagerSource, "array_slice(array_values(array_unique($keys)), 0, min($limit, 100))") === false
+    || strpos($aiServicesSource, 'new GroqBridge(new WpLogger(),new LicenseManager())') === false
+    || strpos($aiChatUseCaseSource, '$this->ai->getModelName()') === false
+    || strpos($aiChatUseCaseSource, 'gemini-1.5-flash') !== false
     || strpos($aiChatUseCaseSource, "function_exists('mb_substr')") === false
     || strpos($aiChatUseCaseSource, 'substr($c,0,self::MAXCHARS)') === false
     || strpos($aiChatControllerSource, 'validSessionUuid(') === false
