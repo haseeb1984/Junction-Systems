@@ -64,7 +64,7 @@ final class InventoryAdminController {
         $queueId = filter_var($_POST['queue_id'] ?? null, FILTER_VALIDATE_INT);
         $reason = sanitize_textarea_field($_POST['reason'] ?? '');
         if (!in_array($queueType, ['sales', 'returns', 'stock'], true)
-            || ($action === 'ignore_inventory_event' && $queueType === 'stock') || $queueId === false || $queueId < 1
+            || ($action === 'ignore_inventory_event' && ($queueType === 'stock' || ($_POST['confirm_ignore'] ?? '') !== '1')) || $queueId === false || $queueId < 1
             || strlen(trim($reason)) < 5 || strlen($reason) > 1000) {
             $this->redirect('pkstore-inventory-events', 'error', 'A valid event and an operator reason of at least 5 characters are required.');
             return;
