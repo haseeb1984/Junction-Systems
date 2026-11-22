@@ -91,7 +91,13 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
     }
 
     public function execute(int $limit = 20): array {
-        $this->recoverUnqueuedCycleEvents($limit);
+        try {
+            $this->recoverUnqueuedCycleEvents($limit);
+        } catch (\Throwable $recoveryError) {
+            $this->log->critical('WooCommerce cycle return queue recovery failed; pending cycle events remain durable.', [
+                'error_class' => get_class($recoveryError),
+            ]);
+        }
         $jobs = $this->claimBatch($limit);
         $result = ['processed' => 0, 'failed' => 0];
         foreach ($jobs as $job) {
