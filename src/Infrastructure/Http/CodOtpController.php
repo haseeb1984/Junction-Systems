@@ -65,11 +65,11 @@ final class CodOtpController {
 
         try {
             $sessionRef = $this->checkoutSessionReference();
-            $this->clearSessionProof();
             $this->container->make(SendCodOtpUseCase::class)->execute(
                 (string) $request->get_param('phone'),
                 $sessionRef
             );
+            $this->clearSessionProof();
             return new \WP_REST_Response([
                 'success' => true,
                 'message' => 'OTP sent to your mobile number.',
