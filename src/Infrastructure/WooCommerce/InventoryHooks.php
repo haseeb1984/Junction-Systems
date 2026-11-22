@@ -29,6 +29,28 @@ final class InventoryHooks {
             if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
             $orderId = (int) $order->get_id();
             if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order ID.');
+
+            // Preserve proof of the actual reduction at hook time. WooCommerce
+            // removes _reduced_stock when it restores an item, but the async
+            // Junction sale worker may not run until after that restore callback.
+            $capturedLines = 0;
+            foreach ($order->get_items('line_item') as $item) {
+                $reduced = $item->get_meta('_reduced_stock', true);
+                if ($reduced === '' || $reduced === null || (float) $reduced === 0.0) continue;
+                if (!is_numeric($reduced) || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced) {
+                    throw new \RuntimeException('WooCommerce stock-reduction metadata is invalid.');
+                }
+                $item->update_meta_data('_pkstore_wc_reduced_stock_snapshot', (int) $reduced);
+                if ((int) $item->save() !== (int) $item->get_id()) {
+                    throw new \RuntimeException('Unable to persist WooCommerce stock-reduction snapshot.');
+                }
+                $capturedLines++;
+            }
+            if ($capturedLines < 1) return;
+            $order->update_meta_data('_pkstore_wc_reduction_snapshot_version', '1');
+            if ((int) $order->save() !== $orderId) {
+                throw new \RuntimeException('Unable to persist WooCommerce stock-reduction snapshot version.');
+            }
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
         } catch (\Throwable $e) {
             error_log('[PKStore Inventory] Unable to enqueue actual WooCommerce stock reduction ('.get_class($e).').');
