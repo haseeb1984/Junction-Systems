@@ -591,6 +591,7 @@ if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, "'meta_key' => '_tracking_' . $cc") === false
     || strpos($shippingWebhookSource, "'meta_value' => $tn") === false
     || strpos($shippingWebhookSource, 'count($matches) !== 1') === false
+    || strpos($shippingWebhookSource, '$order->get_status() !== $normalizedTargetStatus') === false
     || strpos($shippingWebhookSource, "return new \\WP_REST_Response(['status'=>'disabled'],403)") === false) {
     throw new \\RuntimeException('Courier webhooks must be unavailable when the corresponding licensed feature is disabled.');
 }
