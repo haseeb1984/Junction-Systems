@@ -16,7 +16,7 @@ final class HandleAiChatUseCase {
         $hist=$this->chat->getHistory($uuid,self::HIST);
         $user=ChatMessage::user($m);
         $msgs=$this->budget(array_merge([$sys],$hist,[$user]));
-        $resp=$this->ai->chat(new ChatRequest($msgs,512,0.3,false,'gemini-1.5-flash'));
+        $resp=$this->ai->chat(new ChatRequest($msgs,512,0.3,false,$this->ai->getModelName()));
         $this->chat->appendMessage($uuid,$user);
         $this->chat->appendMessage($uuid,ChatMessage::assistant($resp->content));
         return $resp;
@@ -29,7 +29,7 @@ final class HandleAiChatUseCase {
         $user=ChatMessage::user($m);
         $msgs=$this->budget(array_merge([$sys],$hist,[$user]));
         $full='';
-        foreach($this->ai->streamChat(new ChatRequest($msgs,512,0.3,true,'gemini-1.5-flash')) as $d){$full.=$d;yield $d;}
+        foreach($this->ai->streamChat(new ChatRequest($msgs,512,0.3,true,$this->ai->getModelName())) as $d){$full.=$d;yield $d;}
         $this->chat->appendMessage($uuid,$user);
         $this->chat->appendMessage($uuid,ChatMessage::assistant($full));
     }
