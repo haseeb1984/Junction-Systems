@@ -503,13 +503,17 @@ const POS = {
                 await this.api('/pos/sale','POST',payload);
                 await DB.delete('queue', ref);
             } catch(e) {
-                if (e.status >= 400 && e.status < 500) {
+                const definitiveClientError = Number.isInteger(e.status)
+                    && e.status >= 400 && e.status < 500
+                    && ![408, 425, 429].includes(e.status);
+                if (definitiveClientError) {
                     item.status = 'needs_review';
                     item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
                     await DB.put('queue', item);
                     if (item.local_stock_decremented) await this.applyLocalStockDelta(item.items || [], 1);
                 }
-                // Network and 5xx failures remain pending and retry idempotently.
+                // Network, timeout, throttling and 5xx failures remain pending
+                // and retry with the same idempotency reference.
             }
         }
         const remaining = await DB.getAll('queue');
