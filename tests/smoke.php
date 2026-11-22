@@ -962,6 +962,9 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "hash_equals(\$expectedAmount, \$responseAmount)") === false
     || strpos($easyPaisaSource, "hash_equals(\$expectedStoreId, \$responseStoreId)") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
+    || strpos($easyPaisaSource, 'wp_remote_retrieve_response_code($response)') === false
+    || strpos($easyPaisaSource, '$reportedPhone === \'\' || $expectedPhone === \'\'') === false
+    || strpos($easyPaisaSource, "'redirection' => 0") === false
     || strpos($easyPaisaSource, 'applyProviderStatus(') === false
     || strpos($settingsManagerSource, "'EASYPAISA_USERNAME'=>true") === false
     || strpos($settingsManagerSource, "'EASYPAISA_PASSWORD'=>true") === false
