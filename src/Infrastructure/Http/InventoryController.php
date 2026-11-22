@@ -11,9 +11,10 @@ final class InventoryController {
     public function register(): void {
         add_action('rest_api_init', function () {
             $ns = 'pkstore/v1';
-            $readAuth = fn()=>(current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
+            $schemaReady = static fn(): bool => version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '>=');
+            $readAuth = fn()=>$schemaReady() && (current_user_can('manage_woocommerce') || current_user_can('use_junction_pos'))
                 && FeatureManager::getInstance()->isEnabled('inventory');
-            $manageAuth = fn()=>current_user_can('manage_woocommerce')
+            $manageAuth = fn()=>$schemaReady() && current_user_can('manage_woocommerce')
                 && FeatureManager::getInstance()->isEnabled('inventory');
             $barcodeAuth = fn()=>$manageAuth() && FeatureManager::getInstance()->isEnabled('barcode_labels');
             register_rest_route($ns, '/inventory/products',         ['methods'=>'GET', 'callback'=>[$this,'listProducts'],     'permission_callback'=>$readAuth]);
