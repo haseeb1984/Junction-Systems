@@ -314,7 +314,9 @@ $migrationRunnerSource = file_get_contents($src . '/Infrastructure/Database/Migr
 if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, '$isExistingInstall = self::hasExistingTables();') === false
     || strpos($migrationRunnerSource, 'self::verifyRequiredTables($version)') === false
-    || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false) {
+    || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false
+    || strpos($migrationRunnerSource, 'Unable to determine whether this is an existing Junction installation.') === false
+    || strpos($migrationRunnerSource, 'Never interpret a failed schema probe as a fresh install') === false) {
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
 
