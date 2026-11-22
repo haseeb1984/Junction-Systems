@@ -14,26 +14,38 @@ final class BookShipmentUseCase {
         return $r;
     }
     public function retryForOrder(int $orderId):void {
-        $order = wc_get_order($orderId);
-        if (!($order instanceof \WC_Order)) return;
-        if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
+        if ($orderId < 1) return;
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) return;
 
-        $existingTracking = (string) $order->get_meta('_tracking_courier', true);
-        if ($existingTracking !== '' && !str_starts_with($existingTracking, 'PENDING-')) return;
+        $lockName = 'pkstore_courier_booking_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) return;
 
-        if ($this->isDigitalOnlyOrder($order)) return;
-        if (!$this->cb->hasCouriers()) {
-            $order->add_order_note('[PK Store] Courier booking was not attempted because no courier is enabled by the current package and store settings.');
-            return;
-        }
+        try {
+            $order = wc_get_order($orderId);
+            if (!($order instanceof \WC_Order)) return;
+            if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
 
-        $shipment = $this->buildDto($order);
-        if ($shipment === null) return;
-        $result = $this->execute($shipment);
-        if ($result->success) {
-            $order->add_order_note('[PK Store] Courier booked on retry. Tracking: ' . $result->trackingNumber);
-        } else {
-            $order->add_order_note('[PK Store] Courier booking failed at all enabled providers. Check courier configuration, city mapping and provider logs before retrying.');
+            $existingTracking = (string) $order->get_meta('_tracking_courier', true);
+            if ($existingTracking !== '' && !str_starts_with($existingTracking, 'PENDING-')) return;
+            if ($this->isDigitalOnlyOrder($order)) return;
+
+            if (!$this->cb->hasCouriers()) {
+                $order->add_order_note('[PK Store] Courier booking was not attempted because no courier is enabled by the current package and store settings.');
+                return;
+            }
+
+            $shipment = $this->buildDto($order);
+            if ($shipment === null) return;
+            $result = $this->execute($shipment);
+            if ($result->success) {
+                $order->add_order_note('[PK Store] Courier booked on retry. Tracking: ' . $result->trackingNumber);
+            } else {
+                $order->add_order_note('[PK Store] Courier booking failed at all enabled providers. Check courier configuration, city mapping and provider logs before retrying.');
+            }
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
     }
 
