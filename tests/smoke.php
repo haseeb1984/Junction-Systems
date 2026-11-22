@@ -854,6 +854,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
+    || strpos($stockCycleCaptureSource, "'wc_product_id' => $wcProductId") === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
     || strpos($stockCycleCaptureSource, 'A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.') === false
     || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
