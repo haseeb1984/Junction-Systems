@@ -143,3 +143,12 @@ A further concurrency review found that the return queue had stale-claim recover
 The return queue now persists a UUID `claim_token` for each claim. Stale-claim recovery clears the token; completion and retry updates are conditional on the exact token held by that worker. A worker whose lease has been replaced cannot delete or reschedule the newer claim. Migration `2.0.5` adds the nullable token column to existing installations.
 
 The ledger operation remains independently idempotent, so a stale worker that finishes an already-applied movement cannot duplicate the inventory movement. This change has source-level smoke guards only; it still requires multi-worker/lease-expiry runtime testing.
+
+
+## Order-worker lease fencing — implementation update
+
+A second queue-worker race was found during source review. The order queue previously used a generation value to detect duplicate hooks arriving during processing, but stale-claim recovery did not change that generation. If a worker exceeded the ten-minute lease and another worker reclaimed the same row, the old worker could still complete or reschedule the row because both workers shared the same generation.
+
+Order queue claims now receive a persisted UUID \`claim_token\`. Stale-claim recovery clears the token; each new claim writes a fresh token; completion and retry require the exact token as well as the expected generation and processing state. A worker whose lease was reclaimed cannot delete or reschedule the newer worker's row. Generation handling remains in place to release a newer duplicate-hook event for another idempotent pass.
+
+Migration 2.0.6 re-runs the order queue schema installer and verifies the new column. A source-level smoke guard checks the fencing contract. No PHP execution, database migration, stale-lease simulation, or multi-worker test has been run yet; those remain part of the temporary-public CI/runtime batch.
