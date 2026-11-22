@@ -64,7 +64,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         }
 
         $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
-        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$now=current_time('timestamp');$dt=wp_date('YmdHis',$now);$exp=wp_date('YmdHis',$now+1800);
+        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$now=time();$dt=wp_date('YmdHis',$now);$exp=wp_date('YmdHis',$now+1800);
         // JazzCash requires a stable merchant-registered pp_ReturnURL on every
         // request. The synchronous API response is verified below; this endpoint
         // also accepts a signed POST if the merchant's provisioned flow returns one.
