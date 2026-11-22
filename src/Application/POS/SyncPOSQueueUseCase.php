@@ -2,38 +2,179 @@
 declare(strict_types=1);
 namespace PkStore\Application\POS;
 
+use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
+use PkStore\Domain\POS\Entity\POSOrder;
+use PkStore\Domain\POS\Entity\SyncStatus;
 use PkStore\Domain\POS\Repository\POSOrderRepositoryInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Safe placeholder until a real WooCommerce order adapter is implemented.
+ * Mirrors already-committed Junction POS sales into WooCommerce orders.
  *
- * Never mark a POS order as synced unless a WooCommerce order was created and
- * its ID was persisted. The previous implementation only changed the status.
+ * Junction owns the stock deduction. The WooCommerce order is marked as
+ * already stock-reduced before it is paid, so WooCommerce cannot deduct the
+ * same sale a second time. Actual cancellation/refund restocks still flow
+ * through the existing WooCommerce return-event hooks.
  */
 final class SyncPOSQueueUseCase {
     public function __construct(
         private readonly POSOrderRepositoryInterface $orderRepo,
-        private readonly ProcessPOSSaleUseCase $processSale,
+        private readonly InventoryProductRepositoryInterface $productRepo,
         private readonly LoggerInterface $log,
     ) {}
 
     public function execute(): array {
         $pending = $this->orderRepo->findPending();
-        $count = count($pending);
+        $synced = 0;
+        $failed = 0;
+        $errors = [];
 
-        if ($count === 0) {
-            return ['synced' => 0, 'failed' => 0, 'errors' => []];
+        foreach ($pending as $candidate) {
+            if (!$candidate instanceof POSOrder) {
+                $failed++;
+                $errors[] = 'A pending POS record could not be read.';
+                continue;
+            }
+
+            global $wpdb;
+            $lockName = 'pkstore_pos_sync_' . $candidate->id;
+            $locked = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
+            if ($locked !== 1) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                $order = $this->orderRepo->findById($candidate->id);
+                if (!$order) {
+                    throw new \RuntimeException('POS order no longer exists.');
+                }
+                if ($order->getSyncStatus() === SyncStatus::Synced && $order->wcOrderId) {
+                    $synced++;
+                    continue;
+                }
+
+                if (!function_exists('wc_get_orders') || !class_exists(\WC_Order::class)
+                    || !function_exists('wc_get_product') || !function_exists('get_woocommerce_currency')) {
+                    throw new \RuntimeException('WooCommerce order APIs are unavailable.');
+                }
+                if (get_woocommerce_currency() !== 'PKR') {
+                    throw new \RuntimeException('POS prices are PKR; WooCommerce store currency must also be PKR.');
+                }
+
+                $wcOrder = null;
+                if ($order->wcOrderId) {
+                    $wcOrder = wc_get_order($order->wcOrderId);
+                    if (!$wcOrder instanceof \WC_Order
+                        || $wcOrder->get_meta('_pkstore_pos_order_ref', true) !== $order->orderRef
+                        || $wcOrder->get_meta('_pkstore_pos_origin', true) !== 'junction_pos') {
+                        throw new \RuntimeException('Saved WooCommerce order linkage failed verification.');
+                    }
+                } else {
+                    $matches = wc_get_orders([
+                        'limit' => 2,
+                        'return' => 'objects',
+                        'meta_key' => '_pkstore_pos_order_ref',
+                        'meta_value' => $order->orderRef,
+                    ]);
+                    if (count($matches) > 1) {
+                        throw new \RuntimeException('Multiple WooCommerce orders match this POS reference.');
+                    }
+                    if (count($matches) === 1) {
+                        $wcOrder = $matches[0];
+                        if (!$wcOrder instanceof \WC_Order
+                            || $wcOrder->get_meta('_pkstore_pos_origin', true) !== 'junction_pos') {
+                            throw new \RuntimeException('Existing WooCommerce order has an invalid POS origin marker.');
+                        }
+                    }
+                }
+
+                if (!$wcOrder) {
+                    $wcOrder = $this->createWooCommerceOrder($order);
+                }
+
+                // A crash after WooCommerce creation but before POS linkage is
+                // recoverable by the unique POS reference metadata lookup above.
+                if (!$wcOrder->is_paid()) {
+                    $wcOrder->payment_complete('POS-' . $order->orderRef);
+                }
+                $wcOrder->save();
+
+                $order->markSynced((int) $wcOrder->get_id());
+                $this->orderRepo->update($order);
+                $synced++;
+            } catch (\Throwable $error) {
+                $failed++;
+                $errors[] = 'POS order ' . $candidate->orderRef . ' could not be synchronized.';
+                $this->log->error('POS to WooCommerce order sync failed.', [
+                    'pos_order_id' => $candidate->id,
+                    'order_ref' => $candidate->orderRef,
+                    'error_class' => get_class($error),
+                ]);
+            } finally {
+                $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            }
         }
 
-        $this->log->warning('POS to WooCommerce sync is unavailable; pending orders were left unchanged.', [
-            'pending_count' => $count,
-        ]);
+        return ['synced' => $synced, 'failed' => $failed, 'errors' => $errors];
+    }
 
-        return [
-            'synced' => 0,
-            'failed' => $count,
-            'errors' => ['WooCommerce order creation is not implemented. POS orders remain pending and were not falsely marked as synced.'],
-        ];
+    private function createWooCommerceOrder(POSOrder $posOrder): \WC_Order {
+        $wcOrder = new \WC_Order();
+        $wcOrder->set_created_via('junction-pos');
+        $wcOrder->set_currency('PKR');
+        $wcOrder->set_status('pending');
+        $wcOrder->set_payment_method('junction_pos_' . $posOrder->paymentMethod);
+        $wcOrder->set_payment_method_title('POS ' . ucfirst($posOrder->paymentMethod));
+
+        $nameParts = preg_split('/\s+/', trim($posOrder->customerName), 2) ?: [];
+        $wcOrder->set_billing_first_name($nameParts[0] ?? 'Walk-in');
+        $wcOrder->set_billing_last_name($nameParts[1] ?? '');
+        $wcOrder->set_billing_phone($posOrder->customerPhone);
+
+        $wcOrder->update_meta_data('_pkstore_pos_origin', 'junction_pos');
+        $wcOrder->update_meta_data('_pkstore_pos_order_ref', $posOrder->orderRef);
+        $wcOrder->update_meta_data('_pkstore_pos_tender_method', $posOrder->paymentMethod);
+        $wcOrder->update_meta_data('_pkstore_pos_inventory_deducted', 'yes');
+        // Junction has already committed the stock movement and publishes the
+        // combined stock snapshot. This flag prevents WooCommerce reducing it again.
+        $wcOrder->update_meta_data('_order_stock_reduced', 'yes');
+
+        $items = $posOrder->getItems();
+        if (!$items) {
+            throw new \RuntimeException('POS order has no persisted line items.');
+        }
+
+        foreach ($items as $item) {
+            $inventoryProduct = $this->productRepo->findById((int) $item['product_id']);
+            if (!$inventoryProduct || !$inventoryProduct->wcProductId) {
+                throw new \RuntimeException('A POS item has no valid WooCommerce product mapping.');
+            }
+            $wcProduct = wc_get_product($inventoryProduct->wcProductId);
+            if (!$wcProduct instanceof \WC_Product) {
+                throw new \RuntimeException('A mapped WooCommerce product is unavailable.');
+            }
+            $quantity = (int) $item['quantity'];
+            $lineTotal = (int) $item['unit_price_pkr'] * $quantity;
+            if ($quantity < 1 || $lineTotal < 0) {
+                throw new \RuntimeException('A persisted POS line item is invalid.');
+            }
+            $added = $wcOrder->add_product($wcProduct, $quantity, [
+                'subtotal' => wc_format_decimal($lineTotal, 0),
+                'total' => wc_format_decimal($lineTotal, 0),
+            ]);
+            if (!$added) {
+                throw new \RuntimeException('WooCommerce rejected a POS line item.');
+            }
+        }
+
+        $wcOrder->set_discount_total(wc_format_decimal($posOrder->discountPkr, 0));
+        $wcOrder->set_shipping_total('0');
+        $wcOrder->set_cart_tax('0');
+        $wcOrder->set_shipping_tax('0');
+        $wcOrder->set_total(wc_format_decimal($posOrder->totalPkr, 0));
+        $wcOrder->save();
+
+        return $wcOrder;
     }
 }
