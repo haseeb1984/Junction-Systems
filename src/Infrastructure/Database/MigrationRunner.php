@@ -102,18 +102,18 @@ final class MigrationRunner {
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
-        foreach (['pkstore_city_mappings', 'pkstore_pos_sessions', 'pkstore_inventory_products'] as $suffix) {
-            $table = $wpdb->prefix . $suffix;
-            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
-            if ($wpdb->last_error !== '') {
-                // Never interpret a failed schema probe as a fresh install:
-                // doing so could bypass the pre-migration backup confirmation.
-                throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
-            }
-            if ($found === $table) return true;
+        // Any pre-existing Junction table makes this an upgrade, including a
+        // partial/legacy install that does not yet have the three core tables.
+        // Escape the literal prefix before adding the intentional wildcard.
+        $pattern = $wpdb->esc_like($wpdb->prefix . 'pkstore_') . '%';
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pattern));
+        if ($wpdb->last_error !== '') {
+            // Never interpret a failed schema probe as a fresh install:
+            // doing so could bypass the pre-migration backup confirmation.
+            throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
-        return false;
+        return is_string($found) && $found !== '';
     }
 
     private static function verifyRequiredTables(string $version): void {
