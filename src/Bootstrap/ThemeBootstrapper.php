@@ -35,7 +35,7 @@ final class ThemeBootstrapper {
         (new AssetEnqueuer($this->bm))->register();
 
         // ── Core features (always on) ─────────────────────────────
-        (new TrackingController($this->c))->register();
+        (new TrackingController($this->c, $this->fm))->register();
 
         // ── CoD OTP ──────────────────────────────────────────────
         if ($this->fm->isEnabled('cod_otp'))
