@@ -18,10 +18,10 @@ finally{enableButton(sub);inp.disabled=false;inp.focus();}}
 }
 async function stream(t,msgs){const{bubble,node}=mkBubble(msgs);typing(bubble);let acc='',first=true;
 const res=await fetch(`${config.restUrl}/chat/stream`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_uuid:UUID,message:t,_nonce:config.chatNonce})});
-if(!res.ok||!res.body){bubble.remove();return;}
+if(!res.ok||!res.body){const p=await res.json().catch(()=>({}));bubble.remove();throw new ApiError(p.message||`HTTP ${res.status}`,res.status,p.code||'unknown');}
 const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
 while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const evts=buf.split('\n\n');buf=evts.pop()||'';
-for(const evt of evts){if(!evt.startsWith('data: '))continue;const d=evt.slice(6).trim();if(d==='[DONE]'){fin(bubble,node,acc);scroll(msgs);return;}try{const p=JSON.parse(d);if(p.delta){if(first){hideTyping(bubble);first=false;}acc+=p.delta;node.textContent=acc;dir(bubble,acc);scroll(msgs);}}catch(_){}}}
+for(const evt of evts){if(!evt.startsWith('data: '))continue;const d=evt.slice(6).trim();if(d==='[DONE]'){fin(bubble,node,acc);scroll(msgs);return;}try{const p=JSON.parse(d);if(p.delta){if(first){hideTyping(bubble);first=false;}acc+=p.delta;node.textContent=acc;dir(bubble,acc);scroll(msgs);}}catch(e){if(e instanceof ApiError)throw e;}}}
 if(acc)fin(bubble,node,acc);}
 async function block(t,msgs){const{bubble,node}=mkBubble(msgs);typing(bubble);const r=await fetch(`${config.restUrl}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_uuid:UUID,message:t,_nonce:config.chatNonce})}).then(r=>r.json());hideTyping(bubble);node.textContent=r.reply||'';dir(bubble,r.reply||'');fin(bubble,node,r.reply||'');scroll(msgs);}
 function user(l,t){const w=el('div',{class:'pk-chat__message pk-chat__message--user'});const b=el('p',{class:'pk-chat__bubble'});b.textContent=t;dir(b,t);w.appendChild(b);l.appendChild(w);scroll(l);}
