@@ -694,6 +694,9 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
     || strpos($whatsAppHooksSource, "woocommerce_order_status_wc-shipped") !== false
     || strpos($whatsAppHooksSource, "get_meta('_tracking_courier', true)") === false
     || strpos($whatsAppHooksSource, 'X-Hub-Signature-256') === false
+    || strpos($whatsAppHooksSource, 'rest_pre_serve_request') === false
+    || strpos($whatsAppHooksSource, "Content-Type: text/plain; charset=utf-8") === false
+    || strpos($whatsAppHooksSource, "get_method() === 'GET'") === false
     || strpos($whatsAppHooksSource, 'wp_json_encode($req->get_json_params())') !== false
     || strpos($whatsAppHooksSource, 'pkstore_whatsapp_low_stock_scan') === false
     || strpos($whatsAppServiceSource, "'type' => 'template'") === false
