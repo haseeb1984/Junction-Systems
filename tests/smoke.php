@@ -317,6 +317,8 @@ if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false
     || strpos($migrationRunnerSource, 'Unable to determine whether this is an existing Junction installation.') === false
     || strpos($migrationRunnerSource, 'Never interpret a failed schema probe as a fresh install') === false
+    || strpos($migrationRunnerSource, "'2.0.10' => [Installer::class, 'addOtpConsumptionColumns']") === false
+    || strpos($migrationRunnerSource, "'consumed_at', 'consumed_order_id'") === false
     || strpos($migrationRunnerSource, "'pkstore_') . '%'") === false) {
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
@@ -585,6 +587,21 @@ if (!is_string($themeBootstrapperSource)
     || strpos($themeBootstrapperSource, 'update_meta_data(\'_ga4_client_id\', $clientId)') === false
     || strpos($themeBootstrapperSource, 'update_post_meta($orderId') !== false) {
     throw new \\RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
+}
+
+$codOtpControllerSource = file_get_contents($src . '/Infrastructure/Http/CodOtpController.php');
+$otpRepositorySource = file_get_contents($src . '/Infrastructure/Verification/WpOtpRepository.php');
+$otpCheckoutJsSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/checkout.mjs');
+if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource) || !is_string($otpCheckoutJsSource)
+    || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
+    || strpos($codOtpControllerSource, 'consumeVerifiedAttempt(') === false
+    || strpos($codOtpControllerSource, "hash_equals((string) (\$proof['phone'] ?? ''), \$billingPhone->e164)") === false
+    || strpos($codOtpControllerSource, "update_meta_data('_pkstore_cod_otp_verified', 'yes')") === false
+    || strpos($otpRepositorySource, 'consumed_at IS NULL') === false
+    || strpos($otpRepositorySource, 'consumed_order_id=%s') === false
+    || strpos($otpCheckoutJsSource, 'order_id: state.orderId') !== false
+    || strpos($otpCheckoutJsSource, 'state.orderId') !== false) {
+    throw new \\RuntimeException('COD OTP must be session-bound, single-use and enforced by server-side checkout validation.');
 }
 
 $dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
