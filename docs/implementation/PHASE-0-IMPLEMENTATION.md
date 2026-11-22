@@ -219,3 +219,9 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Follow-up: tracking status application now rejects stale provider events that would move an order backwards (for example, `out-for-delivery` back to `in-transit`) and preserves terminal completed/returned/cancelled states. COD delivery metadata is still recorded on a verified delivered event even if the order is already completed. Added enum smoke assertions; provider-ordering runtime tests remain pending.
 
 - Courier booking reliability: both initial booking and temporary-provider-outage retries now fall back to WP-Cron when Action Scheduler is unavailable, while avoiding duplicate scheduled retries. Added source smoke guards; actual scheduler execution still requires runtime testing.
+
+
+## Dashboard HPOS compatibility follow-up
+
+- Logistics dashboard delivery-rate, RTO, in-transit, daily-order and pending-booking statistics no longer read `wp_posts` or `wp_postmeta` directly. They iterate WooCommerce order objects through paginated `wc_get_orders()` calls, so the active HPOS or legacy datastore is used.
+- Added source smoke guards. Dashboard performance with high-volume order histories and HPOS/legacy parity still need runtime measurement.
