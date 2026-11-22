@@ -55,10 +55,15 @@ final class CaptureWooCommerceStockCycleUseCase {
         $itemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
         $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
 
-        $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation || !$onlineLocation->isActive) {
-            throw new \RuntimeException('Junction online inventory location is unavailable.');
+        $activeLocations = $this->locationRepo->findAll();
+        if (!$activeLocations) {
+            throw new \RuntimeException('No active Junction inventory locations are available for stock-cycle capture.');
         }
+        usort($activeLocations, static fn($a, $b): int => $a->id <=> $b->id);
+        // This is a temporary schema locator only. The cycle-aware sale worker
+        // replaces it with the first actual allocation and stores every location
+        // in allocation_snapshot before the cycle is activated.
+        $snapshotLocationId = (int) $activeLocations[0]->id;
 
         $snapshot = [];
         foreach ($order->get_items('line_item') as $item) {
@@ -84,8 +89,8 @@ final class CaptureWooCommerceStockCycleUseCase {
                 ? $this->productRepo->findByWcProductId($variationId)
                 : null;
             $inventoryProduct ??= $this->productRepo->findByWcProductId($parentId);
-            if (!$inventoryProduct) {
-                throw new \RuntimeException('Reduced WooCommerce product has no Junction inventory mapping.');
+            if (!$inventoryProduct || !$inventoryProduct->isActive) {
+                throw new \RuntimeException('Reduced WooCommerce product has no active Junction inventory mapping.');
             }
 
             $refundBaselineRaw = $item->get_meta('_restock_refunded_items', true);
@@ -98,7 +103,7 @@ final class CaptureWooCommerceStockCycleUseCase {
                 'parent_id' => $parentId,
                 'variation_id' => $variationId,
                 'inventory_product_id' => (int) $inventoryProduct->id,
-                'inventory_location_id' => (int) $onlineLocation->id,
+                'inventory_location_id' => $snapshotLocationId,
                 'quantity' => (int) $reduced,
                 'refund_cumulative_baseline' => (int) $refundBaseline,
             ];
