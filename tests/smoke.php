@@ -560,6 +560,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "'START TRANSACTION'") === false
     || strpos($stockCycleCaptureSource, "'COMMIT'") === false
     || strpos($stockCycleCaptureSource, "'ROLLBACK'") === false
+    || strpos($stockCycleCaptureSource, '$wpdb->last_error') === false
+    || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
+    || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || !is_string($stockCycleHooksSource)
     || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') !== false
     || !is_string($stockCycleServicesSource)
