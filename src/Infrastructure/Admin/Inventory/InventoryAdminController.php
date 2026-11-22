@@ -26,7 +26,7 @@ final class InventoryAdminController {
         }
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
         add_submenu_page('pkstore-operations','Inventory Event Health','🔄 Sync Health',self::CAP,'pkstore-inventory-events',[$this,'inventoryEvents']);
-        add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders',self::CAP,'pkstore-purchase-orders',[$this,'purchaseOrders']);
+        add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders','manage_options','pkstore-purchase-orders',[$this,'purchaseOrders']);
     }
 
     public function assets(string $hook): void {
@@ -141,7 +141,7 @@ final class InventoryAdminController {
             $this->redirect('pkstore-inventory','error','SKU already exists.'); return;
         }
 
-        $costPrice = filter_var($_POST['cost_price'] ?? 0, FILTER_VALIDATE_INT);
+        $costPrice = current_user_can('manage_options') ? filter_var($_POST['cost_price'] ?? 0, FILTER_VALIDATE_INT) : 0;
         $salePrice = filter_var($_POST['sale_price'] ?? 0, FILTER_VALIDATE_INT);
         $reorderPoint = filter_var($_POST['reorder_point'] ?? 5, FILTER_VALIDATE_INT);
         $wcProductRaw = $_POST['wc_product_id'] ?? 0;
@@ -245,7 +245,7 @@ final class InventoryAdminController {
     }
 
     public function stockLog(): void {
-        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
         $movements = $wpdb->get_results(
