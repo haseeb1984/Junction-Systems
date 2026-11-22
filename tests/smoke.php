@@ -94,13 +94,13 @@ if (in_array('mailchimp', $basic, true) || in_array('barcode_labels', $basic, tr
 }
 
 $standard = \PkStore\License\LicenseFeatures::forTier('standard');
-foreach (['barcode_labels', 'analytics_ga4', 'facebook_pixel', 'mailchimp'] as $required) {
+foreach (['barcode_labels', 'analytics_ga4', 'facebook_pixel', 'mailchimp', 'postex_courier', 'rider_courier'] as $required) {
     if (!in_array($required, $standard, true)) {
         throw new \RuntimeException('Standard package entitlement is missing: ' . $required);
     }
 }
-if (in_array('postex_courier', $standard, true) || in_array('klaviyo', $standard, true)) {
-    throw new \RuntimeException('Enterprise-only extras must not leak into Standard.');
+if (in_array('klaviyo', $standard, true)) {
+    throw new \RuntimeException('Klaviyo must remain an Enterprise-only extra.');
 }
 
 $enterprise = \PkStore\License\LicenseFeatures::forTier('enterprise');
