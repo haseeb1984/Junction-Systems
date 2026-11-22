@@ -15,6 +15,7 @@ final class TrackingController {
                 'permission_callback'=>[$this,'nonce'],
                 'args'=>[
                     'order_key'=>['required'=>true,'type'=>'string','sanitize_callback'=>'sanitize_text_field'],
+                    '_nonce'=>['required'=>true,'type'=>'string'],
                 ],
             ]);
         });
@@ -25,7 +26,7 @@ final class TrackingController {
             || $this->features->isEnabled('courier_trax');
     }
     public function nonce(\WP_REST_Request $r):bool {
-        return wp_verify_nonce($r->get_header('X-WP-Nonce')??'', 'wp_rest') !== false;
+        return (bool) wp_verify_nonce($r->get_param('_nonce'), 'pkstore_nonce');
     }
     public function handle(\WP_REST_Request $r):\WP_REST_Response{
         $orderKey = trim((string) $r->get_param('order_key'));
