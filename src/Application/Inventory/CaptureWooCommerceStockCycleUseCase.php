@@ -91,6 +91,14 @@ final class CaptureWooCommerceStockCycleUseCase {
                     throw new \RuntimeException('Active WooCommerce stock cycle is unavailable for return capture.');
                 }
 
+                $openCycleCount = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d AND state<>'closed'",
+                    $orderId
+                ));
+                if ($wpdb->last_error !== '' || !is_numeric($openCycleCount) || (int) $openCycleCount > 1) {
+                    throw new \RuntimeException('WooCommerce return event is ambiguous because multiple stock cycles are still open.');
+                }
+
                 $cycleItem = $wpdb->get_row($wpdb->prepare(
                     "SELECT reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,refund_restored_quantity
                      FROM {$itemsTable} WHERE cycle_uuid=%s AND wc_order_item_id=%d FOR UPDATE",
