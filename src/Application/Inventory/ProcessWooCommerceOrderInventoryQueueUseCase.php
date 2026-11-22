@@ -152,9 +152,9 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             // Release the newer generation; ledger movement references prevent
             // a second stock deduction on the subsequent attempt.
             $released = $wpdb->query($wpdb->prepare(
-                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
-                 WHERE id=%d AND status='processing' AND generation<>%s",
-                current_time('mysql'), $id, $generation
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s AND claim_token=%s",
+                current_time('mysql'), $id, $generation, $claimToken
             ));
             if ($released === false) throw new \RuntimeException('Unable to release refreshed order inventory event.');
         }
@@ -168,7 +168,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         $now = current_time('mysql');
         $updated = $wpdb->query($wpdb->prepare(
             "UPDATE {$table}
-             SET status=%s, claimed_at=NULL,
+             SET status=%s, claimed_at=NULL, claim_token=NULL,
                  next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s, INTERVAL %d SECOND)),
                  last_error=%s
              WHERE id=%d AND generation=%s AND status='processing' AND claim_token=%s",
@@ -179,9 +179,9 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         if ($updated === false) throw new \RuntimeException('Unable to reschedule order inventory event.');
         if ($updated === 0) {
             $released = $wpdb->query($wpdb->prepare(
-                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
-                 WHERE id=%d AND status='processing' AND generation<>%s",
-                current_time('mysql'), $id, $generation
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s AND claim_token=%s",
+                current_time('mysql'), $id, $generation, $claimToken
             ));
             if ($released === false) throw new \RuntimeException('Unable to release refreshed order inventory event after failure.');
         }
