@@ -105,7 +105,7 @@ final class InventoryAdminController {
             }
 
             if ($updated !== 1) {
-                throw new \\RuntimeException('Queue event is no longer in needs_review state.');
+                throw new \RuntimeException('Queue event is no longer in needs_review state.');
             }
             $inserted = $wpdb->insert($auditTable, [
                 'queue_type' => $queueType,
@@ -115,9 +115,9 @@ final class InventoryAdminController {
                 'actor_id' => get_current_user_id(),
                 'created_at' => $now,
             ]);
-            if ($inserted !== 1) throw new \\RuntimeException('Could not append the operator audit record.');
-            if ($wpdb->query('COMMIT') === false) throw new \\RuntimeException('Could not commit the queue action.');
-        } catch (\\Throwable $error) {
+            if ($inserted !== 1) throw new \RuntimeException('Could not append the operator audit record.');
+            if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Could not commit the queue action.');
+        } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
             error_log('[PKStore Inventory] Queue operator action failed ('.get_class($error).').');
             $this->redirect('pkstore-inventory-events', 'error', 'The queue action was not completed. Refresh and inspect the event.');
