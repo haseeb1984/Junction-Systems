@@ -73,10 +73,10 @@ final class SyncWooCommerceStockUseCase {
                 // Lock the location/product row before checking the reference.
                 // Concurrent duplicate WooCommerce hooks then observe the first
                 // committed movement and cannot deduct the same order twice.
-                $this->stockRepo->getStock((int) $productId, $onlineLocation->id);
+                $this->stockRepo->getStock((int) $productId, $returnLocation->id);
                 if ($this->stockRepo->hasMovementReference(
                     (int) $productId,
-                    $onlineLocation->id,
+                    $returnLocation->id,
                     'wc_order',
                     (string) $orderId,
                     MovementType::OnlineSale
@@ -86,7 +86,7 @@ final class SyncWooCommerceStockUseCase {
 
                 $this->adjustStock->execute(
                     (int) $productId,
-                    $onlineLocation->id,
+                    $returnLocation->id,
                     -$quantity,
                     MovementType::OnlineSale,
                     "WooCommerce order #{$orderId}",
@@ -272,16 +272,32 @@ final class SyncWooCommerceStockUseCase {
         }
         $candidate = $candidates[0];
         $item = $candidate['item'];
-        $productRecord = $candidate['variation_id'] > 0
-            ? $this->productRepo->findByWcProductId($candidate['variation_id'])
-            : null;
-        $productRecord ??= $this->productRepo->findByWcProductId($candidate['parent_id']);
-        if (!$productRecord) {
-            throw new \RuntimeException('Refund-restocked WooCommerce item is not linked to Junction inventory.');
+        $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
+        if ($isPosOrder) {
+            $productRecord = $this->productRepo->findById((int) $item->get_meta('_pkstore_inventory_product_id', true));
+            $returnLocation = $this->locationRepo->findById((int) $item->get_meta('_pkstore_inventory_location_id', true));
+            $saleReference = (string) $item->get_meta('_pkstore_pos_order_ref', true);
+            $saleSource = 'pos_order';
+            $saleMovementType = MovementType::Sale;
+            if (!$productRecord || !$returnLocation || $saleReference === ''
+                || !in_array((int) $productRecord->wcProductId, array_filter([$candidate['variation_id'], $candidate['parent_id']]), true)) {
+                throw new \RuntimeException('POS refund item is missing its original Junction inventory mapping.');
+            }
+        } else {
+            $productRecord = $candidate['variation_id'] > 0
+                ? $this->productRepo->findByWcProductId($candidate['variation_id'])
+                : null;
+            $productRecord ??= $this->productRepo->findByWcProductId($candidate['parent_id']);
+            $returnLocation = $this->locationRepo->findOnline();
+            $saleReference = (string) $orderId;
+            $saleSource = 'wc_order';
+            $saleMovementType = MovementType::OnlineSale;
+            if (!$productRecord || !$returnLocation) {
+                throw new \RuntimeException('Refund-restocked WooCommerce item is not linked to Junction inventory.');
+            }
         }
-        $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation) {
-            throw new \RuntimeException('Junction online inventory location is not configured.');
+        if (!$returnLocation->isActive) {
+            throw new \RuntimeException('The original Junction inventory location is unavailable.');
         }
 
         $itemId = (int) $item->get_id();
@@ -291,21 +307,21 @@ final class SyncWooCommerceStockUseCase {
             throw new \RuntimeException('Unable to start WooCommerce refund return transaction.');
         }
         try {
-            $this->stockRepo->getStock($productRecord->id, $onlineLocation->id);
-            if (!$this->stockRepo->hasMovementReference($productRecord->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
+            $this->stockRepo->getStock($productRecord->id, $returnLocation->id);
+            if (!$this->stockRepo->hasMovementReference($productRecord->id, $returnLocation->id, $saleSource, $saleReference, $saleMovementType)) {
                 if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit deferred refund restock.');
                 return false;
             }
             if (!$this->stockRepo->hasMovementReference(
                 $productRecord->id,
-                $onlineLocation->id,
+                $returnLocation->id,
                 'wc_refund_restock',
                 $referenceId,
                 MovementType::OnlineReturn
             )) {
                 $this->adjustStock->execute(
                     $productRecord->id,
-                    $onlineLocation->id,
+                    $returnLocation->id,
                     $newStock - $oldStock,
                     MovementType::OnlineReturn,
                     "WooCommerce refund restock for order #{$orderId}, item #{$itemId}",
