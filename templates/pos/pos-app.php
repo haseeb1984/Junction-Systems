@@ -246,6 +246,7 @@ const POS = {
             document.getElementById('pos-open-modal').classList.remove('active');
             document.getElementById('pos-session-label').textContent = `Session #${r.session_id}`;
             await this.loadProducts();
+            await this.flushOfflineQueue(true);
             this.toast(r.resumed ? 'Session resumed.' : `Register opened with PKR ${openingCash.toLocaleString()} cash.`);
         } catch(e) { alert('Failed to open session: ' + e.message); }
     },
@@ -504,7 +505,7 @@ const POS = {
     },
 
     async flushOfflineQueue(silent = false) {
-        if (this.isFlushingQueue || !navigator.onLine) return;
+        if (this.isFlushingQueue || !navigator.onLine || !this.sessionId) return;
         this.isFlushingQueue = true;
         try {
             const queue = await DB.getAll('queue');
