@@ -139,13 +139,12 @@ final class CaptureWooCommerceStockCycleUseCase {
                 ));
                 if ($inserted === false) throw new \RuntimeException('Unable to persist WooCommerce cycle return event.');
 
-                $updated = $wpdb->update($cyclesTable, [
-                    'state' => 'restoring',
-                    'updated_at' => $now,
-                ], [
-                    'cycle_uuid' => $cycleUuid,
-                    'state' => ['reducing', 'active', 'restoring'],
-                ]);
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE {$cyclesTable} SET state='restoring', updated_at=%s
+                     WHERE cycle_uuid=%s AND state IN ('reducing','active','restoring')",
+                    $now,
+                    $cycleUuid
+                ));
                 if ($updated === false) throw new \RuntimeException('Unable to mark WooCommerce stock cycle as restoring.');
 
                 if ($wpdb->query('COMMIT') === false) {
