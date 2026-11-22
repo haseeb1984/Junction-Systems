@@ -9,4 +9,6 @@ interface OtpRepositoryInterface {
     public function findActiveByPhoneAndOrder(PakistanPhoneNumber $p, string $orderId):?OtpAttempt;
     public function countRecentSendsByPhone(PakistanPhoneNumber $p, \DateTimeImmutable $since):int;
     public function invalidatePrevious(PakistanPhoneNumber $p, string $orderId):void;
+    public function consumeVerifiedAttempt(string $attemptId, PakistanPhoneNumber $phone, string $sessionRef): bool;
+    public function bindConsumedAttemptToOrder(string $attemptId, string $sessionRef, string $orderId): bool;
 }
