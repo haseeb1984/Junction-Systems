@@ -76,6 +76,11 @@ final class ProcessPOSSaleUseCase {
             throw new \InvalidArgumentException('Sale discount must be between zero and the sale subtotal.');
         }
 
+        // Online orders reduce WooCommerce stock before the durable Junction
+        // ledger event is applied. Never let a POS sale spend that same stock
+        // while an online reduction is still pending or needs operator review.
+        $this->assertNoPendingOnlineStockReductions();
+
         // Keep order, line items, stock ledger/levels and session totals atomic.
         global $wpdb;
         if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
@@ -149,6 +154,46 @@ final class ProcessPOSSaleUseCase {
 
         $this->log->info('POS sale processed.', ['order_ref'=>$savedOrder->orderRef,'total'=>$savedOrder->totalPkr,'method'=>$paymentMethod]);
         return $savedOrder;
+    }
+
+    private function assertNoPendingOnlineStockReductions(): void {
+        if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.13', '<')) {
+            throw new \RuntimeException('Online store inventory reconciliation is not ready; POS sales are paused to prevent overselling.');
+        }
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('Online store inventory reconciliation is unavailable; POS sales are paused to prevent overselling.');
+        }
+
+        $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+        $queueTable = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+
+        $pendingEvents = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$eventsTable} WHERE event_kind='reduction' AND status<>'processed'"
+        );
+        if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) {
+            throw new \RuntimeException('Online store inventory reconciliation could not be verified; POS sales are paused.');
+        }
+
+        $legacyCycleUuid = '00000000-0000-0000-0000-000000000000';
+        $unresolvedQueueRows = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$queueTable} q
+             LEFT JOIN {$cyclesTable} c ON c.cycle_uuid=q.cycle_uuid
+             LEFT JOIN {$eventsTable} e ON e.event_key=c.reduction_event_key
+             WHERE q.status IN ('pending','processing','needs_review')
+               AND (q.cycle_uuid=%s OR e.status IS NULL OR e.status<>'processed')",
+            $legacyCycleUuid
+        ));
+        if ($wpdb->last_error !== '' || !is_numeric($unresolvedQueueRows)) {
+            throw new \RuntimeException('Online store inventory queue could not be verified; POS sales are paused.');
+        }
+
+        if ((int) $pendingEvents > 0 || (int) $unresolvedQueueRows > 0) {
+            throw new \RuntimeException('Online store sales are still being reconciled. Wait briefly and retry the POS sale.');
+        }
     }
 
     public static function requestFingerprint(
