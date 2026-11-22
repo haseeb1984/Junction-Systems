@@ -943,6 +943,8 @@ if (!is_string($posAppSource)
     || strpos($posAppSource, 'Sale confirmation unavailable — safely queued') === false
     || strpos($posAppSource, "item.status = 'needs_review'") === false
     || strpos($posAppSource, 'local_stock_decremented:true') === false
+    || strpos($posAppSource, 'Cannot close this register yet: sync the pending offline sales first.') === false
+    || strpos($posAppSource, 'const stillPending = (await DB.getAll(\'queue\')).filter(item => item.status !== \'needs_review\')') === false
     || strpos($posAppSource, 'Sale saved. WhatsApp receipt could not be generated.') === false) {
     throw new \RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
 }
