@@ -31,12 +31,19 @@ final class SyncWooCommerceStockUseCase {
         // Aggregate repeated product lines so one order creates one auditable
         // online-sale movement per inventory product.
         $quantities = [];
-        foreach ($order->get_items() as $item) {
+        foreach ($order->get_items('line_item') as $item) {
+            // Only count lines WooCommerce actually reduced. An order can also
+            // contain virtual, untracked, or otherwise non-stock-managed lines.
+            $reducedStock = $item->get_meta('_reduced_stock', true);
+            if ($reducedStock === '' || $reducedStock === null || (float) $reducedStock === 0.0) {
+                continue;
+            }
             $wcProductId = (int) $item->get_product_id();
             $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
-            $rawQuantity = (float) $item->get_quantity();
-            if ($wcProductId < 1 || $rawQuantity <= 0 || floor($rawQuantity) !== $rawQuantity) {
-                throw new \RuntimeException('WooCommerce order contains an invalid inventory product or quantity.');
+            $rawQuantity = (float) $reducedStock;
+            if ($wcProductId < 1 || !is_numeric($reducedStock) || $rawQuantity < 0
+                || floor($rawQuantity) !== $rawQuantity) {
+                throw new \RuntimeException('WooCommerce order contains an invalid actual stock-reduction quantity.');
             }
             // Prefer an explicitly mapped variation so separately stocked
             // variants deduct from their own Junction inventory record. If no
@@ -50,8 +57,6 @@ final class SyncWooCommerceStockUseCase {
                 // the mapped subset of an order and leave the order under-counted.
                 throw new \RuntimeException('WooCommerce order product is not linked to Junction inventory.');
             }
-            // Always book the original sale quantity. Explicit WooCommerce restocks
-            // are separate durable return movements, even if callbacks arrive first.
             $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int) $rawQuantity;
         }
         if (!$quantities) {
