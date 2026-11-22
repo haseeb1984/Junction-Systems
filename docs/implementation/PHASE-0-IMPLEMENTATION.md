@@ -339,3 +339,5 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 
 - Courier retry scheduling now passes the order ID as the positional callback argument for both Action Scheduler and WP-Cron. The previous associative `order_id` argument did not match the registered callback's `$orderId` parameter and could prevent the five-minute retry from executing after all providers were unavailable. Added a source smoke guard; actual scheduler execution remains part of staging acceptance.
+
+- Courier retry notes now distinguish a real provider-confirmed tracking number from the synthetic `PENDING-*` queue marker. A queued retry is no longer reported to the store owner as a successfully booked shipment; the order remains visibly pending until a provider returns a real tracking reference.
