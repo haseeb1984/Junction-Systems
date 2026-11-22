@@ -23,6 +23,9 @@ final class ShippingRegistry {
         add_action('woocommerce_payment_complete',             [$this, 'autoBookShipment']);
         add_filter('woocommerce_available_payment_gateways',   [$this, 'filterGatewaysForDigital']);
         add_action('pkstore_tracking_sync_cron',               [$this, 'syncTrackingUpdates']);
+        if (!wp_next_scheduled('pkstore_tracking_sync_cron')) {
+            wp_schedule_event(time() + 300, 'hourly', 'pkstore_tracking_sync_cron');
+        }
     }
 
     public function autoBookShipment(int $orderId): void {
@@ -48,18 +51,78 @@ final class ShippingRegistry {
     }
 
     public function syncTrackingUpdates(): void {
-        global $wpdb;
-        $ids = $wpdb->get_col("SELECT DISTINCT p.ID FROM {$wpdb->posts} p WHERE p.post_type='shop_order' AND p.post_status IN ('wc-shipped','wc-out-for-delivery') LIMIT 100");
-        if (empty($ids)) return;
-        foreach ($ids as $orderId) {
-            $order   = wc_get_order((int)$orderId);
-            $tn      = $order ? (string)$order->get_meta('_tracking_courier') : '';
-            $courier = $order ? (string)$order->get_meta('_booked_courier')  : '';
-            if (empty($tn) || empty($courier) || str_starts_with($tn,'PENDING-')) continue;
-            if (function_exists('as_schedule_single_action')) {
-                as_schedule_single_action(time(),'pkstore_update_tracking',['order_id'=>(int)$orderId,'tracking'=>$tn,'courier'=>$courier],'pkstore-logistics');
+        if (!function_exists('wc_get_orders')) return;
+
+        // Use WooCommerce's order abstraction rather than querying wp_posts:
+        // HPOS stores orders outside the posts table.
+        $page = max(1, (int) get_option('pkstore_tracking_sync_page', 1));
+        $result = wc_get_orders([
+            'type' => 'shop_order',
+            'status' => ['wc-shipped', 'wc-out-for-delivery'],
+            'limit' => 100,
+            'paged' => $page,
+            'return' => 'objects',
+            'paginate' => true,
+            'orderby' => 'modified',
+            'order' => 'ASC',
+        ]);
+
+        if (!is_object($result) || !isset($result->orders, $result->max_num_pages)) {
+            error_log('[PK Store] Tracking sync query did not return a valid paginated order result.');
+            return;
+        }
+        $maxPages = max(1, (int) $result->max_num_pages);
+        if ($page > $maxPages) {
+            update_option('pkstore_tracking_sync_page', 1, false);
+            return;
+        }
+
+        $courierMap = [
+            'tcs' => ['courier_tcs', \PkStore\Infrastructure\Logistics\TcsCourier::class],
+            'leopards' => ['courier_leopards', \PkStore\Infrastructure\Logistics\LeopardsCourier::class],
+            'trax' => ['courier_trax', \PkStore\Infrastructure\Logistics\TraxCourier::class],
+        ];
+
+        foreach ($result->orders as $order) {
+            if (!($order instanceof \WC_Order)) continue;
+            $trackingNumber = (string) $order->get_meta('_tracking_courier');
+            $courierCode = strtolower((string) $order->get_meta('_booked_courier'));
+            if ($trackingNumber === '' || str_starts_with($trackingNumber, 'PENDING-')
+                || !isset($courierMap[$courierCode])) {
+                continue;
+            }
+            [$feature, $courierClass] = $courierMap[$courierCode];
+            if (!$this->features->isEnabled($feature)) continue;
+
+            try {
+                $update = $this->container->make($courierClass)->getTrackingUpdate($trackingNumber);
+                if (!$update) continue;
+
+                $nextStatus = $update->status->toWooCommerceStatus();
+                $previousStatus = 'wc-' . $order->get_status();
+                if ($previousStatus !== $nextStatus) {
+                    $location = $update->location !== '' ? ' (' . sanitize_text_field($update->location) . ')' : '';
+                    $description = $update->description !== '' ? ': ' . sanitize_text_field($update->description) : '';
+                    $order->update_status(
+                        $nextStatus,
+                        '[PK Store][' . $courierCode . '] ' . ucwords(str_replace('_', ' ', $update->status->value)) . $location . $description
+                    );
+                }
+
+                if ($update->status === \PkStore\Domain\Logistics\DTO\TrackingStatus::Delivered
+                    && str_contains($order->get_payment_method(), 'cod')
+                    && !$order->get_meta('_cod_delivered_at')) {
+                    $order->update_meta_data('_cod_delivered_at', current_time('mysql'));
+                    $order->update_meta_data('_cod_delivered_by', $courierCode);
+                    $order->save_meta_data();
+                    do_action('pkstore_cod_delivered', $order->get_id(), $courierCode, $trackingNumber);
+                }
+            } catch (\Throwable $error) {
+                error_log('[PK Store] Tracking sync failed for order ' . (int) $order->get_id() . ' (' . get_class($error) . ').');
             }
         }
+
+        update_option('pkstore_tracking_sync_page', $page >= $maxPages ? 1 : $page + 1, false);
     }
 
     private function isDigitalOnlyOrder(\WC_Order $order): bool {
