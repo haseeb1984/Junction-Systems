@@ -9,11 +9,11 @@ use PkStore\Domain\Verification\ValueObject\PakistanPhoneNumber;
 use Psr\Log\LoggerInterface;
 final class SendCodOtpUseCase {
     private const MAX=3;private const MINS=15;private const LEN=6;
-    private const TPL="Your PK Store code: %s\nValid 5 minutes. Order #%s\nDO NOT share.";
+    private const TPL="Your Junction checkout code: %s\nValid 5 minutes. DO NOT share.";
     public function __construct(private readonly OtpRepositoryInterface $repo, private readonly SmsProviderInterface $sms, private readonly LoggerInterface $log) {}
     public function execute(string $rawPhone, string $orderId):void {
         if ($orderId === '' || strlen($orderId) > 32) {
-            throw new \\InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
+            throw new \InvalidArgumentException('Invalid checkout verification session. Refresh checkout and try again.');
         }
         $phone=new PakistanPhoneNumber($rawPhone);
         $since=new \DateTimeImmutable('-'.self::MINS.' minutes');
