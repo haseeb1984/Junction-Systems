@@ -37,6 +37,11 @@ final class SyncPOSQueueUseCase {
             }
 
             global $wpdb;
+            if (!$wpdb instanceof \\wpdb) {
+                $failed++;
+                $errors[] = 'POS synchronization database is unavailable.';
+                continue;
+            }
             $lockName = 'pkstore_pos_sync_' . $candidate->id;
             $locked = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
             if ($locked !== 1) {
@@ -102,6 +107,9 @@ final class SyncPOSQueueUseCase {
                     throw new \RuntimeException('Paid WooCommerce order does not match its POS source record.');
                 }
                 $wcOrder->save();
+                if ((int) $wcOrder->get_id() < 1) {
+                    throw new \\RuntimeException('WooCommerce POS order has no persisted ID.');
+                }
 
                 $order->markSynced((int) $wcOrder->get_id());
                 $this->orderRepo->update($order);
@@ -224,6 +232,24 @@ final class SyncPOSQueueUseCase {
         foreach ($wcOrder->get_items('line_item') as $item) {
             $key = (int) $item->get_product_id() . ':' . (int) $item->get_variation_id();
             $actual[$key] = ($actual[$key] ?? 0) + (int) $item->get_quantity();
+
+            // A paid order is immutable for recovery purposes. Verify the
+            // original Junction product, physical location and POS reference
+            // on every line because cancellation/refund handlers trust them.
+            $inventoryProductId = (int) $item->get_meta('_pkstore_inventory_product_id', true);
+            $locationId = (int) $item->get_meta('_pkstore_inventory_location_id', true);
+            $posOrderRef = (string) $item->get_meta('_pkstore_pos_order_ref', true);
+            $mappedProduct = $this->productRepo->findById($inventoryProductId);
+            if (!$mappedProduct
+                || !$mappedProduct->wcProductId
+                || !in_array((int) $mappedProduct->wcProductId, array_filter([
+                    (int) $item->get_variation_id(),
+                    (int) $item->get_product_id(),
+                ]), true)
+                || $locationId !== $posOrder->locationId
+                || !hash_equals($posOrder->orderRef, $posOrderRef)) {
+                return false;
+            }
         }
         ksort($expected);
         ksort($actual);
