@@ -3,15 +3,15 @@ import{apiRequest,ApiError}from'../lib/api-client.mjs';
 import{find,mustFind,el,showMessage,clearMessages}from'../lib/dom.mjs';
 const PFX='pkstore_track_';const TTL=5*60*1000;
 const LABELS={booked:{en:'Order Booked',ur:'آرڈر بک'},in_transit:{en:'In Transit',ur:'راستے میں'},out_for_delivery:{en:'Out for Delivery',ur:'ڈیلیوری کے لیے نکل گیا'},delivered:{en:'Delivered',ur:'پہنچا دیا گیا'},failed_attempt:{en:'Delivery Attempted',ur:'کوشش ہوئی'},returned:{en:'Returned',ur:'واپس آ گیا'},unknown:{en:'Unknown',ur:'معلوم نہیں'}};
-export function init(){const w=find('[data-tracking-widget]');if(!w)return;const inp=mustFind('[data-tracking-input]',w),btn=mustFind('[data-tracking-submit]',w),res=mustFind('[data-tracking-results]',w);
+export function init(){const w=find('[data-tracking-widget]');if(!w)return;const inp=mustFind('[data-tracking-input]',w),btn=mustFind('[data-tracking-submit]',w),res=mustFind('[data-tracking-results]',w);inp.placeholder='Order key from your confirmation email';inp.setAttribute('aria-label','Order key from your order confirmation email');
 btn.addEventListener('click',()=>track(inp,res,w));inp.addEventListener('keydown',e=>{if(e.key==='Enter')track(inp,res,w);});
-const url=new URLSearchParams(window.location.search).get('tracking');if(url){inp.value=url;track(inp,res,w);}
+const url=new URLSearchParams(window.location.search).get('order_key');if(url){inp.value=url;track(inp,res,w);}
 }
-async function track(inp,res,w){clearMessages(w);res.textContent='';const tn=inp.value.trim().toUpperCase().replace(/\s+/g,'');if(!tn){showMessage(w,'ٹریکنگ نمبر درج کریں۔','error');inp.focus();return;}
-const c=getC(tn);if(c){render(res,c);return;}
+async function track(inp,res,w){clearMessages(w);res.textContent='';const orderKey=inp.value.trim();if(!orderKey){showMessage(w,'آرڈر کی تصدیقی key درج کریں۔ Enter your order key.','error');inp.focus();return;}
+const c=getC(orderKey);if(c){render(res,c);return;}
 const btn=mustFind('[data-tracking-submit]',w);btn.disabled=true;btn.textContent='تلاش...';
-try{const d=await apiRequest('/tracking/status',{body:{tracking_number:tn}});setC(tn,d);render(res,d);}
-catch(e){if(e instanceof ApiError&&e.status===404)showMessage(w,`"${tn}" نہیں ملا۔`,'error');else showMessage(w,'سروس وقتی طور پر غیر دستیاب۔','error');}
+try{const d=await apiRequest('/tracking/status',{body:{order_key:orderKey}});setC(orderKey,d);render(res,d);}
+catch(e){if(e instanceof ApiError&&e.status===404)showMessage(w,'اس آرڈر کی tracking دستیاب نہیں۔ Check the order key and try again.','error');else showMessage(w,'سروس وقتی طور پر غیر دستیاب۔','error');}
 finally{btn.disabled=false;btn.textContent='ٹریک کریں';}
 }
 function render(res,d){const hdr=el('div',{class:'pk-tracking__header'});const s=d.currentStatus||'unknown';const lb=LABELS[s]||LABELS.unknown;hdr.appendChild(el('strong',{},'Tracking: '));hdr.appendChild(el('code',{},d.trackingNumber||''));const badge=el('span',{style:'margin-left:8px;padding:2px 8px;background:#f6f7f7;border-radius:3px;font-size:12px;'});badge.appendChild(el('span',{},lb.en));badge.appendChild(el('span',{dir:'rtl',lang:'ur',style:'margin-left:6px;'},lb.ur));hdr.appendChild(badge);if(d.courier)hdr.appendChild(el('span',{style:'margin-left:8px;color:#646970;font-size:12px;'},d.courier));
