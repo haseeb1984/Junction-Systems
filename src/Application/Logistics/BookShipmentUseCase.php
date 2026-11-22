@@ -39,8 +39,10 @@ final class BookShipmentUseCase {
             $shipment = $this->buildDto($order);
             if ($shipment === null) return;
             $result = $this->execute($shipment);
-            if ($result->success) {
-                $order->add_order_note('[PK Store] Courier booked on retry. Tracking: ' . $result->trackingNumber);
+            if ($result->success && !str_starts_with($result->trackingNumber, 'PENDING-')) {
+                $order->add_order_note('[PK Store] Courier booking confirmed on retry. Tracking: ' . $result->trackingNumber);
+            } elseif ($result->success) {
+                $order->add_order_note('[PK Store] Courier booking is still pending; no provider has confirmed a shipment yet. Automatic retry remains scheduled.');
             } else {
                 $order->add_order_note('[PK Store] Courier booking failed at all enabled providers. Check courier configuration, city mapping and provider logs before retrying.');
             }
