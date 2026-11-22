@@ -579,8 +579,7 @@ final class SyncWooCommerceStockUseCase {
             ];
             $allocatedQuantity += $allocationQuantity;
         }
-        if ($allocatedQuantity !== $reducedQuantity || $returnedQuantity > $reducedQuantity
-            || (int) $item->get_quantity() !== $reducedQuantity) {
+        if ($allocatedQuantity !== $reducedQuantity || $returnedQuantity > $reducedQuantity) {
             throw new \RuntimeException('WooCommerce stock-allocation quantities do not reconcile to the original sale.');
         }
         foreach ($normalized as $allocation) {
