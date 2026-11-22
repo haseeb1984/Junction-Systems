@@ -193,7 +193,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
     }
 
     public function handleIpn(): void {
-        $rawUrl = (string) wp_unslash($_GET['url'] ?? $_GET['URL'] ?? '');
+        $rawUrl = trim((string) wp_unslash($_GET['url'] ?? $_GET['URL'] ?? ''));
         $orderRef = (string) wp_unslash($_GET['orderId'] ?? '');
         $accountNum = (string) wp_unslash($_GET['accountNum'] ?? '');
 
@@ -239,8 +239,8 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             status_header(503);
             exit;
         }
-        $this->applyProviderStatus($order, $status);
-        status_header(200);
+        $result = $this->applyProviderStatus($order, $status);
+        status_header($result === 'pending' ? 503 : 200);
         echo 'OK';
         exit;
     }
