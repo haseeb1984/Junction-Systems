@@ -27,7 +27,7 @@ final class InventoryController {
             if (FeatureManager::getInstance()->isEnabled('barcode_labels')) {
                 register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>$barcodeAuth]);
             }
-            register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$readAuth]);
+            register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$manageAuth]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
