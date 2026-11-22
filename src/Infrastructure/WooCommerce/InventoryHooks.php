@@ -8,9 +8,9 @@ use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
-        add_action('woocommerce_payment_complete',           [$this, 'onSale']);
-        add_action('woocommerce_order_status_completed',     [$this, 'onSale']);
-        add_action('woocommerce_order_status_processing',    [$this, 'onSale']);
+        // Queue an online sale only after WooCommerce has completed its actual
+        // order stock-reduction pass. Payment/status transitions alone are not proof.
+        add_action('woocommerce_reduce_order_stock', [$this, 'onOrderStockReduced'], 10, 1);
         // This per-line hook fires only after WooCommerce actually restores stock.
         add_action('woocommerce_restore_order_item_stock', [$this, 'onOrderItemRestored'], 10, 4);
         // This hook fires only when the merchant explicitly restocks a refunded item.
@@ -20,18 +20,18 @@ final class InventoryHooks {
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
         add_action('pkstore_inventory_hourly_sync', [$this, 'hourlySyncAll']);
     }
-    public function onSale(int $orderId): void {
+    public function onOrderStockReduced($order): void {
         try {
-            $order = function_exists('wc_get_order') ? wc_get_order($orderId) : null;
-            // Junction POS already deducted shared inventory; do not ingest its mirror as another sale.
-            if ($order instanceof \WC_Order
-                && $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') {
-                return;
+            if (!($order instanceof \\WC_Order)) {
+                throw new \\InvalidArgumentException('Malformed WooCommerce stock-reduction event.');
             }
+            // Junction POS already deducted shared inventory; do not ingest its mirror.
+            if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
+            $orderId = (int) $order->get_id();
+            if ($orderId < 1) throw new \\InvalidArgumentException('Invalid WooCommerce order ID.');
             $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId);
-        } catch (\Throwable $e) {
-            // Avoid leaking exception details that may contain customer/provider data.
-            error_log('[PKStore Inventory] Unable to enqueue order inventory event for '.$orderId.' ('.get_class($e).').');
+        } catch (\\Throwable $e) {
+            error_log('[PKStore Inventory] Unable to enqueue actual WooCommerce stock reduction ('.get_class($e).').');
         }
     }
     public function onOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
