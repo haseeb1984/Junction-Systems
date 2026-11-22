@@ -513,8 +513,6 @@ if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
     throw new \RuntimeException('POS order retry, original-location return, and stock-cycle safeguards must remain in place.');
 }
 
-echo "Smoke tests passed.\n";
-
 $posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
 if (!is_string($posSyncSource)
     || strpos($posSyncSource, '\\\\wpdb') !== false
@@ -522,5 +520,7 @@ if (!is_string($posSyncSource)
     || strpos($posSyncSource, 'private function paidWooCommerceOrderMatches') === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
     || strpos($posSyncSource, "_pkstore_pos_order_ref") === false) {
-    throw new \\RuntimeException('POS-to-WooCommerce recovery must use valid PHP namespaces and verify trusted per-line origin metadata.');
+    throw new \RuntimeException('POS-to-WooCommerce recovery must use valid PHP namespaces and verify trusted per-line origin metadata.');
 }
+
+echo "Smoke tests passed.\n";
