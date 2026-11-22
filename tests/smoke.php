@@ -546,4 +546,25 @@ if (!is_string($stockCycleInstallerSource)
 }
 
 
+
+$stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
+$stockCycleHooksSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
+$stockCycleServicesSource = file_get_contents($root . '/config/services.php');
+if (!is_string($stockCycleCaptureSource)
+    || strpos($stockCycleCaptureSource, "get_meta('_reduced_stock', true)") === false
+    || strpos($stockCycleCaptureSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($stockCycleCaptureSource, "state<>'closed'") === false
+    || strpos($stockCycleCaptureSource, 'An open WooCommerce stock cycle conflicts with the current reduction snapshot.') === false
+    || strpos($stockCycleCaptureSource, "'wc_stock_cycle_reduce:'") === false
+    || strpos($stockCycleCaptureSource, "'woocommerce_reduce_order_stock'") === false
+    || strpos($stockCycleCaptureSource, "'START TRANSACTION'") === false
+    || strpos($stockCycleCaptureSource, "'COMMIT'") === false
+    || strpos($stockCycleCaptureSource, "'ROLLBACK'") === false
+    || !is_string($stockCycleHooksSource)
+    || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') !== false
+    || !is_string($stockCycleServicesSource)
+    || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') !== false) {
+    throw new \RuntimeException('WooCommerce stock-cycle capture must snapshot actual reductions atomically and remain disabled until cycle-aware workers are ready.');
+}
+
 echo "Smoke tests passed.\n";
