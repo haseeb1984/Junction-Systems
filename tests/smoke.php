@@ -553,6 +553,19 @@ if (!is_string($stockCycleInstallerSource)
 
 
 
+$trackingControllerSource = file_get_contents($src . '/Infrastructure/Http/TrackingController.php');
+$shippingRegistryLifecycleSource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
+if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecycleSource)
+    || strpos($trackingControllerSource, 'use PkStore\\Core\\Feature\\FeatureManager;') === false
+    || strpos($trackingControllerSource, "isEnabled('courier_tcs')") === false
+    || strpos($trackingControllerSource, "isEnabled('courier_leopards')") === false
+    || strpos($trackingControllerSource, "isEnabled('courier_trax')") === false
+    || strpos($shippingRegistryLifecycleSource, 'wc_get_orders([') === false
+    || strpos($shippingRegistryLifecycleSource, "'paginate' => true") === false
+    || strpos($shippingRegistryLifecycleSource, "'return' => 'objects'") === false) {
+    throw new \\RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
+}
+
 $shippingWebhookSource = file_get_contents($src . '/Infrastructure/Http/ShippingWebhookHandler.php');
 if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'isEnabled($featureMap[$cc])') === false
