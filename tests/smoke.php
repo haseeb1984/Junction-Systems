@@ -577,6 +577,7 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
 $stockRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
 if (!is_string($stockRepositorySource)
     || strpos($stockRepositorySource, 'Unable to verify stock movement idempotency reference.') === false
+    || strpos($stockRepositorySource, 'Unable to read aggregate inventory stock.') === false
     || strpos($stockRepositorySource, 'if ($this->db->last_error !== \'\')') === false) {
     throw new \\RuntimeException('A failed movement-reference query must not be treated as an unseen stock movement.');
 }
