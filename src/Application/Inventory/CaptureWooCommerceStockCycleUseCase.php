@@ -274,7 +274,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         try {
             $existing = $wpdb->get_row($wpdb->prepare(
                 "SELECT cycle_uuid, cycle_number, state FROM {$cyclesTable}
-                 WHERE wc_order_id=%d AND state<>'closed'
+                 WHERE wc_order_id=%d AND state IN ('reducing','active')
                  ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE",
                 $orderId
             ), ARRAY_A);
@@ -283,9 +283,6 @@ final class CaptureWooCommerceStockCycleUseCase {
             }
 
             if (is_array($existing)) {
-                if ((string) $existing['state'] === 'restoring') {
-                    throw new \RuntimeException('Previous WooCommerce stock cycle is still restoring; a new cycle must wait for its ledger return.');
-                }
                 $pendingReturn = $wpdb->get_var($wpdb->prepare(
                     "SELECT id FROM {$eventsTable} WHERE cycle_uuid=%s AND event_kind IN ('cancellation','refund') AND status<>'processed' LIMIT 1",
                     (string) $existing['cycle_uuid']
