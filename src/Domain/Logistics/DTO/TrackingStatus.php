@@ -32,5 +32,5 @@ enum TrackingStatus: string {
         return true;
     }
 
-    public function toWooCommerceStatus():string { return match($this){self::Booked,self::PickedUp=>'wc-shipped',self::InTransit,self::OutForDelivery=>'wc-out-for-delivery',self::Delivered=>'completed',self::FailedAttempt=>'wc-delivery-failed',self::Returned=>'wc-returned',self::Cancelled=>'cancelled',self::Exception=>'on-hold'}; }
+    public function toWooCommerceStatus():string { return match($this){self::Booked,self::PickedUp=>'shipped',self::InTransit,self::OutForDelivery=>'out-for-delivery',self::Delivered=>'completed',self::FailedAttempt=>'delivery-failed',self::Returned=>'returned',self::Cancelled=>'cancelled',self::Exception=>'on-hold'}; }
 }
