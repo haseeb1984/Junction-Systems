@@ -90,7 +90,8 @@ final class InventoryHooks {
                 // A legacy sentinel queue row remains visible and blocks POS
                 // sales until the cycle can be safely reconstructed.
                 $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, null);
-                error_log('[PKStore Inventory] WooCommerce stock-cycle capture failed; order queued for review ('.get_class($captureError).').');
+                $this->holdOrderForInventorySync($order, null);
+                error_log('[PKStore Inventory] WooCommerce stock-cycle capture failed; order held pending ledger reconciliation ('.get_class($captureError).').');
                 return;
             }
 
@@ -104,7 +105,8 @@ final class InventoryHooks {
                 $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId, $cycleUuid);
                 $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
             } catch (\Throwable $syncError) {
-                error_log('[PKStore Inventory] Synchronous online stock ingestion deferred to durable queue ('.get_class($syncError).').');
+                $this->holdOrderForInventorySync($order, $cycleUuid);
+                error_log('[PKStore Inventory] Synchronous online stock ingestion deferred to durable queue; order held ('.get_class($syncError).').');
             }
         } catch (\Throwable $error) {
             if ($orderId > 0) {
@@ -116,6 +118,21 @@ final class InventoryHooks {
                 }
             }
             error_log('[PKStore Inventory] WooCommerce stock reduction hook could not complete ingestion ('.get_class($error).').');
+        }
+    }
+
+    private function holdOrderForInventorySync(\WC_Order $order, ?string $cycleUuid): void {
+        if ($order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
+        if (in_array($order->get_status(), ['cancelled', 'refunded', 'failed'], true)) return;
+
+        $order->update_meta_data('_pkstore_wc_inventory_sync_hold', 'yes');
+        $order->update_meta_data('_pkstore_wc_inventory_sync_previous_status', $order->get_status());
+        if ($cycleUuid !== null) {
+            $order->update_meta_data('_pkstore_wc_inventory_sync_cycle_uuid', $cycleUuid);
+        }
+        $order->save();
+        if ($order->get_status() !== 'on-hold') {
+            $order->update_status('on-hold', 'Junction is reconciling the shared inventory ledger before this order can be fulfilled.');
         }
     }
 
