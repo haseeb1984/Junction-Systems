@@ -106,8 +106,8 @@ final class MigrationRunner {
             throw new \RuntimeException('Unable to determine whether this is an existing Junction installation.');
         }
 
-        // A recorded version or any Junction-owned table means this is an
-        // existing/partial installation and must pass the backup gate.
+        // Any Junction-owned table means this is an existing installation.
+        // A recorded version or partial schema must also pass the backup gate.
         $recordedVersion = (string) get_option(self::VERSION_OPTION, '0.0.0');
         if (version_compare($recordedVersion, '0.0.0', '>')) return true;
 
