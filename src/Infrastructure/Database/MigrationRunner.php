@@ -27,6 +27,7 @@ final class MigrationRunner {
         '2.0.7' => [InventoryInstaller::class, 'installInventoryQueueAudit'],
         '2.0.8' => [InventoryInstaller::class, 'installStockSyncQueue'],
         '2.0.9' => [InventoryInstaller::class, 'installWooCommerceStockCycles'],
+        '2.0.10' => [Installer::class, 'addOtpConsumptionColumns'],
     ];
 
 
@@ -161,6 +162,18 @@ final class MigrationRunner {
         }
 
         if (version_compare($version, '2.0.7', '>=')) $required[] = 'pkstore_inventory_queue_audit';
+        if (version_compare($version, '2.0.10', '>=')) {
+            $otpTable = $wpdb->prefix . 'pkstore_otp_attempts';
+            foreach (['consumed_at', 'consumed_order_id'] as $columnName) {
+                $column = $wpdb->get_var($wpdb->prepare(
+                    'SHOW COLUMNS FROM ' . $otpTable . ' LIKE %s',
+                    $columnName
+                ));
+                if (!$column) {
+                    throw new \\RuntimeException('Required COD OTP consumption column was not created.');
+                }
+            }
+        }
         if (version_compare($version, '2.0.9', '>=')) {
             $required[] = 'pkstore_wc_stock_cycles';
             $required[] = 'pkstore_wc_stock_cycle_items';
