@@ -306,3 +306,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Rate limits now apply both per chat session (20/hour) and per source IP (100/hour), with the IP stored only as an HMAC-derived transient key; a caller can no longer bypass the session quota simply by generating a new UUID.
 - Streaming responses now emit structured error events for rate limits/provider failures, and the browser surfaces those errors rather than silently treating `[DONE]` as a successful empty response.
 - Transient-based counters are best-effort under concurrent requests and behind shared reverse proxies; production acceptance should validate the Hostinger/proxy network path and adjust the IP quota if many customers share one egress IP.
+
+
+## Inventory financial-data permissions
+
+- Inventory product list/detail REST responses include `cost_price` only for users with `manage_options`; shop managers with `manage_woocommerce` still receive operational sale price and stock but not wholesale cost.
+- Product creation through REST and the admin form ignores cost input for non-administrators. The admin form hides the field, and the Purchase Orders screen is administrator-only because it contains supplier and purchase-cost data.
+- Inventory stock operations remain available to authorized `manage_woocommerce` operators under the inventory entitlement.
