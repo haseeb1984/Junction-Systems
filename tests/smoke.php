@@ -790,12 +790,25 @@ if (!is_string($stockCycleCaptureSource)
     throw new \\RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
+if (!is_string($stockCycleHooksSource)
+    || strpos($stockCycleHooksSource, '_pkstore_wc_reduced_stock_snapshot') === false
+    || strpos($stockCycleHooksSource, '_pkstore_wc_reduction_snapshot_version') === false
+    || strpos($stockCycleHooksSource, 'Unable to persist WooCommerce stock-reduction snapshot.') === false) {
+    throw new \RuntimeException('WooCommerce must persist actual stock reductions before asynchronous sale processing.');
+}
+
 $stockSaleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'malformed actual stock-reduction quantity') === false
     || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false
+    || strpos($stockSaleSource, '_pkstore_wc_reduced_stock_snapshot') === false
+    || strpos($stockSaleSource, '$this->locationRepo->findAll()') === false
+    || strpos($stockSaleSource, '$allocationsByProductLocation') === false
+    || strpos($stockSaleSource, '_pkstore_inventory_allocations') === false
+    || strpos($stockSaleSource, 'applyAllocatedOnlineReturn(') === false
+    || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
     || strpos($stockSaleSource, 'new \\\\RuntimeException') !== false) {
-    throw new \\RuntimeException('WooCommerce sale ingestion must reject malformed reduced-stock metadata.');
+    throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
 }
 
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
