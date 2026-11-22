@@ -244,7 +244,7 @@ final class MigrationRunner {
             $indexName
         ), ARRAY_A);
         if (!is_array($rows) || count($rows) !== count($expectedColumns)) {
-            throw new \\RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
+            throw new \RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
         }
 
         usort($rows, static fn(array $a, array $b): int =>
@@ -255,7 +255,7 @@ final class MigrationRunner {
             if ((int) ($row['Non_unique'] ?? 1) !== 0
                 || (int) ($row['Seq_in_index'] ?? 0) !== $position + 1
                 || (string) ($row['Column_name'] ?? '') !== $column) {
-                throw new \\RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
+                throw new \RuntimeException('Required WooCommerce stock-cycle unique index is missing or malformed.');
             }
         }
     }
