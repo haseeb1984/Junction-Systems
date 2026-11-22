@@ -175,6 +175,8 @@ if (!is_string($posCapabilitySource)
 
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 if (!is_string($bootstrapSource)
+    || strpos($bootstrapSource, "if (\$this->fm->isEnabled('payment_easypaisa'))") === false
+    || strpos($bootstrapSource, "!\$this->fm->isEnabled('payment_easypaisa')") === false
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('inventory'))") === false
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('barcode_labels'))") === false
     || strpos($bootstrapSource, "current_user_can('manage_woocommerce') || !\$this->fm->isEnabled('barcode_labels')") === false) {
