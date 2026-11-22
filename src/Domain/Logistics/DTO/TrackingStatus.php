@@ -14,5 +14,23 @@ enum TrackingStatus: string {
             default=>self::Exception,
         };
     }
+    /**
+     * Reject stale courier events that would move an order backwards.
+     * Delivery, return and cancellation are terminal for automatic tracking.
+     */
+    public function canAdvanceFrom(string $currentWooStatus): bool {
+        $current = str_starts_with($currentWooStatus, 'wc-')
+            ? substr($currentWooStatus, 3)
+            : $currentWooStatus;
+        if (in_array($current, ['completed', 'returned', 'cancelled'], true)) {
+            return false;
+        }
+        if (in_array($current, ['out-for-delivery', 'delivery-failed'], true)
+            && in_array($this, [self::Booked, self::PickedUp, self::InTransit], true)) {
+            return false;
+        }
+        return true;
+    }
+
     public function toWooCommerceStatus():string { return match($this){self::Booked,self::PickedUp=>'wc-shipped',self::InTransit,self::OutForDelivery=>'wc-out-for-delivery',self::Delivered=>'completed',self::FailedAttempt=>'wc-delivery-failed',self::Returned=>'wc-returned',self::Cancelled=>'cancelled',self::Exception=>'on-hold'}; }
 }
