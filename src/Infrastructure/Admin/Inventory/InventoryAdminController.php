@@ -341,7 +341,7 @@ final class InventoryAdminController {
 
         $salesEvents = $available['sales'] ? ($wpdb->get_results(
             "SELECT id, 'WooCommerce sale' AS event, CONCAT('#',wc_order_id) AS reference,
-                    'Order-level inventory ingestion' AS details, status, attempts,
+                    CONCAT('Cycle ',LEFT(cycle_uuid,8)) AS details, status, attempts,
                     next_attempt_at, claimed_at, last_error, created_at
              FROM {$tables['sales']} ORDER BY updated_at DESC LIMIT 100",
             ARRAY_A
