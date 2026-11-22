@@ -108,6 +108,9 @@ final class CaptureWooCommerceStockCycleUseCase {
                  ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE",
                 $orderId
             ), ARRAY_A);
+            if ($wpdb->last_error !== '') {
+                throw new \\RuntimeException('Unable to inspect existing WooCommerce stock cycles.');
+            }
 
             if (is_array($existing)) {
                 $existingItems = $wpdb->get_results($wpdb->prepare(
@@ -116,6 +119,9 @@ final class CaptureWooCommerceStockCycleUseCase {
                      FROM {$itemsTable} WHERE cycle_uuid=%s ORDER BY wc_order_item_id ASC",
                     (string) $existing['cycle_uuid']
                 ), ARRAY_A);
+                if ($wpdb->last_error !== '') {
+                    throw new \\RuntimeException('Unable to inspect existing WooCommerce stock-cycle lines.');
+                }
                 $existingSnapshot = [];
                 foreach (($existingItems ?: []) as $row) {
                     $existingSnapshot[] = [
@@ -136,10 +142,14 @@ final class CaptureWooCommerceStockCycleUseCase {
                 return (string) $existing['cycle_uuid'];
             }
 
-            $nextNumber = (int) $wpdb->get_var($wpdb->prepare(
+            $nextNumberValue = $wpdb->get_var($wpdb->prepare(
                 "SELECT COALESCE(MAX(cycle_number), 0) + 1 FROM {$cyclesTable} WHERE wc_order_id=%d",
                 $orderId
             ));
+            if ($wpdb->last_error !== '' || !is_numeric($nextNumberValue)) {
+                throw new \\RuntimeException('Unable to inspect WooCommerce stock-cycle sequence.');
+            }
+            $nextNumber = (int) $nextNumberValue;
             if ($nextNumber < 1) {
                 throw new \RuntimeException('Unable to allocate WooCommerce stock-cycle number.');
             }
