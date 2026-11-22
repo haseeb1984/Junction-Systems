@@ -322,3 +322,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Corrected the shipment hook to `woocommerce_order_status_shipped` and read tracking/courier metadata through `WC_Order` CRUD. Order confirmation, shipment and delivery notifications use order-meta idempotency markers and are marked sent only after provider success.
 - Added an hourly low-stock scan with per-product daily alert suppression. The webhook now supports Meta's GET challenge parameters (`hub.mode`, `hub.verify_token`, `hub.challenge`) and validates POST `X-Hub-Signature-256` using the configured App Secret. Raw webhook payloads and recipient numbers are not logged.
 - External release gates: the customer must provision a Meta Business App, permanent system-user token, phone-number ID, approved templates for all four notification types, webhook subscription and valid template language. Incoming messages and delivery-status webhooks are acknowledged after signature validation but are not yet processed into an agent inbox or delivery ledger; those workflows remain outside this implementation.
+
+
+## COD OTP concurrent send-rate enforcement
+
+- The three-send/15-minute per-phone limit previously used a count-then-insert sequence that concurrent checkout requests could race.
+- COD OTP issuance now acquires a phone-scoped MySQL advisory lock around the rate-limit count, previous-code invalidation, new attempt persistence and SMS dispatch. The lock is released in `finally`; database/lock failures fail closed rather than treating the rate window as empty.
+- Added source-level smoke guards. Runtime tests still need concurrent-request fault injection on the target MySQL/MariaDB and SMS provider path.
