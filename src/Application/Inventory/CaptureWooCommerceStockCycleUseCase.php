@@ -153,6 +153,28 @@ final class CaptureWooCommerceStockCycleUseCase {
                         throw new \RuntimeException('WooCommerce return event is ambiguous because multiple stock cycles are still open.');
                     }
 
+                    if ($kind === 'refund') {
+                        // WooCommerce's cumulative refund-restock metadata does
+                        // not identify which reduction cycle a late refund belongs
+                        // to after a prior cancellation restored this same line.
+                        // Fail closed rather than crediting the current cycle.
+                        $priorCancelledCycles = $wpdb->get_var($wpdb->prepare(
+                            "SELECT COUNT(*)
+                             FROM {$cyclesTable} c
+                             INNER JOIN {$itemsTable} i ON i.cycle_uuid=c.cycle_uuid
+                             WHERE c.wc_order_id=%d
+                               AND c.cycle_number < (SELECT cycle_number FROM {$cyclesTable} WHERE cycle_uuid=%s)
+                               AND i.wc_order_item_id=%d
+                               AND i.cancellation_restored_quantity > 0",
+                            $orderId,
+                            $cycleUuid,
+                            $itemId
+                        ));
+                        if ($wpdb->last_error !== '' || !is_numeric($priorCancelledCycles) || (int) $priorCancelledCycles > 0) {
+                            throw new \RuntimeException('WooCommerce refund cannot be assigned safely after a prior cancellation stock cycle.');
+                        }
+                    }
+
                     $now = current_time('mysql');
                     $inserted = $wpdb->query($wpdb->prepare(
                         "INSERT IGNORE INTO {$eventsTable}
