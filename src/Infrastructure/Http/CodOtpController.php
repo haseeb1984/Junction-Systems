@@ -172,7 +172,7 @@ final class CodOtpController {
         if ($paymentMethod === '') {
             try {
                 $paymentMethod = (string) $this->wooSession()->get('chosen_payment_method');
-            } catch (\\Throwable) {
+            } catch (\Throwable) {
                 $errors->add('pkstore_cod_otp_session', 'Checkout session is unavailable. Refresh checkout and try again.');
                 return;
             }
