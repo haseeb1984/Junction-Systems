@@ -742,6 +742,10 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || strpos($groqBridgeSource, '$status >= 500') === false
     || strpos($groqBridgeSource, 'hash(\'sha256\', $key)') === false
     || strpos($licenseManagerSource, 'getGroqProviderConfig(): array') === false
+    || strpos($licenseManagerSource, 'refreshGroqProviderData($data)') === false
+    || strpos($licenseManagerSource, "'pkstore_groq_config_refreshed_at'") === false
+    || strpos($licenseManagerSource, '($now - $lastRefresh) < 300') === false
+    || strpos($licenseManagerSource, '($now - $lastRefresh) <= 86400') === false
     || strpos($licenseManagerSource, "'groq_api_keys'") === false
     || strpos($licenseManagerSource, 'array_slice(array_values(array_unique($keys)), 0, min($limit, 100))') === false
     || strpos($aiServicesSource, 'new GroqBridge(new WpLogger(),new LicenseManager())') === false
