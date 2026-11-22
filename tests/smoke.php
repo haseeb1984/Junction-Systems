@@ -952,6 +952,9 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "in_array(\$order->get_status(), ['cancelled', 'refunded'], true)") === false
     || strpos($jazzCashSource, '$order->payment_complete($txnRef)') === false
     || strpos($jazzCashSource, "if (\$responseCode === '157')") === false
+    || strpos($jazzCashSource, 'expired_unconfirmed') === false
+    || strpos($jazzCashSource, 'A JazzCash payment is already awaiting confirmation.') === false
+    || strpos($jazzCashSource, 'manual reconciliation') === false
     || strpos($jazzCashSource, "_pkstore_jazzcash_cnic") !== false) {
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
