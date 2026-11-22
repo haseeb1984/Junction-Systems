@@ -15,7 +15,12 @@ final class CourierCircuitBreaker {
         return $this->optimistic($s);
     }
     private function optimistic(ShipmentRequestDTO $s):ShipmentResultDTO{
-        if(function_exists('as_schedule_single_action'))as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>(int)$s->internalOrderId],'pkstore-logistics');
+        $orderId = (int) $s->internalOrderId;
+        if(function_exists('as_schedule_single_action')) {
+            as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>$orderId],'pkstore-logistics');
+        } elseif (!wp_next_scheduled('pkstore_retry_courier_booking', [$orderId])) {
+            wp_schedule_single_event(time()+300,'pkstore_retry_courier_booking',[$orderId]);
+        }
         wp_mail(get_option('admin_email'),'[PK Store] Couriers Down — Order #'.$s->internalOrderId,"All couriers failed. Order accepted, booking queued for retry in 5 minutes.");
         return new ShipmentResultDTO(true,'PENDING-'.$s->internalOrderId,'pending',$s->internalOrderId,null,null,0,'Booking queued.',new \DateTimeImmutable(),[]);
     }
