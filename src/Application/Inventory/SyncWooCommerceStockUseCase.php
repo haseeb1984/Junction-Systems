@@ -145,16 +145,34 @@ final class SyncWooCommerceStockUseCase {
             throw new \InvalidArgumentException('WooCommerce restore quantity is invalid.');
         }
 
+        $isPosOrder = $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos';
         $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
         $wcProductId = (int) $item->get_product_id();
-        $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
-        $product ??= $this->productRepo->findByWcProductId($wcProductId);
+        if ($isPosOrder) {
+            $product = $this->productRepo->findById((int) $item->get_meta('_pkstore_inventory_product_id', true));
+            $locationId = (int) $item->get_meta('_pkstore_inventory_location_id', true);
+            $posOrderRef = (string) $item->get_meta('_pkstore_pos_order_ref', true);
+            if (!$product || !$locationId || $posOrderRef === ''
+                || !in_array((int) $product->wcProductId, array_filter([$variationId, $wcProductId]), true)) {
+                throw new \RuntimeException('POS cancellation item is missing its original Junction inventory mapping.');
+            }
+            $location = $this->locationRepo->findById($locationId);
+            $saleSource = 'pos_order';
+            $saleReference = $posOrderRef;
+            $saleMovementType = MovementType::Sale;
+        } else {
+            $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
+            $product ??= $this->productRepo->findByWcProductId($wcProductId);
+            $location = $this->locationRepo->findOnline();
+            $saleSource = 'wc_order';
+            $saleReference = (string) $orderId;
+            $saleMovementType = MovementType::OnlineSale;
+        }
         if (!$product) {
             throw new \RuntimeException('Restored WooCommerce item is not linked to Junction inventory.');
         }
-        $onlineLocation = $this->locationRepo->findOnline();
-        if (!$onlineLocation) {
-            throw new \RuntimeException('Junction online inventory location is not configured.');
+        if (!$location || !$location->isActive) {
+            throw new \RuntimeException('The original Junction inventory location is unavailable.');
         }
 
         $referenceId = $orderId . ':' . $itemId;
@@ -163,21 +181,21 @@ final class SyncWooCommerceStockUseCase {
             throw new \RuntimeException('Unable to start WooCommerce return ledger transaction.');
         }
         try {
-            $this->stockRepo->getStock($product->id, $onlineLocation->id);
-            if (!$this->stockRepo->hasMovementReference($product->id, $onlineLocation->id, 'wc_order', (string) $orderId, MovementType::OnlineSale)) {
+            $this->stockRepo->getStock($product->id, $location->id);
+            if (!$this->stockRepo->hasMovementReference($product->id, $location->id, $saleSource, $saleReference, $saleMovementType)) {
                 if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to commit deferred cancellation restock.');
                 return false;
             }
             if (!$this->stockRepo->hasMovementReference(
                 $product->id,
-                $onlineLocation->id,
+                $location->id,
                 'wc_order_restore',
                 $referenceId,
                 MovementType::OnlineReturn
             )) {
                 $this->adjustStock->execute(
                     $product->id,
-                    $onlineLocation->id,
+                    $location->id,
                     $quantity,
                     MovementType::OnlineReturn,
                     "WooCommerce cancellation restock for order #{$orderId}, item #{$itemId}",
