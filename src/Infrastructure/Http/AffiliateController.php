@@ -43,6 +43,12 @@ final class AffiliateController {
             return new \WP_REST_Response(['success'=>false,'code'=>'already_registered','message'=>$e->getMessage()],409);
         }
     }
+    private function maskPaymentAccount(string $account): string {
+        $account = trim($account);
+        if ($account === '') return '';
+        $visible = substr($account, -4);
+        return str_repeat('*', max(0, strlen($account) - strlen($visible))) . $visible;
+    }
     public function handleDashboard(\WP_REST_Request $req): \WP_REST_Response {
         $a = $this->c->make(AffiliateRepositoryInterface::class)->findByUserId(get_current_user_id());
         if (!$a) return new \WP_REST_Response(['success'=>false,'message'=>'Not an affiliate.'],403);
@@ -50,7 +56,7 @@ final class AffiliateController {
         $payouts     = $this->c->make(PayoutRepositoryInterface::class)->findByAffiliate($a->id,10);
         $products    = $this->c->make(AffiliateProductRepositoryInterface::class)->findByAffiliate($a->id);
         return new \WP_REST_Response(['success'=>true,
-            'affiliate'   =>['id'=>$a->id,'name'=>$a->name,'code'=>(string)$a->code,'tracking_url'=>$a->getTrackingUrl(home_url()),'commission_rate'=>$a->commissionRate->percentage,'total_earned'=>$a->getTotalEarnedPkr(),'total_paid'=>$a->getTotalPaidPkr(),'pending_payout'=>$a->getPendingPayoutPkr(),'payment_method'=>$a->paymentMethod,'payment_account'=>$a->paymentAccount,'status'=>$a->status],
+            'affiliate'   =>['id'=>$a->id,'name'=>$a->name,'code'=>(string)$a->code,'tracking_url'=>$a->getTrackingUrl(home_url()),'commission_rate'=>$a->commissionRate->percentage,'total_earned'=>$a->getTotalEarnedPkr(),'total_paid'=>$a->getTotalPaidPkr(),'pending_payout'=>$a->getPendingPayoutPkr(),'payment_method'=>$a->paymentMethod,'payment_account'=>$this->maskPaymentAccount($a->paymentAccount),'status'=>$a->status],
             'commissions' =>array_map(fn($c)=>['order_id'=>$c->orderId,'order_total'=>$c->orderTotalPkr,'commission'=>$c->commissionPkr,'rate'=>$c->ratePercent,'status'=>$c->status->value,'date'=>$c->createdAt->format('Y-m-d')],$commissions),
             'payouts'     =>array_map(fn($p)=>['amount'=>$p->amountPkr,'method'=>$p->paymentMethod,'status'=>$p->status->value,'tx_id'=>$p->transactionId,'date'=>$p->createdAt->format('Y-m-d')],$payouts),
             'products'    =>array_map(fn($p)=>['id'=>$p->id,'title'=>$p->title,'price'=>$p->displayPricePkr,'platform'=>$p->platform,'clicks'=>$p->getClickCount(),'status'=>$p->status,'redirect_url'=>$p->getTrackedRedirectUrl(home_url())],$products),
