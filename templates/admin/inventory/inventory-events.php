@@ -85,6 +85,7 @@
                                     <input type="hidden" name="queue_type" value="<?= esc_attr($queueType) ?>">
                                     <input type="hidden" name="queue_id" value="<?= esc_attr((string) ($event['id'] ?? 0)) ?>">
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason to ignore" style="max-width:180px;">
+                                    <label><input type="checkbox" name="confirm_ignore" value="1" required> Confirm this is not a Junction-managed stock movement or is a duplicate</label>
                                     <button type="submit" class="button button-secondary">Ignore</button>
                                 </form>
                                 <?php endif; ?>
@@ -127,5 +128,5 @@
         <?php if (empty($operatorAudit)): ?><tr><td colspan="7">No operator actions recorded.</td></tr><?php endif; ?>
         </tbody>
     </table>
-    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale/return events. Ignore does not change stock; it records an explicit operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
+    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale/return events. Ignore does not change stock; it requires explicit confirmation that the event is not Junction-managed or is a duplicate, and records the operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
 </div>
