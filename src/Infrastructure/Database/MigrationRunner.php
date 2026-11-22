@@ -140,7 +140,7 @@ final class MigrationRunner {
         if (version_compare($version, '2.0.5', '>=')) {
             $returnQueue = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
             $claimToken = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $returnQueue . ' LIKE %s', 'claim_token'));
-            if (!$claimToken) throw new \\RuntimeException('Required return queue claim-token column was not created.');
+            if (!$claimToken) throw new \RuntimeException('Required return queue claim-token column was not created.');
         }
 
         foreach ($required as $suffix) {
