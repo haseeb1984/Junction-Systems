@@ -42,7 +42,6 @@ final class CaptureWooCommerceStockCycleUseCase {
             throw new \RuntimeException('WordPress database is unavailable for stock-cycle capture.');
         }
 
-        $failedMetaKey = '_pkstore_wc_cycle_return_capture_failed_' . $activeCycleUuid;
         $lockName = 'pkstore_wc_cycle_' . $orderId;
         $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
         if ((int) $acquired !== 1) {
@@ -75,6 +74,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ($kind === 'refund' && ($refundCumulative === null || $refundCumulative < $quantity)) {
             throw new \InvalidArgumentException('WooCommerce refund cumulative quantity is invalid.');
         }
+        $failedMetaKey = '_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid;
 
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for cycle return capture.');
