@@ -68,7 +68,7 @@ final class ShippingRegistry {
         $page = max(1, (int) get_option('pkstore_tracking_sync_page', 1));
         $result = wc_get_orders([
             'type' => 'shop_order',
-            'status' => ['wc-shipped', 'wc-out-for-delivery'],
+            'status' => ['wc-shipped', 'wc-out-for-delivery', 'wc-delivery-failed', 'wc-on-hold'],
             'limit' => 100,
             'paged' => $page,
             'return' => 'objects',
