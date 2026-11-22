@@ -160,6 +160,8 @@ $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabi
 if (!is_string($posCapabilitySource)
     || strpos($posCapabilitySource, "add_role('junction_cashier'") === false
     || strpos($posCapabilitySource, "'use_junction_pos' => true") === false
+    || strpos($posCapabilitySource, "['read', 'use_junction_pos']") === false
+    || strpos($posCapabilitySource, 'remove_cap($capability)') === false
     || strpos($posCapabilitySource, "_pkstore_pos_location_id") === false
     || strpos($posCapabilitySource, "is_pos=1") === false
     || strpos($bootstrapSource, '(new PosCapabilityManager())->register();') === false
@@ -211,6 +213,8 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, '$readAuth = fn()=>(current_user_can(\'manage_woocommerce\') || current_user_can(\'use_junction_pos\'))') === false
     || strpos($inventoryHttpSource, '$manageAuth = fn()=>current_user_can(\'manage_woocommerce\')') === false
     || strpos($inventoryHttpSource, "permission_callback'=>\$manageAuth") === false
+    || strpos($inventoryHttpSource, "'/inventory/stock/adjust'") === false
+    || strpos($inventoryHttpSource, "'/inventory/products'") === false
     || strpos($inventoryHttpSource, '$this->c->make(LocationRepositoryInterface::class)->findPOS()') === false) {
     throw new \RuntimeException('POS cashiers must receive only read-only inventory access and POS-enabled locations.');
 }
