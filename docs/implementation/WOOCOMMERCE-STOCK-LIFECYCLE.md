@@ -71,3 +71,11 @@ The source implementation now has cycle-aware capture, sale queue identity, per-
 - These paths have source-level smoke guards. They still require consolidated PHP/JS lint, database-backed concurrent-worker tests, and real WooCommerce checkout/cancellation/refund/POS acceptance before release.
 
 - A late refund restock after an earlier cancellation/restock of the same order line is ambiguous because WooCommerce exposes cumulative refunded-restock metadata without the original stock-cycle identity. Junction fails closed and sends this event to operator review instead of crediting a newer sale cycle. This is intentionally conservative; the operator must reconcile the return before treating the stock as available.
+
+
+### Fulfilment hold while the shared ledger is unresolved
+
+- If actual WooCommerce stock reduction is captured but Junction cannot synchronously commit its matching cycle ledger event, the order is placed on `on-hold` with its previous status and cycle identity recorded. This prevents normal fulfilment while the sale is still pending or in `needs_review`.
+- After the sale worker commits the ledger, it restores the previous status only if the order is still on hold; a newer operator/terminal status is never overwritten. The hold metadata is cleared only after the status/metadata save succeeds.
+- The synchronous hook uses the same release path, so a transient failure recovered in the same request does not leave an unnecessary hold.
+- Source smoke guards were added. Runtime acceptance must verify WooCommerce status hooks, stock restoration side effects, gateway/COD order states, and duplicate status notifications on supported WooCommerce/HPOS versions.
