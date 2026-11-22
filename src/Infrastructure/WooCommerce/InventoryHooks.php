@@ -115,7 +115,10 @@ final class InventoryHooks {
                     $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, $fallbackCycleUuid);
                 } catch (\Throwable $queueError) {
                     error_log('[PKStore Inventory] WooCommerce stock reduction fallback queue also failed ('.get_class($queueError).').');
+                    if (isset($order) && $order instanceof \\WC_Order) {
+                    $this->holdOrderForInventorySync($order, isset($cycleUuid) && is_string($cycleUuid) ? $cycleUuid : null);
                 }
+            }
             }
             error_log('[PKStore Inventory] WooCommerce stock reduction hook could not complete ingestion ('.get_class($error).').');
         }
