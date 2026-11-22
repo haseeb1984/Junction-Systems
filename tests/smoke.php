@@ -1028,6 +1028,11 @@ if (!is_string($posAppSource)
 $easyPaisaSource = file_get_contents($src . '/Infrastructure/Payment/EasyPaisaGateway.php');
 $settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
 if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
+    || strpos($easyPaisaSource, 'public function process_payment($order_id): array') === false
+    || strpos($easyPaisaSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($easyPaisaSource, "pkstore_payment_ep_") === false
+    || strpos($easyPaisaSource, 'processPaymentLocked($orderId)') === false
+    || strpos($easyPaisaSource, "SELECT RELEASE_LOCK(%s)") === false
     || strpos($easyPaisaSource, '/initiate-ma-transaction') === false
     || strpos($easyPaisaSource, '/inquire-transaction') === false
     || strpos($easyPaisaSource, "'transactionType' => 'MA'") === false
@@ -1055,6 +1060,11 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
 
 $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGateway.php');
 if (!is_string($jazzCashSource)
+    || strpos($jazzCashSource, 'public function process_payment($order_id): array') === false
+    || strpos($jazzCashSource, "SELECT GET_LOCK(%s, %d)") === false
+    || strpos($jazzCashSource, "pkstore_payment_jc_") === false
+    || strpos($jazzCashSource, 'processPaymentLocked($orderId)') === false
+    || strpos($jazzCashSource, "SELECT RELEASE_LOCK(%s)") === false
     || strpos($jazzCashSource, 'public function is_available(): bool') === false
     || strpos($jazzCashSource, "parent::is_available()") === false
     || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
