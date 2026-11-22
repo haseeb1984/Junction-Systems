@@ -39,7 +39,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             ? trim((string) wc_clean(wp_unslash($_POST['jazzcash_cnic_last6'])))
             : '';
         $phone = isset($_POST['billing_phone'])
-            ? preg_replace('/\D+/', '', (string) wc_clean(wp_unslash($_POST['billing_phone'])))
+            ? $this->normalizeMobileNumber((string) wc_clean(wp_unslash($_POST['billing_phone'])))
             : '';
         if (!preg_match('/^[0-9]{6}$/', $cnic)) {
             wc_add_notice('Enter the last 6 digits of your CNIC for JazzCash payment.', 'error');
@@ -95,7 +95,7 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $cnic = isset($_POST['jazzcash_cnic_last6'])
             ? trim((string) wc_clean(wp_unslash($_POST['jazzcash_cnic_last6'])))
             : '';
-        $phone = preg_replace('/\D+/', '', (string) $order->get_billing_phone());
+        $phone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
         if (!preg_match('/^[0-9]{6}$/', $cnic) || !preg_match('/^03[0-9]{9}$/', $phone)) {
             wc_add_notice('Valid JazzCash mobile number and CNIC last 6 digits are required.', 'error');
             return ['result' => 'fail'];
@@ -221,6 +221,16 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         $encoded = iconv('UTF-8', 'ISO-8859-1', $message);
         if ($encoded === false) throw new \RuntimeException('JazzCash signature contains characters outside the required encoding.');
         return strtoupper(hash_hmac('sha256', $encoded, $secret));
+    }
+
+    private function normalizeMobileNumber(string $phone): string {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (preg_match('/^92(3[0-9]{9})$/', $digits, $matches)) {
+            $digits = '0' . $matches[1];
+        } elseif (preg_match('/^(3[0-9]{9})$/', $digits, $matches)) {
+            $digits = '0' . $matches[1];
+        }
+        return $digits;
     }
 
     private function normalizeMinorUnits(string $amount): string {
