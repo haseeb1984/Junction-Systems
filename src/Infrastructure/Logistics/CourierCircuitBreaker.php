@@ -7,12 +7,42 @@ final class CourierCircuitBreaker {
     public function __construct(private readonly array $couriers){}
     public function hasCouriers(): bool { return $this->couriers !== []; }
     public function bookWithFailover(ShipmentRequestDTO $s):ShipmentResultDTO{
-        foreach($this->couriers as $c){
-            $code=$c->getCourierCode();if($this->open($code))continue;
-            try{$r=$c->createShipment($s);if($r->success){$this->reset($code);return $r;}return $r;}
-            catch(\Throwable){$this->fail($code);if($this->fails($code)>=self::THRESH)$this->openCircuit($code);}
+        $lastFailure = null;
+        $providerException = false;
+
+        foreach($this->couriers as $courier){
+            $code=$courier->getCourierCode();
+            if($this->open($code)) continue;
+
+            try {
+                $result = $courier->createShipment($s);
+                if ($result->success) {
+                    $this->reset($code);
+                    return $result;
+                }
+
+                // Provider-level rejections are failures too. Continue to the
+                // next licensed courier rather than returning before failover.
+                $lastFailure = $result;
+                $this->fail($code);
+                if ($this->fails($code) >= self::THRESH) {
+                    $this->openCircuit($code);
+                }
+            } catch(\Throwable) {
+                $providerException = true;
+                $this->fail($code);
+                if($this->fails($code)>=self::THRESH) $this->openCircuit($code);
+            }
         }
-        return $this->optimistic($s);
+
+        // A transport/provider exception or a fully open circuit is retryable.
+        // If every provider returned a definitive rejection, return that failure
+        // for operator correction instead of scheduling an endless retry loop.
+        if ($providerException || $lastFailure === null) {
+            return $this->optimistic($s);
+        }
+
+        return $lastFailure;
     }
     private function optimistic(ShipmentRequestDTO $s):ShipmentResultDTO{
         $orderId = (int) $s->internalOrderId;
