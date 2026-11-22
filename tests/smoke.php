@@ -938,25 +938,22 @@ $jazzCashSource = file_get_contents($src . '/Infrastructure/Payment/JazzCashGate
 if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "get_woocommerce_currency() !== 'PKR'") === false
     || strpos($jazzCashSource, 'wc_format_decimal($order->get_total(), 2, false)') === false
-    || strpos($jazzCashSource, "'pp_BankID'=>'','pp_ProductID'=>''") === false
-    || strpos($jazzCashSource, "wp_date('YmdHis',$now)") === false
     || strpos($jazzCashSource, '$wholeRupees . $paisa') === false
     || strpos($jazzCashSource, 'strlen($minorUnits) > 12') === false
-    || strpos($jazzCashSource, "WC()->api_request_url('jazzcash_callback')") === false
-    || strpos($jazzCashSource, "str_starts_with((string) \$key, 'pp')") === false
-    || strpos($jazzCashSource, "\$key !== 'pp_SecureHash'") === false
-    || strpos($jazzCashSource, '!is_scalar($value)') === false
-    || strpos($jazzCashSource, "'pp_ReturnURL'=>$callbackUrl") === false
-    || strpos($jazzCashSource, 'wp_safe_redirect($this->get_return_url($order))') === false
-    || strpos($jazzCashSource, '$this->verifySignedResponse($b, $ik)') === false
-    || strpos($jazzCashSource, "(string) (\$b['pp_TxnType'] ?? '') !== 'MWALLET'") === false
-    || strpos($jazzCashSource, "(\$payload['pp_TxnType'] ?? '') !== 'MWALLET'") === false
-    || strpos($jazzCashSource, '$order->payment_complete($txn)') === false
-    || strpos($jazzCashSource, "if (\$existingTxn !== '' && \$existingState !== 'failed')") === false
-    || strpos($jazzCashSource, "'_pkstore_jazzcash_state', 'unknown'") === false
-    || strpos($jazzCashSource, "'_pkstore_jazzcash_state', 'pending_confirmation'") === false
-    || strpos($jazzCashSource, "if (\$responseCode === '157')") === false) {
-    throw new \RuntimeException('JazzCash must reject non-PKR stores and format the PKR minor-unit amount without float truncation.');
+    || strpos($jazzCashSource, 'jazzcash_cnic_last6') === false
+    || strpos($jazzCashSource, "'pp_CNIC' => $cnic") === false
+    || strpos($jazzCashSource, 'normalizeMobileNumber(') === false
+    || strpos($jazzCashSource, "add_query_arg('wc-api', 'jazzcash_callback', home_url('/'))") === false
+    || strpos($jazzCashSource, "'pp_ReturnURL' => $callbackUrl") === false
+    || strpos($jazzCashSource, 'calculateSecureHash(') === false
+    || strpos($jazzCashSource, "iconv('UTF-8', 'ISO-8859-1', $message)") === false
+    || strpos($jazzCashSource, 'verifySecureHash(') === false
+    || strpos($jazzCashSource, 'pp_TxnDateTime') === false
+    || strpos($jazzCashSource, "in_array($order->get_status(), ['cancelled', 'refunded'], true)") === false
+    || strpos($jazzCashSource, '$order->payment_complete($txnRef)') === false
+    || strpos($jazzCashSource, "if ($responseCode === '157')") === false
+    || strpos($jazzCashSource, "_pkstore_jazzcash_cnic") !== false) {
+    throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
 
 echo "Smoke tests passed.\n";
