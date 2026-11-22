@@ -39,12 +39,15 @@ final class ShippingRegistry {
     public function autoBookShipment(int $orderId): void {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) return;
+        // POS mirror orders are already fulfilled at the register and must
+        // never enter the customer courier-booking workflow.
+        if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
         if ($this->isDigitalOnlyOrder($order)) {
             $order->add_order_note('[PK Store] Digital order — courier booking skipped. Download links sent via email.');
             return;
         }
         if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',['order_id'=>$orderId],'pkstore-logistics');
+            as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',[$orderId],'pkstore-logistics');
         } elseif (!wp_next_scheduled('pkstore_retry_courier_booking', [$orderId])) {
             wp_schedule_single_event(time()+10,'pkstore_retry_courier_booking',[$orderId]);
         }
