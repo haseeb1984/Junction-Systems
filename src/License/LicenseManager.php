@@ -127,9 +127,11 @@ final class LicenseManager {
             return ['keys' => [], 'model' => '', 'limit' => 0];
         }
 
-        $limit = (int) ($data['limits']['groq_api_keys'] ?? 0);
-        $groq = $data['provider_config']['groq'] ?? [];
-        if ($limit < 1 || !is_array($groq)) {
+        $limits = is_array($data['limits'] ?? null) ? $data['limits'] : [];
+        $providerConfig = is_array($data['provider_config'] ?? null) ? $data['provider_config'] : [];
+        $limit = (int) ($limits['groq_api_keys'] ?? 0);
+        $groq = is_array($providerConfig['groq'] ?? null) ? $providerConfig['groq'] : [];
+        if ($limit < 1 || !$groq) {
             return ['keys' => [], 'model' => '', 'limit' => max(0, $limit)];
         }
 
