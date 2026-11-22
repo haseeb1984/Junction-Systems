@@ -7,6 +7,7 @@ use PkStore\Core\Branding\BrandingManager;
 use PkStore\Infrastructure\Http\{CodOtpController,ShippingWebhookHandler,TrackingController,AffiliateController,InventoryController,POSController};
 use PkStore\Infrastructure\WooCommerce\{GatewayRegistry,ShippingRegistry,AssetEnqueuer,AffiliateHooks,InventoryHooks};
 use PkStore\Infrastructure\Admin\AdminMenuController;
+use PkStore\Infrastructure\Admin\PosCapabilityManager;
 use PkStore\Infrastructure\Admin\Affiliate\AffiliateAdminController;
 use PkStore\Infrastructure\Admin\Inventory\InventoryAdminController;
 use PkStore\Infrastructure\Admin\Settings\FeatureSettingsController;
@@ -20,6 +21,7 @@ final class ThemeBootstrapper {
         $this->bm = BrandingManager::getInstance();
     }
     public function boot(): void {
+        (new PosCapabilityManager())->register();
         // Feature guard hook — called by any feature use case
         add_action('pkstore_require_feature', function(string $feature): void {
             $license = $this->c->make(\PkStore\License\LicenseManager::class);
