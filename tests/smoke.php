@@ -574,6 +574,13 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     throw new \\RuntimeException('Courier shipping methods and booking failover must respect central package entitlements and local feature switches.');
 }
 
+$stockRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
+if (!is_string($stockRepositorySource)
+    || strpos($stockRepositorySource, 'Unable to verify stock movement idempotency reference.') === false
+    || strpos($stockRepositorySource, 'if ($this->db->last_error !== \'\')') === false) {
+    throw new \\RuntimeException('A failed movement-reference query must not be treated as an unseen stock movement.');
+}
+
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 $stockCycleHooksSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
 $stockCycleServicesSource = file_get_contents($root . '/config/services.php');
