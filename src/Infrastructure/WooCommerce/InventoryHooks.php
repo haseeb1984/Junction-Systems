@@ -109,7 +109,8 @@ final class InventoryHooks {
         } catch (\Throwable $error) {
             if ($orderId > 0) {
                 try {
-                    $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, null);
+                    $fallbackCycleUuid = isset($cycleUuid) && is_string($cycleUuid) ? $cycleUuid : null;
+                    $this->c->make(ProcessWooCommerceOrderInventoryQueueUseCase::class)->enqueue($orderId, $fallbackCycleUuid);
                 } catch (\Throwable $queueError) {
                     error_log('[PKStore Inventory] WooCommerce stock reduction fallback queue also failed ('.get_class($queueError).').');
                 }
