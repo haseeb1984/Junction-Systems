@@ -187,7 +187,7 @@ final class MigrationRunner {
             if (!$allocationSnapshot) throw new \RuntimeException('Required stock-cycle allocation snapshot column was not created.');
             if (version_compare($version, '2.0.12', '>=')) {
                 $refundBaseline = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $cycleItems . ' LIKE %s', 'refund_cumulative_baseline'));
-                if (!$refundBaseline) throw new \\RuntimeException('Required stock-cycle refund baseline column was not created.');
+                if (!$refundBaseline) throw new \RuntimeException('Required stock-cycle refund baseline column was not created.');
             }
         }
 
