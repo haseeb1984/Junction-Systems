@@ -233,9 +233,12 @@ final class CaptureWooCommerceStockCycleUseCase {
             if ((float) $reduced === 0.0) {
                 continue;
             }
+            $orderedQuantity = $item->get_quantity();
             if ($itemId < 1 || $parentId < 1
-                || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced) {
-                throw new \RuntimeException('WooCommerce stock-cycle line snapshot is invalid.');
+                || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced
+                || !is_numeric($orderedQuantity) || floor((float) $orderedQuantity) !== (float) $orderedQuantity
+                || (int) $orderedQuantity !== (int) $reduced) {
+                throw new \RuntimeException('WooCommerce stock-cycle line snapshot is invalid or the order item quantity changed.');
             }
 
             $inventoryProduct = $variationId > 0
