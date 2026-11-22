@@ -67,6 +67,7 @@ final class WpStockRepository implements StockRepositoryInterface {
              attempts=IF(claimed_at IS NOT NULL,attempts,0),
              next_attempt_at=IF(claimed_at IS NOT NULL,next_attempt_at,VALUES(next_attempt_at)),
              claimed_at=claimed_at,
+             claim_token=IF(claimed_at IS NOT NULL,claim_token,NULL),
              last_error='', updated_at=VALUES(updated_at)",
             $productId, wp_generate_uuid4(), $now, $now, $now
         ));
@@ -77,7 +78,7 @@ final class WpStockRepository implements StockRepositoryInterface {
         $limit = max(1, min(100, $limit));
         // Recover jobs abandoned by a terminated PHP worker.
         $recovered = $this->db->query($this->db->prepare(
-            "UPDATE {$table} SET status='pending', claimed_at=NULL WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
+            "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL WHERE status='processing' AND claimed_at < DATE_SUB(%s, INTERVAL 10 MINUTE)",
             current_time('mysql')
         ));
         if ($recovered === false) throw new \RuntimeException('Unable to recover stale stock sync claims.');
@@ -93,12 +94,14 @@ final class WpStockRepository implements StockRepositoryInterface {
             }
             $rows = $rows ?: [];
             foreach ($rows as &$row) {
+                $claimToken = wp_generate_uuid4();
                 $updated = $this->db->query($this->db->prepare(
-                    "UPDATE {$table} SET status='processing', claimed_at=%s, attempts=attempts+1 WHERE id=%d AND status='pending'",
-                    current_time('mysql'), (int)$row['id']
+                    "UPDATE {$table} SET status='processing', claimed_at=%s, claim_token=%s, attempts=attempts+1 WHERE id=%d AND status='pending'",
+                    current_time('mysql'), $claimToken, (int)$row['id']
                 ));
-                if ($updated === false) throw new \RuntimeException('Unable to claim stock sync queue item.');
+                if ($updated !== 1) throw new \RuntimeException('Unable to claim stock sync queue item.');
                 $row['attempts'] = (int)$row['attempts'] + 1;
+                $row['claim_token'] = $claimToken;
             }
             unset($row);
             if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit stock sync queue claim.');
@@ -108,41 +111,41 @@ final class WpStockRepository implements StockRepositoryInterface {
             throw $error;
         }
     }
-    public function completeWooCommerceSync(int $id, string $generation): void {
+    public function completeWooCommerceSync(int $id, string $generation, string $claimToken): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
-        $deleted = $this->db->delete($table, ['id'=>$id, 'generation'=>$generation, 'status'=>'processing'], ['%d','%s','%s']);
+        $deleted = $this->db->delete($table, ['id'=>$id, 'generation'=>$generation, 'status'=>'processing', 'claim_token'=>$claimToken], ['%d','%s','%s','%s']);
         if ($deleted === false) throw new \RuntimeException('Unable to complete stock sync queue item.');
         if ($deleted === 0) {
             // A newer stock change arrived while this job was processing. Keep the
             // product serialized, then release the newer generation for a fresh read.
             $released = $this->db->query($this->db->prepare(
-                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
-                 WHERE id=%d AND status='processing' AND generation<>%s",
-                current_time('mysql'), $id, $generation
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s AND claim_token=%s",
+                current_time('mysql'), $id, $generation, $claimToken
             ));
             if ($released === false) throw new \RuntimeException('Unable to release newer stock sync generation.');
         }
     }
-    public function retryWooCommerceSync(int $id, string $generation, int $attempts, string $errorClass): void {
+    public function retryWooCommerceSync(int $id, string $generation, string $claimToken, int $attempts, string $errorClass): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $needsReview = $attempts >= self::MAX_AUTOMATIC_SYNC_ATTEMPTS;
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempts - 1))));
         $now = current_time('mysql');
         $updated = $this->db->query($this->db->prepare(
-            "UPDATE {$table} SET status=%s, claimed_at=NULL,
+            "UPDATE {$table} SET status=%s, claimed_at=NULL, claim_token=NULL,
              next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s, INTERVAL %d SECOND)), last_error=%s
-             WHERE id=%d AND generation=%s AND status='processing'",
+             WHERE id=%d AND generation=%s AND status='processing' AND claim_token=%s",
             $needsReview ? 'needs_review' : 'pending', $needsReview ? 'needs_review' : 'pending',
-            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation
+            $now, $now, $delay, substr(sanitize_key($errorClass), 0, 100), $id, $generation, $claimToken
         ));
         if ($updated === false) throw new \RuntimeException('Unable to reschedule stock sync queue item.');
         if ($updated === 0) {
             // If a newer generation was enqueued during this failed attempt, retry
             // that latest snapshot immediately rather than applying the old backoff.
             $released = $this->db->query($this->db->prepare(
-                "UPDATE {$table} SET status='pending', claimed_at=NULL, attempts=0, next_attempt_at=%s
-                 WHERE id=%d AND status='processing' AND generation<>%s",
-                current_time('mysql'), $id, $generation
+                "UPDATE {$table} SET status='pending', claimed_at=NULL, claim_token=NULL, attempts=0, next_attempt_at=%s
+                 WHERE id=%d AND status='processing' AND generation<>%s AND claim_token=%s",
+                current_time('mysql'), $id, $generation, $claimToken
             ));
             if ($released === false) throw new \RuntimeException('Unable to release newer stock sync generation after failure.');
         }
