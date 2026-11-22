@@ -433,6 +433,10 @@ if (!is_string($posSyncSource)
     || strpos($posSyncSource, "get_woocommerce_currency() !== 'PKR'") === false
     || strpos($posSyncSource, "payment_complete('POS-'") === false
     || strpos($posSyncSource, "paidWooCommerceOrderMatches(") === false
+    || strpos($posSyncSource, "_pkstore_inventory_product_id") === false
+    || strpos($posSyncSource, "locationId !== \$posOrder->locationId") === false
+    || strpos($posSyncSource, "hash_equals(\$posOrder->orderRef, \$posOrderRef)") === false
+    || strpos($posSyncSource, "WooCommerce POS order has no persisted ID.") === false
     || strpos($posSyncSource, "markSynced((int) \$wcOrder->get_id())") === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
     || !is_string($posEntitySource)
