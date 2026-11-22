@@ -990,6 +990,8 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "'transactionType' => 'MA'") === false
     || strpos($easyPaisaSource, "'Credentials' => base64_encode(\$username . ':' . \$password)") === false
     || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
+    || strpos($easyPaisaSource, "add_action('woocommerce_thankyou_easypaisa'") === false
+    || strpos($easyPaisaSource, 'public function verifyOnReturn(') === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/initiate-ma-transaction'") === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/inquire-transaction'") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
