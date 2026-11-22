@@ -144,6 +144,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         $response = wp_remote_post($baseUrl . '/initiate-ma-transaction', [
             'timeout' => 20,
+            'redirection' => 0,
             'headers' => [
                 'Content-Type' => 'application/json',
                 'Credentials' => base64_encode($username . ':' . $password),
@@ -252,6 +253,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $baseUrl = $isSandbox ? self::SANDBOX_BASE : self::PRODUCTION_BASE;
         $response = wp_remote_post($baseUrl . '/inquire-transaction', [
             'timeout' => 15,
+            'redirection' => 0,
             'headers' => [
                 'Content-Type' => 'application/json',
                 'Credentials' => base64_encode($username . ':' . $password),
@@ -264,6 +266,11 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         ]);
         if (is_wp_error($response)) {
             $this->log->warning('Easypaisa transaction inquiry failed.', ['error_class' => 'WP_Error']);
+            return null;
+        }
+        $httpStatus = (int) wp_remote_retrieve_response_code($response);
+        if ($httpStatus < 200 || $httpStatus >= 300) {
+            $this->log->warning('Easypaisa transaction inquiry returned a non-success HTTP status.', ['http_status' => $httpStatus]);
             return null;
         }
 
@@ -293,8 +300,8 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $paymentMode = strtoupper((string) ($status['paymentMode'] ?? ''));
         $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? ''));
         $expectedPhone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
-        if ($paymentMode !== 'MA'
-            || ($reportedPhone !== '' && $expectedPhone !== '' && !hash_equals($expectedPhone, $reportedPhone))) {
+        if ($paymentMode !== 'MA' || $reportedPhone === '' || $expectedPhone === ''
+            || !hash_equals($expectedPhone, $reportedPhone)) {
             $order->add_order_note('Easypaisa status rejected: payment mode or customer mobile number does not match this order. Manual reconciliation is required.');
             $order->update_meta_data('_pkstore_easypaisa_state', 'review');
             $order->save();
