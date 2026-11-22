@@ -972,6 +972,11 @@ if (!is_string($posAppSource)
     || strpos($posAppSource, "item.status = 'needs_review'") === false
     || strpos($posAppSource, 'local_stock_decremented:true') === false
     || strpos($posAppSource, 'Cannot close this register yet: sync the pending offline sales first.') === false
+    || strpos($posAppSource, 'window.setInterval(() =>') === false
+    || strpos($posAppSource, '}, 30000);') === false
+    || strpos($posAppSource, 'isFlushingQueue: false') === false
+    || strpos($posAppSource, 'if (this.isFlushingQueue || !navigator.onLine || !this.sessionId) return;') === false
+    || strpos($posAppSource, 'await this.flushOfflineQueue(true);') === false
     || strpos($posAppSource, 'const stillPending = (await DB.getAll(\'queue\')).filter(item => item.status !== \'needs_review\')') === false
     || strpos($posAppSource, 'Sale saved. WhatsApp receipt could not be generated.') === false) {
     throw new \RuntimeException('POS must display and cache stock for its assigned location, not the combined online-store total.');
