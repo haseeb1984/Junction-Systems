@@ -14,16 +14,18 @@ use Psr\Log\LoggerInterface;
  */
 final class ProcessWooCommerceOrderInventoryQueueUseCase {
     private const MAX_AUTOMATIC_ATTEMPTS = 12;
+    private const LEGACY_CYCLE_UUID = '00000000-0000-0000-0000-000000000000';
 
     public function __construct(
         private readonly SyncWooCommerceStockUseCase $syncInventory,
         private readonly LoggerInterface $log,
     ) {}
 
-    public function enqueue(int $orderId): void {
-        if ($orderId < 1) {
-            throw new \InvalidArgumentException('A valid WooCommerce order ID is required.');
+    public function enqueue(int $orderId, ?string $cycleUuid = null): void {
+        if ($orderId < 1 || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
+            throw new \InvalidArgumentException('A valid WooCommerce order ID and stock-cycle identity are required.');
         }
+        $queueCycleUuid = $cycleUuid ?? self::LEGACY_CYCLE_UUID;
         global $wpdb;
         if (!$wpdb instanceof \wpdb) {
             throw new \RuntimeException('WordPress database is unavailable for order inventory queue.');
@@ -33,8 +35,8 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         $now = current_time('mysql');
         $result = $wpdb->query($wpdb->prepare(
             "INSERT INTO {$table}
-                (wc_order_id, generation, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
-             VALUES (%d, %s, 'pending', 0, %s, NULL, '', %s, %s)
+                (wc_order_id, cycle_uuid, generation, status, attempts, next_attempt_at, claimed_at, last_error, created_at, updated_at)
+             VALUES (%d, %s, %s, 'pending', 0, %s, NULL, '', %s, %s)
              ON DUPLICATE KEY UPDATE
                 generation=VALUES(generation),
                 status=IF(claimed_at IS NOT NULL,'processing','pending'),
@@ -42,7 +44,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
                 next_attempt_at=IF(claimed_at IS NOT NULL,next_attempt_at,VALUES(next_attempt_at)),
                 claimed_at=claimed_at,
                 last_error='', updated_at=VALUES(updated_at)",
-            $orderId, wp_generate_uuid4(), $now, $now, $now
+            $orderId, $queueCycleUuid, wp_generate_uuid4(), $now, $now, $now
         ));
         if ($result === false) {
             throw new \RuntimeException('Unable to persist WooCommerce order inventory event.');
@@ -61,7 +63,8 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             if ($id < 1 || $orderId < 1 || $generation === '') continue;
 
             try {
-                $this->syncInventory->onWooCommerceSale($orderId);
+                $cycleUuid = (string) ($job['cycle_uuid'] ?? self::LEGACY_CYCLE_UUID);
+                $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
                 $this->complete($id, $generation, (string) ($job['claim_token'] ?? ''));
                 $result['processed']++;
             } catch (\Throwable $error) {
@@ -106,7 +109,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
         try {
             $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, wc_order_id, attempts, generation FROM {$table}
+                "SELECT id, wc_order_id, cycle_uuid, attempts, generation FROM {$table}
                  WHERE status='pending' AND next_attempt_at <= %s
                  ORDER BY next_attempt_at ASC, id ASC LIMIT %d FOR UPDATE",
                 current_time('mysql'), $limit
