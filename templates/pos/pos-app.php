@@ -247,14 +247,14 @@ const POS = {
 
     async loadProducts(search = '') {
         try {
-            const r = await this.api(`/inventory/products?limit=80&search=${encodeURIComponent(search)}`,'GET');
+            const r = await this.api(`/inventory/products?limit=80&location_id=${this.locationId}&search=${encodeURIComponent(search)}`,'GET');
             this.products = r.products;
             await Promise.all(this.products.map(p => DB.put('products', p)));
             this.renderProducts(this.products);
         } catch(_) {
             // Offline: load from IndexedDB cache
             const cached = await DB.getAll('products');
-            this.products = cached.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()));
+            this.products = cached.filter(p => p.location_id === this.locationId && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())));
             this.renderProducts(this.products);
         }
     },
@@ -279,7 +279,7 @@ const POS = {
     async handleBarcodeInput(barcode) {
         if (!barcode) return;
         try {
-            const r = await this.api(`/inventory/barcode/${encodeURIComponent(barcode)}`,'GET');
+            const r = await this.api(`/inventory/barcode/${encodeURIComponent(barcode)}?location_id=${this.locationId}`,'GET');
             if (r.success) { this.addToCartByProduct(r.product); document.getElementById('pos-search').value = ''; }
         } catch(_) {
             const local = this.products.find(p => p.barcode === barcode || p.sku === barcode);
@@ -294,7 +294,12 @@ const POS = {
     },
 
     addToCartByProduct(p) {
+        const available = Number(p.total_stock ?? 0);
         const existing = this.cart.find(i => i.id === p.id);
+        if (available < 1 || (existing && existing.qty >= available)) {
+            this.toast('Insufficient stock at this POS location.');
+            return;
+        }
         if (existing) existing.qty++;
         else this.cart.push({id:p.id, sku:p.sku, name:p.name, price:p.sale_price, qty:1});
         this.renderCart();
