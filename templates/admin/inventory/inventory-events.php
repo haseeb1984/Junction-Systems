@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="wrap pkstore-admin">
     <h1>🔄 Inventory Sync Health</h1>
-    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events. Review-state sale and return events can be retried or ignored with a mandatory reason and an audit record. Stock-sync actions remain disabled pending lease-fencing.</p>
+    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events, plus the immutable stock-cycle event trail. Review-state sale and return events can be retried or ignored with a mandatory reason and an audit record. Cycle-event records are read-only; stock-sync actions remain disabled pending lease-fencing.</p>
 
     <?php if (!empty($missingQueues)): ?>
         <div class="notice notice-warning"><p>
