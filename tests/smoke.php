@@ -999,6 +999,7 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "strpos(\$path, '/order-status/') === false") === false
     || strpos($easyPaisaSource, "if (\$responseCode === '0001') return 'pending';") === false
     || strpos($easyPaisaSource, "'REVERSED'") === false
+    || strpos($easyPaisaSource, 'Manual/provider reconciliation is required before another payment attempt.') === false
     || strpos($easyPaisaSource, 'applyProviderStatus(') === false
     || strpos($settingsManagerSource, "'EASYPAISA_USERNAME'=>true") === false
     || strpos($settingsManagerSource, "'EASYPAISA_PASSWORD'=>true") === false
