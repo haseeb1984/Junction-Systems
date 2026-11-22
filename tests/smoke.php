@@ -919,7 +919,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
     || strpos($stockCycleCaptureSource, "'wc_product_id' => $wcProductId") === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
-    || strpos($stockCycleCaptureSource, 'A previous partially refunded stock cycle must be reconciled before another sale cycle can be captured.') === false
+    || strpos($stockCycleCaptureSource, "WHERE wc_order_id=%d AND state='restoring'") === false
+    || strpos($stockCycleCaptureSource, 'A previous WooCommerce stock cycle is still restoring and must finish before another sale cycle can be captured.') === false
+    || strpos($stockCycleCaptureSource, 'Never start a later reduction while any prior cycle is still') === false
     || strpos($stockCycleCaptureSource, 'WooCommerce refund cannot be assigned safely after a prior cancellation stock cycle.') === false
     || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
