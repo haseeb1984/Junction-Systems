@@ -196,3 +196,11 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 - Existing-install detection now checks for any table under the WordPress-prefixed `pkstore_` namespace, not only three core tables. Partial or legacy installations therefore cannot be misclassified as fresh installs and bypass the pre-migration backup confirmation.
 - A failed table probe remains a hard failure; it is never interpreted as an empty/fresh installation. Added source smoke guards; database upgrade testing remains pending.
+
+
+## Courier entitlement enforcement follow-up
+
+- WooCommerce shipping methods for TCS, Leopards and Trax are now registered only when their corresponding local switch is enabled and the central license grants the feature.
+- The courier failover pool is built from the same enabled-and-entitled courier set, so an unlicensed or locally disabled provider cannot be selected as a fallback.
+- If no courier is enabled for the installation, the booking retry records an order note and stops rather than treating an empty provider set as a temporary outage.
+- Added dependency-free source smoke guards. These have not yet run; checkout/shipping-zone and provider failover behavior still needs WooCommerce runtime acceptance.
