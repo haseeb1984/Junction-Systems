@@ -25,7 +25,7 @@ Online sales are enqueued from `woocommerce_reduce_order_stock`, after WooCommer
 - Returns restore the exact original product/location allocation, not the current location mapping or current online-location balance.
 - Return events are captured durably before queue processing. The worker retries capture if the hook-time DB operation failed, and the cycle is marked `restoring` while its return is outstanding.
 - A cycle closes only after every captured reduction quantity is restored. A later actual reduction receives a new UUID and a separate sale queue row.
-- When multiple cycles for one order remain open, a new return event cannot be safely attributed. It is left for operator review; the implementation does not guess which cycle to restore.
+- Cancellation hooks are bound to the current cycle UUID and can restore a cycle independently while an earlier cancellation cycle is still closing. Refund hooks expose an order-item cumulative count rather than a cycle ID; if multiple cycles for one order remain open, a new refund event is left for operator review. New sales are blocked while a prior partial-refund cycle remains open without a full cancellation return.
 
 ## Durable queues and migrations
 
