@@ -18,6 +18,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
 
     public function __construct(
         private readonly SyncWooCommerceStockUseCase $syncInventory,
+        private readonly CaptureWooCommerceStockCycleUseCase $cycleCapture,
         private readonly LoggerInterface $log,
     ) {}
 
@@ -64,8 +65,25 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
 
             try {
                 $cycleUuid = (string) ($job['cycle_uuid'] ?? self::LEGACY_CYCLE_UUID);
+                $claimToken = (string) ($job['claim_token'] ?? '');
+                if ($cycleUuid === self::LEGACY_CYCLE_UUID) {
+                    $order = wc_get_order($orderId);
+                    if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable.');
+                    if ((string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+                        $cycleUuid = $this->cycleCapture->capture($order);
+                        $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+                        if ((int) $order->save() !== $orderId) {
+                            throw new \RuntimeException('Unable to persist retried WooCommerce stock-cycle identity.');
+                        }
+                        if (!$this->bindCycleIdentity($id, $orderId, $generation, $claimToken, $cycleUuid)) {
+                            continue;
+                        }
+                    } else {
+                        $cycleUuid = self::LEGACY_CYCLE_UUID;
+                    }
+                }
                 $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
-                $this->complete($id, $generation, (string) ($job['claim_token'] ?? ''));
+                $this->complete($id, $generation, $claimToken);
                 $result['processed']++;
             } catch (\Throwable $error) {
                 $result['failed']++;
@@ -88,6 +106,37 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
 
         return $result;
+    }
+
+    private function bindCycleIdentity(int $id, int $orderId, string $generation, string $claimToken, string $cycleUuid): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
+        $existingId = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table} WHERE wc_order_id=%d AND cycle_uuid=%s AND id<>%d LIMIT 1",
+            $orderId,
+            $cycleUuid,
+            $id
+        ));
+        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect cycle-specific order queue row.');
+        if ($existingId) {
+            $deleted = $wpdb->delete($table, [
+                'id' => $id,
+                'generation' => $generation,
+                'status' => 'processing',
+                'claim_token' => $claimToken,
+            ], ['%d', '%s', '%s', '%s']);
+            if ($deleted !== 1) throw new \RuntimeException('Unable to merge duplicate legacy cycle-capture queue row.');
+            return false;
+        }
+
+        $updated = $wpdb->update($table, ['cycle_uuid' => $cycleUuid], [
+            'id' => $id,
+            'generation' => $generation,
+            'status' => 'processing',
+            'claim_token' => $claimToken,
+        ], ['%s'], ['%d', '%s', '%s', '%s']);
+        if ($updated !== 1) throw new \RuntimeException('Unable to bind WooCommerce order queue row to its stock cycle.');
+        return true;
     }
 
     private function claimBatch(int $limit): array {
