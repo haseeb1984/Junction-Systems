@@ -997,7 +997,9 @@ final class SyncWooCommerceStockUseCase {
                     return false;
                 }
 
-                $returnReference = $cycleUuid . ':' . $itemId . ':' . $targetReturned . ':' . $locationId;
+                // Stock movement reference_id is VARCHAR(64); hash the full
+                // cycle/item/cumulative/location identity to a fixed 64 chars.
+                $returnReference = hash('sha256', 'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $targetReturned . ':' . $locationId);
                 if (!$this->stockRepo->hasMovementReference(
                     $productId, $locationId, 'wc_stock_cycle_return', $returnReference, MovementType::OnlineReturn
                 )) {
