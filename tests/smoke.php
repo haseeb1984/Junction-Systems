@@ -581,10 +581,10 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
     || strpos($whatsAppHooksSource, 'pkstore_whatsapp_low_stock_scan') === false
     || strpos($whatsAppServiceSource, "'type' => 'template'") === false
     || strpos($whatsAppServiceSource, 'v26.0') === false
-    || strpos($whatsAppServiceSource, "'phone'=>$clean") !== false
+    || strpos($whatsAppServiceSource, "'phone' => \$cleanPhone") !== false
     || strpos($setupWizardSource, "'whatsapp'  => 'WhatsApp Business API'") === false
     || strpos($settingsManagerSource, "'whatsapp'=>['WHATSAPP_TOKEN'=>true") === false) {
-    throw new \\RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
+    throw new \RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
 }
 
 $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
