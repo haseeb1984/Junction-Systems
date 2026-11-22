@@ -67,7 +67,7 @@ A \`pkstore_wc_stock_cycle_events\` table should retain immutable event identity
 
 A callback must persist its event before returning. If persistence fails, log a critical error and leave a detectable reconciliation gap; never report it as accepted. Workers must use claim-token fencing, bounded retries, and a visible \`needs_review\` state. Event rows are retained after completion so a later cycle cannot reuse an earlier idempotency key.
 
-The initial durable storage contract is now installed by migration 2.0.9: cycle headers, immutable per-line mapping snapshots, and retained lifecycle-event rows with claim-token fields. The migration verifies table presence; unique indexes are declared in dbDelta. This is schema scaffolding only. No hook writes to these tables and no worker consumes them yet. Before enabling capture, add runtime verification for the unique indexes and required columns, then implement atomic cycle creation and cycle-bound sale/return workers.
+The initial durable storage contract is now installed by migration 2.0.9: cycle headers, immutable per-line mapping snapshots, and retained lifecycle-event rows with claim-token fields. The migration verifies required columns and unique indexes after dbDelta, as well as table presence. This is schema scaffolding only. No hook writes to these tables and no worker consumes them yet. Before enabling capture, add runtime verification for the unique indexes and required columns, then implement atomic cycle creation and cycle-bound sale/return workers.
 
 ## Lifecycle and state transitions
 
