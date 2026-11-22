@@ -19,8 +19,25 @@ class JazzCashGateway extends \WC_Payment_Gateway {
         if (!$order || $order->is_paid()) { wc_add_notice('This order cannot be paid through JazzCash.','error'); return ['result'=>'fail']; }
         $mid=$this->cfg->get('JAZZCASH_MERCHANT_ID');$pass=$this->cfg->get('JAZZCASH_PASSWORD');$ik=$this->cfg->get('JAZZCASH_INTEGRITY_KEY');
         if(!$mid||!$pass||!$ik){wc_add_notice('JazzCash not configured. Contact store admin.','error');return['result'=>'fail'];}
+        if (get_woocommerce_currency() !== 'PKR') {
+            wc_add_notice('JazzCash is available only when the store currency is PKR.', 'error');
+            return ['result' => 'fail'];
+        }
+        $formattedTotal = wc_format_decimal($order->get_total(), 2, false);
+        if (!is_string($formattedTotal) || !preg_match('/^(0|[1-9][0-9]*)\\.[0-9]{2}$/', $formattedTotal)) {
+            wc_add_notice('The order total cannot be represented as a JazzCash PKR amount.', 'error');
+            return ['result' => 'fail'];
+        }
+        [$wholeRupees, $paisa] = explode('.', $formattedTotal, 2);
+        $minorUnits = ltrim($wholeRupees . $paisa, '0');
+        $minorUnits = $minorUnits === '' ? '0' : $minorUnits;
+        if ($minorUnits === '0' || strlen($minorUnits) > 12) {
+            wc_add_notice('The order total is outside the supported JazzCash amount range.', 'error');
+            return ['result' => 'fail'];
+        }
+
         $isSandbox=$this->cfg->get('JAZZCASH_SANDBOX','0')==='1';
-        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad((string)((int)($order->get_total()*100)),12,'0',STR_PAD_LEFT);$dt=date('YmdHis');$exp=date('YmdHis',strtotime('+30 minutes'));
+        $txn='T'.gmdate('YmdHis').(string)random_int(10000,99999);$amt=str_pad($minorUnits,12,'0',STR_PAD_LEFT);$dt=date('YmdHis');$exp=date('YmdHis',strtotime('+30 minutes'));
         $pd=['pp_Version'=>'2.0','pp_TxnType'=>'MWALLET','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>(string)$order_id,'pp_Description'=>"Order #{$order_id}",'pp_TxnExpiryDateTime'=>$exp,'pp_ReturnURL'=>$this->get_return_url($order),'pp_MobileNumber'=>preg_replace('/[^\d]/','', $order->get_billing_phone()),'pp_CNIC'=>''];
         ksort($pd);$hs=$ik.'&'.implode('&',array_values($pd));$pd['pp_SecureHash']=strtoupper(hash_hmac('sha256',$hs,$ik));
         $order->update_meta_data('_pkstore_jazzcash_txn_ref',$txn);
