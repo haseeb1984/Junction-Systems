@@ -107,10 +107,16 @@ final class InventoryHooks {
         }
     }
 
-    public function onOrderItemRestored($item, int $newStock, int $oldStock, $order): void {
+    public function onOrderItemRestored($item, $newStock, $oldStock, $order): void {
         try {
             if (!($order instanceof \WC_Order) || !is_object($item) || !method_exists($item, 'get_id')) {
                 throw new \InvalidArgumentException('Malformed WooCommerce cancellation restock event.');
+            }
+            if (!is_numeric($newStock) || !is_numeric($oldStock)
+                || floor((float) $newStock) !== (float) $newStock
+                || floor((float) $oldStock) !== (float) $oldStock
+                || (int) $newStock <= (int) $oldStock) {
+                throw new \InvalidArgumentException('WooCommerce cancellation restock quantity must be a positive whole number.');
             }
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
@@ -139,6 +145,11 @@ final class InventoryHooks {
     public function onRefundItemRestocked(int $productId, $oldStock, $newStock, $order, $product): void {
         try {
             if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('Malformed WooCommerce refund event.');
+            if (!is_numeric($newStock) || !is_numeric($oldStock)
+                || floor((float) $newStock) !== (float) $newStock
+                || floor((float) $oldStock) !== (float) $oldStock) {
+                throw new \InvalidArgumentException('WooCommerce refund restock quantities must be whole numbers.');
+            }
             $delta = (int) $newStock - (int) $oldStock;
             $itemId = null;
             $cumulative = 0;
