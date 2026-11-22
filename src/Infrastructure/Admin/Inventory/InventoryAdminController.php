@@ -367,6 +367,19 @@ final class InventoryAdminController {
             ARRAY_A
         ) ?: []) : [];
 
+        $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+        $cycleEventsAvailable = $wpdb->get_var($wpdb->prepare(
+            'SHOW TABLES LIKE %s',
+            $wpdb->esc_like($cycleEventsTable)
+        )) === $cycleEventsTable;
+        if (!$cycleEventsAvailable) $missingQueues[] = 'stock-cycle events';
+        $cycleEvents = $cycleEventsAvailable ? ($wpdb->get_results(
+            "SELECT event_uuid,cycle_uuid,wc_order_id,wc_order_item_id,event_kind,quantity,
+                    cumulative_quantity,source_hook,status,attempts,next_attempt_at,claimed_at,last_error,created_at
+             FROM {$cycleEventsTable} ORDER BY updated_at DESC LIMIT 100",
+            ARRAY_A
+        ) ?: []) : [];
+
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $auditExists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($auditTable))) === $auditTable;
         if (!$auditExists) $missingQueues[] = 'operator audit';
