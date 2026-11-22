@@ -36,12 +36,22 @@ final class ShippingWebhookHandler {
         }
         // Query through WooCommerce's order datastore so the same callback
         // lookup works with both legacy postmeta and HPOS order metadata.
-        $matches = wc_get_orders([
+        $orderQuery = [
             'limit' => 2,
             'return' => 'objects',
-            'meta_key' => '_tracking_' . $cc,
-            'meta_value' => $tn,
-        ]);
+        ];
+        if (class_exists(\Automattic\WooCommerce\Utilities\OrderUtil::class)
+            && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
+            $orderQuery['meta_query'] = [[
+                'key' => '_tracking_' . $cc,
+                'value' => $tn,
+                'compare' => '=',
+            ]];
+        } else {
+            $orderQuery['meta_key'] = '_tracking_' . $cc;
+            $orderQuery['meta_value'] = $tn;
+        }
+        $matches = wc_get_orders($orderQuery);
         if (!is_array($matches) || count($matches) !== 1) {
             // Duplicate tracking references are ambiguous; never update an
             // arbitrary customer's order from a courier callback.
