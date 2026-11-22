@@ -570,7 +570,8 @@ $trackingStatus = \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::InTransit;
 if (!$trackingStatus->canAdvanceFrom('shipped')
     || $trackingStatus->canAdvanceFrom('out-for-delivery')
     || $trackingStatus->canAdvanceFrom('completed')
-    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')) {
+    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('completed')
+    || \\PkStore\\Domain\\Logistics\\DTO\\TrackingStatus::Delivered->canAdvanceFrom('refunded')) {
     throw new \\RuntimeException('Courier tracking must reject stale status regressions and preserve terminal order states.');
 }
 
