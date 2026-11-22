@@ -27,10 +27,13 @@ final class InventoryAdminController {
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
         add_submenu_page('pkstore-operations','Inventory Event Health','🔄 Sync Health',self::CAP,'pkstore-inventory-events',[$this,'inventoryEvents']);
         add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders','manage_options','pkstore-purchase-orders',[$this,'purchaseOrders']);
+        if ($features->isEnabled('multi_location')) {
+            add_submenu_page('pkstore-operations','Inventory Locations','📍 Locations',self::CAP,'pkstore-locations',[$this,'locations']);
+        }
     }
 
     public function assets(string $hook): void {
-        $ours = ['store-ops_page_pkstore-inventory','store-ops_page_pkstore-pos','store-ops_page_pkstore-stock-log','store-ops_page_pkstore-inventory-events','store-ops_page_pkstore-purchase-orders'];
+        $ours = ['store-ops_page_pkstore-inventory','store-ops_page_pkstore-pos','store-ops_page_pkstore-stock-log','store-ops_page_pkstore-inventory-events','store-ops_page_pkstore-purchase-orders','store-ops_page_pkstore-locations'];
         if (!in_array($hook,$ours,true)) return;
         wp_enqueue_style('pkstore-admin',PKSTORE_ASSETS.'/css/admin.css',[],PKSTORE_VERSION);
     }
@@ -45,12 +48,16 @@ final class InventoryAdminController {
         if ($action === 'generate_barcodes' && !$features->isEnabled('barcode_labels')) {
             wp_die('Barcode labels are not available on the current package.');
         }
+        if ($action === 'add_location' && !$features->isEnabled('multi_location')) {
+            wp_die('Multi-location inventory is not available on the current package.');
+        }
         if (in_array($action, ['retry_inventory_event', 'ignore_inventory_event'], true)) {
             $this->handleInventoryEventAction($action);
             return;
         }
         match($action) {
             'add_product'     => $this->handleAddProduct(),
+            'add_location'    => $this->handleAddLocation(),
             'adjust_stock'    => $this->handleAdjustStock(),
             'generate_barcodes' => $this->handleGenerateBarcodes(),
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
@@ -128,6 +135,28 @@ final class InventoryAdminController {
         }
 
         $this->redirect('pkstore-inventory-events', 'updated', 'Queue action saved with an audit record.');
+    }
+
+    private function handleAddLocation(): void {
+        if (!FeatureManager::getInstance()->isEnabled('multi_location')) {
+            wp_die('Multi-location inventory is not available on the current package.');
+        }
+        $name = sanitize_text_field($_POST['location_name'] ?? '');
+        $type = sanitize_key($_POST['location_type'] ?? 'physical');
+        $address = sanitize_textarea_field($_POST['location_address'] ?? '');
+        $isPos = isset($_POST['location_is_pos']) && $_POST['location_is_pos'] === '1';
+        if ($name === '' || strlen($name) > 100
+            || !in_array($type, ['physical', 'warehouse'], true)
+            || ($isPos && $type !== 'physical')) {
+            $this->redirect('pkstore-locations', 'error', 'Enter a valid location name and type. POS can only be enabled for physical locations.');
+            return;
+        }
+        try {
+            $this->c->make(LocationRepositoryInterface::class)->create($name, $type, $address, $isPos);
+            $this->redirect('pkstore-locations', 'added', 'Inventory location added.');
+        } catch (\Throwable $error) {
+            $this->redirect('pkstore-locations', 'error', 'Location could not be added. Check for a duplicate active name and try again.');
+        }
     }
 
     private function handleAddProduct(): void {
@@ -222,6 +251,17 @@ final class InventoryAdminController {
 
     private function redirect(string $page, string $status, string $msg): void {
         wp_safe_redirect(add_query_arg(['page'=>$page,'status'=>$status,'msg'=>urlencode($msg)],admin_url('admin.php'))); exit;
+    }
+
+    public function locations(): void {
+        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        if (!FeatureManager::getInstance()->isEnabled('multi_location')) {
+            wp_die('Multi-location inventory is not available on the current package.');
+        }
+        $locations = $this->c->make(LocationRepositoryInterface::class)->findAll();
+        $msg = sanitize_text_field($_GET['msg'] ?? '');
+        $status = sanitize_key($_GET['status'] ?? '');
+        include PKSTORE_DIR . '/templates/admin/inventory/locations.php';
     }
 
     public function inventory(): void {
