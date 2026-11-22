@@ -49,6 +49,11 @@ final class WpStockRepository implements StockRepositoryInterface {
             "SELECT id FROM {$this->tm()} WHERE product_id=%d AND location_id=%d AND reference_type=%s AND reference_id=%s AND movement_type=%s LIMIT 1",
             $productId, $locationId, $referenceType, $referenceId, $movementType->value
         ));
+        if ($this->db->last_error !== '') {
+            // A failed idempotency lookup must never be interpreted as "not seen":
+            // doing so could deduct the same order/return twice.
+            throw new \RuntimeException('Unable to verify stock movement idempotency reference.');
+        }
         return $found !== null;
     }
     public function getMovements(int $productId, int $limit=20): array { return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->tm()} WHERE product_id=%d ORDER BY created_at DESC LIMIT %d",$productId,$limit),ARRAY_A)?:[]; }
