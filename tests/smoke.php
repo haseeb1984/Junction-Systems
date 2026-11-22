@@ -941,17 +941,17 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, '$wholeRupees . $paisa') === false
     || strpos($jazzCashSource, 'strlen($minorUnits) > 12') === false
     || strpos($jazzCashSource, 'jazzcash_cnic_last6') === false
-    || strpos($jazzCashSource, "'pp_CNIC' => $cnic") === false
+    || strpos($jazzCashSource, "'pp_CNIC' => \$cnic") === false
     || strpos($jazzCashSource, 'normalizeMobileNumber(') === false
     || strpos($jazzCashSource, "add_query_arg('wc-api', 'jazzcash_callback', home_url('/'))") === false
     || strpos($jazzCashSource, "'pp_ReturnURL' => $callbackUrl") === false
     || strpos($jazzCashSource, 'calculateSecureHash(') === false
-    || strpos($jazzCashSource, "iconv('UTF-8', 'ISO-8859-1', $message)") === false
+    || strpos($jazzCashSource, "iconv('UTF-8', 'ISO-8859-1', \$message)") === false
     || strpos($jazzCashSource, 'verifySecureHash(') === false
     || strpos($jazzCashSource, 'pp_TxnDateTime') === false
-    || strpos($jazzCashSource, "in_array($order->get_status(), ['cancelled', 'refunded'], true)") === false
+    || strpos($jazzCashSource, "in_array(\$order->get_status(), ['cancelled', 'refunded'], true)") === false
     || strpos($jazzCashSource, '$order->payment_complete($txnRef)') === false
-    || strpos($jazzCashSource, "if ($responseCode === '157')") === false
+    || strpos($jazzCashSource, "if (\$responseCode === '157')") === false
     || strpos($jazzCashSource, "_pkstore_jazzcash_cnic") !== false) {
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
