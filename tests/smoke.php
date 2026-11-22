@@ -644,6 +644,7 @@ if (!is_string($inventoryControllerSource) || !is_string($inventoryAdminSource) 
     || strpos($inventoryAdminSource, 'isEnabled(\'multi_location\')') === false
     || strpos($inventoryAdminSource, 'handleAddLocation()') === false
     || strpos($locationRepositorySource, 'public function create(string $name, string $type, string $address, bool $isPos): int') === false
+    || strpos($locationRepositorySource, 'strlen($address) > 255') === false
     || strpos($locationTemplateSource, 'pkstore_inventory_action') === false
     || strpos($locationTemplateSource, 'Add Location') === false
     || strpos($inventoryTemplateSource, 'if(current_user_can(\'manage_options\')):') === false) {
