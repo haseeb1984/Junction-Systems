@@ -20,7 +20,7 @@ final class POSController {
             register_rest_route($ns,'/pos/receipt/whatsapp',  ['methods'=>'POST','callback'=>[$this,'sendWhatsApp'], 'permission_callback'=>$auth]);
         });
     }
-    public function openSession(\\WP_REST_Request $req): \\WP_REST_Response {
+    public function openSession(\WP_REST_Request $req): \WP_REST_Response {
         $locationId=(int)($req->get_param('location_id')??1);
         $openingCash=(int)($req->get_param('opening_cash')??0);
         try {
@@ -28,16 +28,16 @@ final class POSController {
             $result=$this->c->make(POSSessionRepositoryInterface::class)->openOrResume($session);
             $opened=$result['session'];
             $resumed=$result['resumed'];
-            return new \\WP_REST_Response(['success'=>true,'session_id'=>$opened->id,'message'=>$resumed?'Existing session resumed.':'POS session opened.','resumed'=>$resumed],$resumed?200:201);
-        } catch(\\Throwable $e) { return new \\WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+            return new \WP_REST_Response(['success'=>true,'session_id'=>$opened->id,'message'=>$resumed?'Existing session resumed.':'POS session opened.','resumed'=>$resumed],$resumed?200:201);
+        } catch(\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
-    public function closeSession(\\WP_REST_Request $req): \\WP_REST_Response {
+    public function closeSession(\WP_REST_Request $req): \WP_REST_Response {
         $sessionId=(int)($req->get_param('session_id')??0);
         $closingCash=(int)($req->get_param('closing_cash')??0);
         try {
             $session=$this->c->make(POSSessionRepositoryInterface::class)->closeAtomic($sessionId,$closingCash);
-            return new \\WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
-        } catch(\\Throwable $e) { return new \\WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+            return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
+        } catch(\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
     public function currentSession(\WP_REST_Request $req): \WP_REST_Response {
         $locationId = (int)($req->get_param('location_id')??1);
