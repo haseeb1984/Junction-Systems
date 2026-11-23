@@ -292,6 +292,16 @@ final class WcProductRepository implements ProductRepositoryInterface {
             $sale = $product->get_variation_sale_price('min', false);
             if ($sale === '') $sale = null;
         }
+        // Quote the same tax-inclusive/exclusive price the current customer
+        // sees on the storefront, not the raw catalogue storage amount.
+        if (function_exists('wc_get_price_to_display')) {
+            if ($regular !== '') {
+                $regular = wc_get_price_to_display($product, ['price' => (float) $regular]);
+            }
+            if ($sale !== '' && $sale !== null) {
+                $sale = wc_get_price_to_display($product, ['price' => (float) $sale]);
+            }
+        }
 
         $decimals = function_exists('wc_get_price_decimals') ? wc_get_price_decimals() : 0;
         $price = function_exists('wc_format_decimal')
