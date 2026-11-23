@@ -571,7 +571,7 @@ if (!is_string($stockMappingPolicySource) || !is_string($adjustStockUseCaseSourc
     || strpos($stockMappingPolicySource, 'get_stock_managed_by_id()') === false
     || strpos($stockMappingPolicySource, "get_manage_stock('edit')") === false
     || strpos($stockMappingPolicySource, 'This variation uses parent-managed stock.') === false
-    || strpos($stockMappingPolicySource, 'independently managed variations') === false
+    || strpos($stockMappingPolicySource, 'All variations manage stock independently.') === false
     || strpos($adjustStockUseCaseSource, 'WooCommerceStockMappingPolicy::errorFor($wcProduct)') === false) {
     throw new \RuntimeException('WooCommerce stock sync must reject mappings that do not represent the actual stock owner.');
 }
