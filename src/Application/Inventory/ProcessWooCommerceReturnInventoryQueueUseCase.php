@@ -130,6 +130,14 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 $productId = (int) $job['wc_product_id'];
                 $quantity = (int) $job['quantity'];
                 $cycleUuid = $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null;
+                if ($cycleUuid === null
+                    && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+                    $cycleUuid = $this->cycleCapture->resolveCycleUuidForReturn($order);
+                    $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+                    if ((int) $order->save() !== (int) $order->get_id()) {
+                        throw new \RuntimeException('Unable to persist recovered WooCommerce return-cycle identity.');
+                    }
+                }
                 if ($cycleUuid !== null) {
                     $itemId = $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : 0;
                     if ($itemId < 1) throw new \RuntimeException('Cycle-bound return event has no WooCommerce order item.');
@@ -146,7 +154,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                 if ($kind === 'cancellation') {
                     $item = $order->get_item((int) $job['wc_order_item_id']);
                     if (!$item) throw new \RuntimeException('WooCommerce order item is unavailable.');
-                    $applied = $this->syncInventory->onWooCommerceOrderItemRestored($item, $quantity, 0, $order, $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null);
+                    $applied = $this->syncInventory->onWooCommerceOrderItemRestored($item, $quantity, 0, $order, $cycleUuid);
                     if (!$applied) {
                         throw new \RuntimeException('Cancellation return is waiting for its matching sale movement.');
                     }
@@ -154,7 +162,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                     $product = wc_get_product($productId);
                     if (!$product) throw new \RuntimeException('WooCommerce refund product is unavailable.');
                     $applied = $this->syncInventory->onWooCommerceRefundItemRestocked(
-                        $productId, $quantity, 0, $order, $product, $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : null, (int) $job['cumulative_quantity'], $job['cycle_uuid'] !== null ? (string) $job['cycle_uuid'] : null
+                        $productId, $quantity, 0, $order, $product, $job['wc_order_item_id'] !== null ? (int) $job['wc_order_item_id'] : null, (int) $job['cumulative_quantity'], $cycleUuid
                     );
                     if (!$applied) {
                         // A refunded payment does not prove WooCommerce restored stock.
