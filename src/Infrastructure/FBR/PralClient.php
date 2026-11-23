@@ -14,7 +14,7 @@ use PkStore\License\LicenseManager;
  */
 final class PralClient {
     private const BASE_URL = 'https://gw.fbr.gov.pk';
-    private const REFERENCE_TTL = 21600;
+    private const REFERENCE_TTL = 900;
 
     private const REFERENCE_ENDPOINTS = [
         'provinces' => '/pdi/v1/provinces',
