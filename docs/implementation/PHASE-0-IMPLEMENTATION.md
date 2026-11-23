@@ -515,3 +515,13 @@ This section supersedes earlier dated snapshots above wherever their status diff
 - Affiliate commissions are recorded once per eligible PKR WooCommerce order, with self-referrals excluded and balance writes protected by a row lock/transaction.
 - Automated affiliate disbursement remains disabled. The current codebase has no verified provider payout contract and no audited manual payout approval/settlement workflow. The administrator receives a threshold notification; the affiliate balance remains pending.
 - Commission reversal/adjustment for full or partial WooCommerce refunds and chargebacks is not implemented. Do not treat affiliate payouts as production-ready until reversal rules, manual settlement controls and provider contracts are approved and tested.
+
+
+### Final source-review corrections — 23 November 2026
+
+- Cycle-bound cancellation/refund capture now verifies that a repeated event key carries the exact same immutable kind, quantity, cumulative quantity, order, item and cycle identity. Conflicting replays fail closed rather than reusing a prior event row.
+- Cancellation capture validates the actual restock delta against the remaining quantity in that cycle. Duplicate processed callbacks remain idempotently acknowledged.
+- Return hooks now distinguish a genuinely absent cycle UUID (`null`) from a valid UUID. A failed/ambiguous cycle lookup can no longer be treated as an empty-string legacy cycle and accidentally attempt stale metadata binding. Ambiguous refund lines remain queued for operator review.
+- Cycle reduction/return event rows now persist `processed_at` when their corresponding ledger transaction commits.
+- JazzCash initiation now rejects already-cancelled/refunded orders, matching the existing callback-side guard; it also validates PKR and converts exact two-decimal rupee amounts to provider minor units without float truncation.
+- Added dependency-free source smoke assertions for these safeguards. They remain unexecuted until the consolidated runner/staging acceptance window; no PHP lint, smoke or provider runtime pass is claimed.
