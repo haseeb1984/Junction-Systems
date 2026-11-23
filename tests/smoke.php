@@ -1473,6 +1473,12 @@ if (!is_string($stockSaleSource)
     throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
 }
 
+$cycleReturnPreflight = strpos($stockSaleSource, 'Verify the complete original sale allocation');
+$cycleReturnFirstWrite = strpos($stockSaleSource, 'wc_stock_cycle_return:');
+if ($cycleReturnPreflight === false || $cycleReturnFirstWrite === false || $cycleReturnPreflight > $cycleReturnFirstWrite) {
+    throw new \\RuntimeException('Cycle returns must verify every original sale allocation before writing any return movement.');
+}
+
 $posAppSource = file_get_contents(dirname(__DIR__) . '/templates/pos/pos-app.php');
 if (!is_string($posAppSource)
     || strpos($posAppSource, 'location_id=${this.locationId}') === false
