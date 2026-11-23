@@ -572,7 +572,7 @@ if (!is_string($returnSource)
 if (strpos($returnSource, 'onWooCommerceRefundItemRestocked(') === false
     || strpos($returnSource, "'wc_refund_restock'") === false
     || strpos($returnSource, "_restock_refunded_items") === false
-    || strpos($returnSource, 'count($candidates) !== 1 || $candidates[0][\'cumulative\'] <') === false
+    || strpos($returnSource, 'count($candidates) !== 1 || $eventCumulative <') === false
     || strpos($returnHooks, "woocommerce_restock_refunded_item") === false
     || strpos($returnHooks, "onRefundItemRestocked") === false) {
     throw new \RuntimeException('Only explicit WooCommerce refund restocks may create online return movements.');
