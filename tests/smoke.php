@@ -500,8 +500,13 @@ if (!is_string($adminInventorySource)
     throw new \RuntimeException('Admin product creation must validate integer prices and WooCommerce mappings and respect barcode entitlement.');
 }
 if (!is_string($inventoryHttpSource)
-    || strpos($inventoryHttpSource, "if (!\$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels'))") === false) {
-    throw new \RuntimeException('REST product creation must not generate package-restricted barcodes when the entitlement is disabled.');
+    || strpos($inventoryHttpSource, "register_rest_route(\$ns, '/inventory/products'") === false
+    || strpos($inventoryHttpSource, "[$this,'createProduct']") === false
+    || strpos($inventoryHttpSource, 'public function createProduct(') === false
+    || strpos($inventoryHttpSource, 'findByWcProductId($wcProductId)') === false
+    || strpos($inventoryHttpSource, "isEnabled('barcode_labels')") === false
+    || strpos($inventoryHttpSource, 'Inventory product created.') === false) {
+    throw new \RuntimeException('REST inventory product creation must have a real callback, validate duplicate mappings and respect barcode entitlement.');
 }
 
 
