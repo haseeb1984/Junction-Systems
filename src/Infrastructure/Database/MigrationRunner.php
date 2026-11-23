@@ -32,6 +32,7 @@ final class MigrationRunner {
         '2.0.11' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
         '2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
         '2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity'],
+        '2.0.14' => [InventoryInstaller::class, 'installInventoryProductMappingConstraint'],
     ];
 
 
@@ -220,6 +221,14 @@ final class MigrationRunner {
             if ($wpdb->last_error !== '' || $legacyIndex) {
                 throw new \RuntimeException('Legacy order-only queue index was not replaced by the cycle identity index.');
             }
+        }
+
+        if (version_compare($version, '2.0.14', '>=')) {
+            self::verifyUniqueIndex(
+                $wpdb->prefix . 'pkstore_inventory_products',
+                'idx_wc_product',
+                ['wc_product_id']
+            );
         }
 
         if (version_compare($version, '2.0.9', '>=')) {
