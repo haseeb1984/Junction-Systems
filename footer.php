@@ -3,7 +3,7 @@
 <p><?php echo esc_html(get_bloginfo('name'));?> &copy; <?php echo date('Y');?></p>
 </div>
 </footer>
-<?php if (\\PkStore\\Core\\Feature\\FeatureManager::getInstance()->isEnabled('ai_chat')): ?>
+<?php if (\PkStore\Core\Feature\FeatureManager::getInstance()->isEnabled('ai_chat')): ?>
 <div data-chat-widget aria-hidden="true" id="pk-chat-widget">
 <div data-chat-messages class="pk-chat__messages" role="log" aria-live="polite"></div>
 <div class="pk-chat__input-area">
