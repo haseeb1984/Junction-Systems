@@ -7,7 +7,7 @@ final class SecurityHardener {
         add_filter('script_loader_src',[$this,'removeVer']);add_filter('style_loader_src',[$this,'removeVer']);
         add_filter('rest_endpoints',[$this,'disableUsers']);add_filter('login_errors',fn()=>'Incorrect credentials.');
         add_filter('rest_authentication_errors',[$this,'restrictRest']);add_action('send_headers',[$this,'headers']);
-        add_action('wp_login_failed',[$this,'loginFail']);add_action('wp_login',[$this,'loginSuccess'],10,2);add_filter('authenticate',[$this,'blockBrute'],30,3);
+        add_action('wp_login',[$this,'loginSuccess'],10,2);add_filter('authenticate',[$this,'blockBrute'],30,3);
         if(!defined('DISALLOW_FILE_EDIT'))define('DISALLOW_FILE_EDIT',true);
     }
     public function removeVer(string $s):string{return str_contains($s,'ver=')?remove_query_arg('ver',$s):$s;}
@@ -77,15 +77,21 @@ final class SecurityHardener {
     }
 
     public function blockBrute(mixed $user, string $username, string $password): mixed {
-        // Authentication already succeeded at the earlier core auth filters.
-        // Never lock a customer out when they finally provide valid credentials.
+        // Core username/password authentication runs before this priority. A
+        // valid user must pass even when previous attempts reached the limit;
+        // wp_login then clears the temporary counters.
         if ($user instanceof \WP_User) return $user;
+        if (!($user instanceof \WP_Error)) return $user;
+
         $keys = $this->loginKeys($username);
         if ((int) get_transient($keys['ip']) >= 5
             || (int) get_transient($keys['user']) >= 10
             || (int) get_transient($keys['pair']) >= 5) {
             return new \WP_Error('too_many', 'Too many failed attempts. Try again in 15 minutes.');
         }
+        // Count failed authentication outcomes inside this filter so parallel
+        // attempts are serialized before another request can pass the limit.
+        $this->loginFail($username);
         return $user;
     }
 
