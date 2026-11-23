@@ -21,6 +21,7 @@ $exceptions = [
     \PkStore\License\Exception\LicenseDomainMismatch::class,
     \PkStore\License\Exception\LicenseInvalidException::class,
     \PkStore\License\Exception\LicenseFeatureNotAvailable::class,
+    \PkStore\Application\POS\Exception\OnlineStockReconciliationPendingException::class,
 ];
 foreach ($exceptions as $exception) {
     if (!class_exists($exception)) {
