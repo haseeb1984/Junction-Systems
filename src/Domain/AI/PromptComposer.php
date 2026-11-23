@@ -33,6 +33,11 @@ RAIL;
         else $parts[]="PRODUCT DATA:\nNo products loaded. Do NOT invent any product details.";
         $parts[]="If product NOT in data: \"Mujhe is product ki details nahi mil rahi. Please product page check karein.\"";
         $prompt = implode("\n\n", $parts);
-        return function_exists('mb_substr') ? mb_substr($prompt, 0, self::MAX) : substr($prompt, 0, self::MAX);
+        if (function_exists('mb_substr')) return mb_substr($prompt, 0, self::MAX);
+        if (function_exists('iconv_substr')) {
+            $truncated = iconv_substr($prompt, 0, self::MAX, 'UTF-8');
+            if ($truncated !== false) return $truncated;
+        }
+        return substr($prompt, 0, self::MAX);
     }
 }
