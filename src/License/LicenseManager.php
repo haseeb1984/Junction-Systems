@@ -153,6 +153,7 @@ final class LicenseManager {
             $scenarioIds,
             static fn($scenario): bool => is_string($scenario) && preg_match('/^SN\\d{3}$/', $scenario) === 1
         ));
+        if ($environment === 'sandbox' && !$scenarioIds) return [];
 
         return [
             'environment' => $environment,
