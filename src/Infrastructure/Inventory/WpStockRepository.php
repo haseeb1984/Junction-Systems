@@ -27,6 +27,52 @@ final class WpStockRepository implements StockRepositoryInterface {
         return $this->transactionalMovement($movement->productId,$movement->locationId,$movement->quantityDelta,
             fn(int $before): array => [$before+$movement->quantityDelta,$movement->type,$movement->referenceType,$movement->referenceId,$movement->note,$movement->createdBy,$movement->createdAt]);
     }
+    public function transferStock(int $productId,int $fromLocationId,int $toLocationId,int $quantity,string $referenceId,string $note,?int $userId): void {
+        if ($productId <= 0 || $fromLocationId <= 0 || $toLocationId <= 0 || $fromLocationId === $toLocationId || $quantity <= 0) {
+            throw new \\InvalidArgumentException('Stock transfer requires a product, two different locations and a positive quantity.');
+        }
+        if ($referenceId === '') throw new \\InvalidArgumentException('Stock transfer reference is required.');
+        if ($this->db->query('START TRANSACTION') === false) throw new \\RuntimeException('Unable to start stock transfer: '.$this->db->last_error);
+        try {
+            $locations = [$fromLocationId,$toLocationId];
+            sort($locations,SORT_NUMERIC);
+            foreach ($locations as $locationId) {
+                $this->db->query($this->db->prepare("INSERT IGNORE INTO {$this->ts()} (product_id,location_id,quantity,updated_at) VALUES (%d,%d,0,%s)",$productId,$locationId,current_time('mysql')));
+            }
+            $rows = $this->db->get_results($this->db->prepare(
+                "SELECT id,location_id,quantity FROM {$this->ts()} WHERE product_id=%d AND location_id IN (%d,%d) ORDER BY location_id FOR UPDATE",
+                $productId,$locations[0],$locations[1]
+            ),ARRAY_A) ?: [];
+            if (count($rows) !== 2) throw new \\RuntimeException('Unable to lock both stock locations for transfer.');
+            $existing = (int)$this->db->get_var($this->db->prepare(
+                "SELECT COUNT(*) FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s",
+                $referenceId
+            ));
+            if ($existing === 2) {
+                if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
+                return;
+            }
+            if ($existing !== 0) throw new \\RuntimeException('Stock transfer ledger is incomplete; manual reconciliation is required.');
+            $byLocation = [];
+            foreach ($rows as $row) $byLocation[(int)$row['location_id']] = $row;
+            $source = $byLocation[$fromLocationId];
+            $destination = $byLocation[$toLocationId];
+            $beforeFrom = (int)$source['quantity'];
+            $beforeTo = (int)$destination['quantity'];
+            if ($beforeFrom < $quantity) throw new \\DomainException("Insufficient source stock. Available: {$beforeFrom}, Requested: {$quantity}.");
+            $updatedFrom = $this->db->update($this->ts(),['quantity'=>$beforeFrom-$quantity,'updated_at'=>current_time('mysql')],['id'=>(int)$source['id']]);
+            if ($updatedFrom === false) throw new \\RuntimeException('Unable to deduct source stock: '.$this->db->last_error);
+            $updatedTo = $this->db->update($this->ts(),['quantity'=>$beforeTo+$quantity,'updated_at'=>current_time('mysql')],['id'=>(int)$destination['id']]);
+            if ($updatedTo === false) throw new \\RuntimeException('Unable to add destination stock: '.$this->db->last_error);
+            $now = new \\DateTimeImmutable();
+            $this->insertMovement(new StockMovement(0,$productId,$fromLocationId,\\PkStore\\Domain\\Inventory\\Entity\\MovementType::TransferOut,-$quantity,$beforeFrom,$beforeFrom-$quantity,'stock_transfer',$referenceId,$note,$userId,$now));
+            $this->insertMovement(new StockMovement(0,$productId,$toLocationId,\\PkStore\\Domain\\Inventory\\Entity\\MovementType::Transfer,$quantity,$beforeTo,$beforeTo+$quantity,'stock_transfer',$referenceId,$note,$userId,$now));
+            if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit stock transfer: '.$this->db->last_error);
+        } catch (\\Throwable $e) {
+            $this->db->query('ROLLBACK');
+            throw $e;
+        }
+    }
     public function setStockAndRecordMovement(int $productId,int $locationId,int $quantity,string $note,?int $userId): ?StockMovement {
         if ($quantity < 0) throw new \InvalidArgumentException('Quantity cannot be negative.');
         return $this->transactionalMovement($productId,$locationId,null,
