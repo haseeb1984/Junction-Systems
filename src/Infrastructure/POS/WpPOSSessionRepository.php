@@ -8,40 +8,40 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     private function t(): string { return $this->db->prefix . 'pkstore_pos_sessions'; }
     public function save(POSSession $s): int {
         $ok=$this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
-        if($ok===false) throw new \\RuntimeException('Unable to create POS session: '.$this->db->last_error);
+        if($ok===false) throw new \RuntimeException('Unable to create POS session: '.$this->db->last_error);
         return (int)$this->db->insert_id;
     }
     public function openOrResume(POSSession $s): array {
         $locations=$this->db->prefix.'pkstore_inventory_locations';
-        if($this->db->query('START TRANSACTION')===false) throw new \\RuntimeException('Unable to start POS session transaction: '.$this->db->last_error);
+        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS session transaction: '.$this->db->last_error);
         try {
             $location=$this->db->get_row($this->db->prepare("SELECT id FROM {$locations} WHERE id=%d AND is_active=1 FOR UPDATE",$s->locationId),ARRAY_A);
-            if(!$location) throw new \\DomainException('POS location does not exist or is inactive.');
+            if(!$location) throw new \DomainException('POS location does not exist or is inactive.');
             $existing=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' ORDER BY id DESC LIMIT 1 FOR UPDATE",$s->locationId),ARRAY_A);
             if($existing) {
-                if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS session resume: '.$this->db->last_error);
+                if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session resume: '.$this->db->last_error);
                 return ['session'=>$this->h($existing),'resumed'=>true];
             }
             $id=$this->save($s);
             $created=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
-            if(!$created) throw new \\RuntimeException('Unable to reload newly opened POS session.');
-            if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS session opening: '.$this->db->last_error);
+            if(!$created) throw new \RuntimeException('Unable to reload newly opened POS session.');
+            if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session opening: '.$this->db->last_error);
             return ['session'=>$this->h($created),'resumed'=>false];
-        } catch(\\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     public function closeAtomic(int $sessionId,int $closingCash): POSSession {
-        if($sessionId<=0 || $closingCash<0) throw new \\InvalidArgumentException('A valid session and non-negative closing cash are required.');
-        if($this->db->query('START TRANSACTION')===false) throw new \\RuntimeException('Unable to start POS session close transaction: '.$this->db->last_error);
+        if($sessionId<=0 || $closingCash<0) throw new \InvalidArgumentException('A valid session and non-negative closing cash are required.');
+        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS session close transaction: '.$this->db->last_error);
         try {
             $row=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$sessionId),ARRAY_A);
-            if(!$row || $row['status']!=='open') throw new \\DomainException('POS session not found or already closed.');
+            if(!$row || $row['status']!=='open') throw new \DomainException('POS session not found or already closed.');
             $updated=$this->db->update($this->t(),['closing_cash'=>$closingCash,'status'=>'closed','closed_at'=>current_time('mysql')],['id'=>$sessionId,'status'=>'open']);
-            if($updated===false || $updated===0) throw new \\RuntimeException('Unable to close POS session: '.$this->db->last_error);
+            if($updated===false || $updated===0) throw new \RuntimeException('Unable to close POS session: '.$this->db->last_error);
             $closed=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$sessionId),ARRAY_A);
-            if(!$closed) throw new \\RuntimeException('Unable to reload closed POS session.');
-            if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS session close: '.$this->db->last_error);
+            if(!$closed) throw new \RuntimeException('Unable to reload closed POS session.');
+            if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session close: '.$this->db->last_error);
             return $this->h($closed);
-        } catch(\\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     public function update(POSSession $s): void {
         $this->db->update($this->t(),[
