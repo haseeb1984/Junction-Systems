@@ -10,6 +10,7 @@ interface StockRepositoryInterface {
     /** Moves stock between two locations atomically with paired ledger entries. */
     /** Atomically sets a count and writes the resulting adjustment to the ledger. */
     public function transferStock(int $productId, int $fromLocationId, int $toLocationId, int $quantity, string $referenceId, string $note, ?int $userId): void;
+    /** Atomically sets a count and writes the resulting adjustment to the ledger. */
     public function setStockAndRecordMovement(int $productId, int $locationId, int $quantity, string $note, ?int $userId): ?StockMovement;
     public function recordMovement(StockMovement $movement): int;
     public function getMovements(int $productId, int $limit=20): array;
