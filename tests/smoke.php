@@ -519,7 +519,11 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'Unable to save inventory product.') === false
     || strpos($inventoryProductRepositorySource, 'Unable to update inventory product.') === false
     || strpos($inventoryProductRepositorySource, '$inserted === false') === false
-    || strpos($inventoryProductRepositorySource, '$updated === false') === false) {
+    || strpos($inventoryProductRepositorySource, '$updated === false') === false
+    || strpos($inventoryProductRepositorySource, 'ORDER BY id ASC LIMIT 2') === false
+    || strpos($inventoryProductRepositorySource, '$rows === null && $this->db->last_error !==') === false
+    || strpos($inventoryProductRepositorySource, 'count($rows ?: []) > 1') === false
+    || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products are mapped to the same WooCommerce product.') === false) {
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
 }
 
