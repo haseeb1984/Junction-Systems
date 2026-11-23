@@ -4,7 +4,7 @@ namespace PkStore\Infrastructure\Admin\Inventory;
 use PkStore\Container\ServiceContainer;
 use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface,StockRepositoryInterface,LocationRepositoryInterface};
-use PkStore\Application\Inventory\{AdjustStockUseCase,GenerateBarcodeUseCase,SyncWooCommerceStockUseCase};
+use PkStore\Application\Inventory\{AdjustStockUseCase,GenerateBarcodeUseCase,SyncWooCommerceStockUseCase,WooCommerceStockMappingPolicy};
 
 final class InventoryAdminController {
     private const CAP = 'manage_woocommerce';
@@ -191,9 +191,18 @@ final class InventoryAdminController {
         $reorderPoint = filter_var($_POST['reorder_point'] ?? 5, FILTER_VALIDATE_INT);
         $wcProductId = filter_var($_POST['wc_product_id'] ?? 0, FILTER_VALIDATE_INT);
         if ($costPrice === false || $salePrice === false || $reorderPoint === false || $wcProductId === false
-            || $costPrice < 0 || $salePrice < 0 || $reorderPoint < 0 || $wcProductId < 0
-            || ($wcProductId > 0 && (!function_exists('wc_get_product') || !wc_get_product($wcProductId)))) {
+            || $costPrice < 0 || $salePrice < 0 || $reorderPoint < 0 || $wcProductId < 0) {
             $this->redirect('pkstore-inventory','error','Prices, reorder point or WooCommerce product mapping are invalid.'); return;
+        }
+        if ($wcProductId > 0) {
+            $wcProduct = function_exists('wc_get_product') ? wc_get_product($wcProductId) : null;
+            if (!$wcProduct) {
+                $this->redirect('pkstore-inventory','error','The selected WooCommerce product does not exist.'); return;
+            }
+            $mappingError = WooCommerceStockMappingPolicy::errorFor($wcProduct);
+            if ($mappingError !== null) {
+                $this->redirect('pkstore-inventory','error',$mappingError); return;
+            }
         }
 
         try {
