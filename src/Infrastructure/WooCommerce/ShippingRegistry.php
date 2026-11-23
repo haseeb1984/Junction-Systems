@@ -45,7 +45,11 @@ final class ShippingRegistry {
         if (!($order instanceof \WC_Order)) return;
         if ($order->get_status() !== 'processing'
             || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes'
-            || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review') return;
+            || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review'
+            || ($order->get_payment_method() === 'cod'
+                && !$this->isDigitalOnlyOrder($order)
+                && ($order->get_meta('_pkstore_cod_otp_review_required', true) === 'yes'
+                    || $order->get_meta('_pkstore_cod_otp_verified', true) !== 'yes'))) return;
 
         // POS mirror orders are already fulfilled at the register and must
         // never enter the customer courier-booking workflow.
@@ -106,6 +110,12 @@ final class ShippingRegistry {
 
         foreach ($result->orders as $order) {
             if (!($order instanceof \WC_Order)) continue;
+            if ($order->get_payment_method() === 'cod'
+                && !$this->isDigitalOnlyOrder($order)
+                && ($order->get_meta('_pkstore_cod_otp_review_required', true) === 'yes'
+                    || $order->get_meta('_pkstore_cod_otp_verified', true) !== 'yes')) {
+                continue;
+            }
             $trackingNumber = (string) $order->get_meta('_tracking_courier');
             $courierCode = strtolower((string) $order->get_meta('_booked_courier'));
             if ($trackingNumber === '' || str_starts_with($trackingNumber, 'PENDING-')
