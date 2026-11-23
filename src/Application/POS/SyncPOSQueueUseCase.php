@@ -59,10 +59,11 @@ final class SyncPOSQueueUseCase {
                         $quantity = (int)$item['quantity'];
                         $gross = (float)$item['unit_price_pkr'] * $quantity;
                         $lineDiscount = (float)($item['discount_pkr'] ?? 0);
-                        $wcOrder->add_product($wcProduct, $quantity, [
+                        $lineItemId=$wcOrder->add_product($wcProduct, $quantity, [
                             'subtotal'=>max(0, $gross),
                             'total'=>max(0, $gross - $lineDiscount),
                         ]);
+                        if(!$lineItemId) throw new \\RuntimeException('WooCommerce failed to add POS line item '.$item['sku'].' to order '.$wcOrder->get_id().'.');
                     }
                     $wcOrder->set_billing_first_name($order->customerName);
                     $wcOrder->set_billing_phone($order->customerPhone);
