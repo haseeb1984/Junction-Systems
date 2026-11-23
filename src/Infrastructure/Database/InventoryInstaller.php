@@ -205,6 +205,7 @@ final class InventoryInstaller {
             product_id INT UNSIGNED NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
             attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
             next_attempt_at DATETIME NOT NULL,
             last_error TEXT DEFAULT NULL,
             updated_at DATETIME NOT NULL,
