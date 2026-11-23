@@ -209,7 +209,7 @@ final class InventoryHooks {
         $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
         $snapshotVersion = (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true);
         if ($snapshotVersion === '') {
-            return $cycleUuid !== '' ? $cycleUuid : null; // pre-cycle legacy order
+            return $cycleUuid !== null && $cycleUuid !== '' ? $cycleUuid : null; // pre-cycle legacy order
         }
         if ($snapshotVersion !== '1') {
             return null; // incomplete snapshot must never bind a return to a prior cycle
@@ -280,7 +280,7 @@ final class InventoryHooks {
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
             $cycleUuid = $this->cycleUuidForReturn($order);
-            if ($cycleUuid !== '') {
+            if ($cycleUuid !== null && $cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
                         ->markReturnPending($order, (int) $item->get_id(), 'cancellation', $quantity, null, $cycleUuid, $productId);
@@ -292,11 +292,11 @@ final class InventoryHooks {
             }
             $returnQueue = $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class);
             $eventKey = $returnQueue->enqueueCancellation(
-                (int) $order->get_id(), (int) $item->get_id(), $productId, $quantity, $cycleUuid !== '' ? $cycleUuid : null
+                (int) $order->get_id(), (int) $item->get_id(), $productId, $quantity, $cycleUuid !== null && $cycleUuid !== '' ? $cycleUuid : null
             );
             try {
                 $applied = $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceOrderItemRestored(
-                    $item, (int) $newStock, (int) $oldStock, $order, $cycleUuid !== '' ? $cycleUuid : null
+                    $item, (int) $newStock, (int) $oldStock, $order, $cycleUuid !== null && $cycleUuid !== '' ? $cycleUuid : null
                 );
                 if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
             } catch (\Throwable $syncError) {
@@ -333,7 +333,7 @@ final class InventoryHooks {
             }
             if ($itemId === 0) $itemId = null; // ambiguous duplicate product lines remain queued for reconciliation
             $cycleUuid = $this->cycleUuidForReturn($order);
-            if ($cycleUuid !== '') {
+            if ($cycleUuid !== null && $cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
                         ->markReturnPending($order, (int) $itemId, 'refund', $delta, $cumulative, $cycleUuid, $productId);
@@ -345,12 +345,12 @@ final class InventoryHooks {
             }
             $returnQueue = $this->c->make(ProcessWooCommerceReturnInventoryQueueUseCase::class);
             $eventKey = $returnQueue->enqueueRefund(
-                (int) $order->get_id(), $productId, $delta, $cumulative, $itemId, $cycleUuid !== '' ? $cycleUuid : null
+                (int) $order->get_id(), $productId, $delta, $cumulative, $itemId, $cycleUuid !== null && $cycleUuid !== '' ? $cycleUuid : null
             );
-            if ($itemId !== null || $cycleUuid === '') {
+            if ($itemId !== null) {
                 try {
                     $applied = $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceRefundItemRestocked(
-                        $productId, (int) $newStock, (int) $oldStock, $order, $product, $itemId, $cumulative, $cycleUuid !== '' ? $cycleUuid : null
+                        $productId, (int) $newStock, (int) $oldStock, $order, $product, $itemId, $cumulative, $cycleUuid !== null && $cycleUuid !== '' ? $cycleUuid : null
                     );
                     if ($applied) $returnQueue->acknowledgeCompleted($eventKey);
                 } catch (\Throwable $syncError) {
