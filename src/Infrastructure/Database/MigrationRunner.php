@@ -103,7 +103,10 @@ final class MigrationRunner {
             }
 
             delete_option(self::ERROR_OPTION);
-            delete_option(self::FRESH_INSTALL_OPTION);
+            if (!update_option(self::FRESH_INSTALL_OPTION, 'complete', false)
+                && get_option(self::FRESH_INSTALL_OPTION, '') !== 'complete') {
+                throw new \RuntimeException('Unable to finalize fresh-install migration state.');
+            }
         } catch (\Throwable $error) {
             // Do not expose SQL details or configuration values to store users.
             update_option(self::ERROR_OPTION, 'Database migration failed. Contact Junction support.', false);
