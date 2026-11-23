@@ -38,6 +38,18 @@ final class ThemeBootstrapper {
 
         // ── Core features (always on) ─────────────────────────────
         (new TrackingController($this->c, $this->fm))->register();
+        if ($this->fm->isEnabled('ai_chat')) {
+            if (!wp_next_scheduled('pkstore_purge_chat_history')) {
+                wp_schedule_event(time() + 300, 'hourly', 'pkstore_purge_chat_history');
+            }
+            add_action('pkstore_purge_chat_history', function(): void {
+                try {
+                    $this->c->make(\PkStore\Domain\AI\ChatRepositoryInterface::class)->purgeExpiredSessions(7200);
+                } catch (\Throwable $error) {
+                    error_log('[PK Store] AI chat history retention cleanup failed (' . get_class($error) . ').');
+                }
+            });
+        }
 
         // ── CoD OTP ──────────────────────────────────────────────
         if ($this->fm->isEnabled('cod_otp'))
