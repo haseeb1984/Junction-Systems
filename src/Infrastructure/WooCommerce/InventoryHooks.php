@@ -24,7 +24,43 @@ final class InventoryHooks {
         }
     }
     public function hourlySyncAll(): void {
+        $this->retryPOSStockProjections();
         try { $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce(); }
-        catch (\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed: '.$e->getMessage()); }
+        catch (\\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed: '.$e->getMessage()); }
+    }
+    private function retryPOSStockProjections(): void {
+        global $wpdb;
+        $queue=$wpdb->prefix.'pkstore_stock_projection_queue';
+        $stock=$wpdb->prefix.'pkstore_inventory_stock';
+        $rows=$wpdb->get_results($wpdb->prepare(
+            "SELECT product_id,attempts FROM {$queue} WHERE status IN ('pending','failed') AND next_attempt_at<=%s ORDER BY updated_at ASC LIMIT 100",
+            current_time('mysql')
+        ),ARRAY_A)?:[];
+        foreach($rows as $row) {
+            $productId=(int)$row['product_id'];
+            try {
+                $productRow=$wpdb->get_row($wpdb->prepare(
+                    "SELECT wc_product_id FROM {$wpdb->prefix}pkstore_inventory_products WHERE id=%d",$productId
+                ),ARRAY_A);
+                if(!$productRow || !(int)$productRow['wc_product_id']) throw new \\RuntimeException('Inventory product has no WooCommerce product mapping.');
+                $wcProduct=wc_get_product((int)$productRow['wc_product_id']);
+                if(!$wcProduct) throw new \\RuntimeException('Mapped WooCommerce product is unavailable.');
+                $total=(int)$wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(quantity),0) FROM {$stock} WHERE product_id=%d",$productId));
+                $wcProduct->set_manage_stock(true);
+                $wcProduct->set_stock_quantity($total);
+                $wcProduct->set_stock_status($total>0?'instock':'outofstock');
+                if($wcProduct->save()===false) throw new \\RuntimeException('WooCommerce rejected the stock projection save.');
+                $wpdb->delete($queue,['product_id'=>$productId],['%d']);
+            } catch(\\Throwable $e) {
+                $attempts=(int)$row['attempts']+1;
+                $delay=min(86400,60*(2**min(10,$attempts-1)));
+                $wpdb->update($queue,[
+                    'status'=>'failed','attempts'=>$attempts,
+                    'next_attempt_at'=>gmdate('Y-m-d H:i:s',time()+$delay),
+                    'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql'),
+                ],['product_id'=>$productId],['%s','%d','%s','%s','%s'],['%d']);
+                error_log('[PKStore Inventory] POS stock projection retry failed for product '.$productId.': '.$e->getMessage());
+            }
+        }
     }
 }
