@@ -106,8 +106,18 @@ final class InventoryHooks {
 
             // Preserve the actual reduction first. WooCommerce may remove its
             // _reduced_stock metadata when cancellation/refund restores stock.
+            $lineItems = $order->get_items('line_item');
+            $previousSnapshotVersion = (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true);
+            // Mark capture as incomplete before writing any per-line fallback
+            // metadata. If a database write fails midway, the worker must not
+            // interpret a mixture of old/new snapshots as a valid sale.
+            $order->update_meta_data('_pkstore_wc_reduction_snapshot_version', 'capturing');
+            if ((int) $order->save() !== $orderId) {
+                throw new \RuntimeException('Unable to mark WooCommerce stock-reduction snapshot as pending.');
+            }
+
             $capturedLines = 0;
-            foreach ($order->get_items('line_item') as $item) {
+            foreach ($lineItems as $item) {
                 $reduced = $item->get_meta('_reduced_stock', true);
                 if ($reduced === '' || $reduced === null || (is_numeric($reduced) && (float) $reduced === 0.0)) {
                     // A prior cycle's fallback snapshot must never make a line
@@ -131,7 +141,17 @@ final class InventoryHooks {
                 }
                 $capturedLines++;
             }
-            if ($capturedLines < 1) return;
+            if ($capturedLines < 1) {
+                if ($previousSnapshotVersion === '') {
+                    $order->delete_meta_data('_pkstore_wc_reduction_snapshot_version');
+                } else {
+                    $order->update_meta_data('_pkstore_wc_reduction_snapshot_version', $previousSnapshotVersion);
+                }
+                if ((int) $order->save() !== $orderId) {
+                    throw new \RuntimeException('Unable to restore WooCommerce stock-reduction snapshot state.');
+                }
+                return;
+            }
             $order->update_meta_data('_pkstore_wc_reduction_snapshot_version', '1');
             if ((int) $order->save() !== $orderId) {
                 throw new \RuntimeException('Unable to persist WooCommerce stock-reduction snapshot version.');
