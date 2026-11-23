@@ -205,6 +205,27 @@ final class InventoryHooks {
         }
     }
 
+    private function cycleUuidForReturn(\WC_Order $order): ?string {
+        $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+        if ($cycleUuid !== '') return $cycleUuid;
+        if ((string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) !== '1') {
+            return null; // pre-cycle legacy order
+        }
+
+        try {
+            $cycleUuid = $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
+                ->resolveCycleUuidForReturn($order);
+            $order->update_meta_data('_pkstore_wc_active_cycle_uuid', $cycleUuid);
+            if ((int) $order->save() !== (int) $order->get_id()) {
+                throw new \RuntimeException('Unable to persist recovered WooCommerce return-cycle identity.');
+            }
+            return $cycleUuid;
+        } catch (\Throwable $error) {
+            error_log('[PKStore Inventory] WooCommerce return cycle identity could not be recovered; durable event remains unbound for retry (' . get_class($error) . ').');
+            return null;
+        }
+    }
+
     private function holdOrderForInventorySync(\WC_Order $order, ?string $cycleUuid): void {
         $orderId = (int) $order->get_id();
         if ($orderId < 1) return;
@@ -253,7 +274,7 @@ final class InventoryHooks {
             $quantity = (int) $newStock - (int) $oldStock;
             $productId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
             if ($productId < 1) $productId = (int) $item->get_product_id();
-            $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+            $cycleUuid = $this->cycleUuidForReturn($order);
             if ($cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
@@ -306,7 +327,7 @@ final class InventoryHooks {
                 else $itemId = 0;
             }
             if ($itemId === 0) $itemId = null; // ambiguous duplicate product lines remain queued for reconciliation
-            $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
+            $cycleUuid = $this->cycleUuidForReturn($order);
             if ($cycleUuid !== '') {
                 try {
                     $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
