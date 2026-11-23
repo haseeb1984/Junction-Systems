@@ -27,7 +27,7 @@ add_action('after_switch_theme',function():void{
 // The GeminiBridge class is kept for legacy compatibility but the plugin
 // should be installed for all new deployments.
 add_action('admin_notices', function () {
-    if (!\\PkStore\\Core\\Feature\\FeatureManager::getInstance()->isEnabled('ai_chat')) return;
+    if (!\PkStore\Core\Feature\FeatureManager::getInstance()->isEnabled('ai_chat')) return;
     if (is_plugin_active('woo-ai-sales-assistant/woo-ai-sales-assistant.php')) return;
     if (!current_user_can('manage_options')) return;
     echo '<div class="notice notice-warning is-dismissible"><p>'
