@@ -1308,6 +1308,7 @@ if (!is_string($courierCircuitBreakerSource)
     throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
 }
 
+$courierRetrySource = file_get_contents($src . '/Application/Logistics/BookShipmentUseCase.php');
 $orderMetaRepositorySource = file_get_contents($src . '/Infrastructure/WooCommerce/OrderMetaRepository.php');
 if (!is_string($orderMetaRepositorySource)
     || strpos($orderMetaRepositorySource, 'Unable to reload the WooCommerce order after courier booking.') === false
