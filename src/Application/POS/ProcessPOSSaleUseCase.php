@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Application\POS;
 use PkStore\Application\Inventory\AdjustStockUseCase;
-use PkStore\Application\POS\ExceptionOnlineStockReconciliationPendingException;
+use PkStore\Application\POS\Exception\OnlineStockReconciliationPendingException;
 use PkStore\Domain\Inventory\Entity\MovementType;
 use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
 use PkStore\Domain\POS\Entity\POSOrder;
