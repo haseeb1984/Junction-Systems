@@ -1497,7 +1497,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, '_pkstore_inventory_cycle_states') === false
     || strpos($stockSaleSource, 'applyAllocatedCycleReturn(') === false
     || strpos($stockSaleSource, 'An earlier WooCommerce stock-cycle sale must be processed first.') === false
-    || strpos($stockSaleSource, "'state' => 'closed'") === false
+    || strpos($stockSaleSource, "SET state='closed'") === false
     || strpos($stockSaleSource, 'refund_cumulative_baseline') === false
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
     || strpos($stockSaleSource, 'new \\\RuntimeException') !== false) {
