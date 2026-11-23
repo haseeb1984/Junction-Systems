@@ -38,6 +38,9 @@ final class ProductContextService {
                     if ($keyword === 'max' && $maxBudgetPrefix) return false;
                     $numeric = str_replace(',', '', $keyword);
                     if (is_numeric($numeric) && (float) $numeric === $budget) return false;
+                    if (is_numeric($numeric)
+                        && preg_match('/\\b(?:hazar|hazaar|thousand)\\b/iu', $message) === 1
+                        && (float) $numeric * 1000 === $budget) return false;
                     if (preg_match('/^([0-9]+(?:\.[0-9]+)?)k$/i', $keyword, $match) === 1
                         && (float) $match[1] * 1000 === $budget) return false;
                     return true;
