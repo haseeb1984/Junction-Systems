@@ -3,12 +3,11 @@ declare(strict_types=1);
 namespace PkStore\Application\POS;
 use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface,StockRepositoryInterface};
 use PkStore\Domain\POS\Entity\POSOrder;
-use PkStore\Domain\POS\Repository\{POSOrderRepositoryInterface,POSSessionRepositoryInterface};
+use PkStore\Domain\POS\Repository\POSOrderRepositoryInterface;
 use Psr\Log\LoggerInterface;
 final class ProcessPOSSaleUseCase {
     public function __construct(
         private readonly POSOrderRepositoryInterface $orderRepo,
-        private readonly POSSessionRepositoryInterface $sessionRepo,
         private readonly InventoryProductRepositoryInterface $productRepo,
         private readonly StockRepositoryInterface $stockRepo,
         private readonly LoggerInterface $log,
