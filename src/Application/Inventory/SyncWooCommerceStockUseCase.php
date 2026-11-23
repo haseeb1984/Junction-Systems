@@ -17,7 +17,6 @@ final class SyncWooCommerceStockUseCase {
         if (!($order instanceof \WC_Order)) return;
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) return;
-        // Aggregate repeated lines for the same mapped product before applying stock once.
         $quantities = [];
         foreach ($order->get_items() as $item) {
             $wcProductId = (int)$item->get_product_id();
@@ -33,7 +32,6 @@ final class SyncWooCommerceStockUseCase {
             if ($order->get_meta($marker)) continue;
             try {
                 $this->adjustStock->execute((int)$productId, $onlineLocation->id, -$quantity, MovementType::OnlineSale, "WooCommerce order #{$orderId}", 'wc_order', (string)$orderId);
-                // Persist per-product completion so repeated status/payment hooks cannot deduct twice.
                 $order->update_meta_data($marker, 1);
                 $order->save();
             } catch (\DomainException $e) {
@@ -57,8 +55,6 @@ final class SyncWooCommerceStockUseCase {
                 $synced++;
             }
         }
-        return $synced;
-    }
         return $synced;
     }
 }
