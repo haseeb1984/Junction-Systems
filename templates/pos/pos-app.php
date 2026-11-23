@@ -350,7 +350,8 @@ const POS = {
         const cphone   = document.getElementById('pos-cphone').value.trim();
         const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
         const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
-        const payload  = {session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
+        const stableOrderRef = 'POS-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
+        const payload  = {session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount, order_ref:stableOrderRef};
 
         try {
             const r = await this.api('/pos/sale','POST',payload);
@@ -365,7 +366,7 @@ const POS = {
             this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
         } catch(e) {
             // Offline: queue locally in IndexedDB
-            const offlineRef = 'OFFLINE-' + Date.now();
+            const offlineRef = stableOrderRef;
             await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
             this.clearCart();
             this.toast(`⚡ Offline — sale queued (${offlineRef})`);
