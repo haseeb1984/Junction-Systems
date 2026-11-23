@@ -11,24 +11,14 @@ final class AdjustStockUseCase {
         private readonly LoggerInterface $log,
     ) {}
     public function execute(int $productId, int $locationId, int $delta, MovementType $type, string $note = '', string $refType = '', string $refId = ''): void {
-        $stock  = $this->stockRepo->getStock($productId, $locationId);
-        $before = $stock->getQuantity();
-        $stock->adjust($delta);
-        $this->stockRepo->updateStock($stock);
-        $movement = StockMovement::create($productId, $locationId, $type, $delta, $before, $refType, $refId, $note, get_current_user_id());
-        $this->stockRepo->recordMovement($movement);
-        // Sync to WooCommerce if this is the online location
+        $movement = StockMovement::create($productId,$locationId,$type,$delta,0,$refType,$refId,$note,get_current_user_id());
+        $this->stockRepo->applyMovement($movement);
+        // Sync only after the stock quantity and its ledger entry have committed.
         $this->syncToWooCommerce($productId, $locationId);
         $this->log->info('Stock adjusted.', ['product_id'=>$productId,'location_id'=>$locationId,'delta'=>$delta,'type'=>$type->value]);
     }
     public function setAbsolute(int $productId, int $locationId, int $quantity, string $note = 'Manual count'): void {
-        $stock  = $this->stockRepo->getStock($productId, $locationId);
-        $before = $stock->getQuantity();
-        $delta  = $quantity - $before;
-        $stock->set($quantity);
-        $this->stockRepo->updateStock($stock);
-        $movement = StockMovement::create($productId, $locationId, MovementType::Adjustment, $delta, $before, 'manual', '', $note, get_current_user_id());
-        $this->stockRepo->recordMovement($movement);
+        $this->stockRepo->setStockAndRecordMovement($productId,$locationId,$quantity,$note,get_current_user_id());
         $this->syncToWooCommerce($productId, $locationId);
     }
     private function syncToWooCommerce(int $productId, int $locationId): void {
