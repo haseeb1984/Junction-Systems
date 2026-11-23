@@ -87,3 +87,11 @@ The source implementation now has cycle-aware capture, sale queue identity, per-
 - WooCommerce's aggregate sellable stock sums active locations only, matching the locations used by online sale allocation. Inactive-location stock remains in the Junction ledger and is excluded from online availability until reactivation.
 - The theme now requires WooCommerce 9.1+ for the per-line restore hook. On older versions, mapped Junction products cannot be purchased and checkout is blocked for carts containing them.
 - Courier booking is held until inventory reconciliation completes. Ambiguous provider outcomes or local tracking-persistence failures move the order to `needs_review`; no automatic failover/retry is allowed until an operator reconciles the provider portal.
+
+
+### Return-cycle identity recovery and legacy-path fence
+
+- Cancellation/refund hooks now attempt to recover a missing active cycle UUID from the durable cycle table when the order carries the cycle-aware reduction-snapshot marker. They persist the recovered UUID before applying a return.
+- The return worker performs the same recovery for already-queued unbound events. It can reconstruct the first cycle only when no cycle history exists; if prior closed cycles exist and the active identity is missing, the event remains queued for manual review rather than being assigned to a potentially wrong cycle.
+- Cycle-aware orders cannot fall back to legacy order-level return accounting when their cycle UUID is absent. This prevents a missing order meta write from silently misattributing cancellation/refund stock to an earlier sale.
+- Source smoke guards were added; runtime fault-injection and duplicate-callback tests remain outstanding.
