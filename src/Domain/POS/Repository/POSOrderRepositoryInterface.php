@@ -12,4 +12,6 @@ interface POSOrderRepositoryInterface {
     public function saveItems(int $orderId, array $items): void;
     /** Persists an order and every line atomically. */
     public function saveWithItems(POSOrder $order, array $items): int;
+    /** Atomically persists a POS sale, deducts stock, records movements and updates its session. */
+    public function processSaleAtomic(POSOrder $order, array $items): int;
 }
