@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/src/Application/Inventory/WooCommerceStockMappingPolicy.php';
 use PkStore\Application\Inventory\WooCommerceStockMappingPolicy;
+
+require_once dirname(__DIR__) . '/src/Application/Inventory/WooCommerceStockMappingPolicy.php';
 
 final class FakeWooProduct {
     public function __construct(
