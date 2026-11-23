@@ -710,8 +710,8 @@ if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'private function bindInventorySyncHoldCycle(\\WC_Order $order, string $cycleUuid): void') === false
     || strpos($orderQueueRetrySource, '$this->bindInventorySyncHoldCycle($order, $cycleUuid)') === false
     || strpos($orderQueueRetrySource, 'Unable to bind WooCommerce inventory hold to its recovered stock cycle.') === false
-    || strpos($orderQueueRetrySource, "SELECT state FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s") === false
-    || strpos($orderQueueRetrySource, "$previousState !== 'closed'") === false
+    || strpos($orderQueueRetrySource, 'SELECT state FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s') === false
+    || strpos($orderQueueRetrySource, "\$previousState !== 'closed'") === false
     || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($orderQueueRetrySource, "do_action('pkstore_inventory_sync_hold_released', \$orderId)") === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
