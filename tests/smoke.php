@@ -1226,7 +1226,7 @@ $stockCycleServicesSource = file_get_contents($root . '/config/services.php');
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "get_meta('_reduced_stock', true)") === false
     || strpos($stockCycleCaptureSource, "SELECT GET_LOCK(%s, %d)") === false
-    || strpos($stockCycleCaptureSource, "state IN ('reducing','active')") === false
+    || strpos($stockCycleCaptureSource, "state IN ('reducing','active','restoring')") === false
     || strpos($stockCycleCaptureSource, 'pkstore_wc_return_inventory_queue') === false
     || strpos($stockCycleCaptureSource, "state<>'closed'") === false
     || strpos($stockCycleCaptureSource, 'An open WooCommerce stock cycle conflicts with the current reduction snapshot.') === false
