@@ -490,3 +490,12 @@ This section supersedes earlier dated snapshots above wherever their status diff
 - Public order tracking is rate-limited by both source IP and secret WooCommerce order key. Courier booking is serialized per order and rechecks order eligibility, COD proof, POS origin, inventory hold, review state and existing confirmed tracking before any provider request. Missing/deleted catalogue products no longer count as proof that an order is digital-only.
 - Login throttling now uses atomic IP/account/IP-account counters, HMAC-derived keys, a transport-peer IP rather than caller-supplied forwarding headers, and clears the relevant temporary counters after successful authentication.
 - Added dependency-free source smoke guards for these invariants. These checks have not been executed. PHP lint, JavaScript syntax checks, WordPress/WooCommerce runtime tests, DB migration tests, provider sandbox tests, concurrency/failure-injection tests and the hosting restore drill remain outstanding.
+
+
+### Additional reconciliation and checkout hardening
+
+- Cycle-aware WooCommerce return events now recover a missing cycle identity only when the durable history makes the target unambiguous. If multiple/closed cycles exist without a matching active order marker, the event is retained for manual review; cancellation/refund handlers and workers cannot fall back to legacy order-level accounting for cycle-aware or incomplete snapshots.
+- Failed login attempts are counted atomically after core password verification, with separate HMAC-derived IP, account and IP/account counters. Valid credentials still pass through and clear the temporary counters, including after a prior threshold was reached.
+- EasyPaisa checkout now collects the customer's Mobile Account number separately, stores only an HMAC of that number, and verifies the authenticated inquiry's returned MSISDN against it. Invalid merchant/order initiation codes are classified as definitive rejection; late/contradictory statuses cannot reopen cancelled/refunded orders or overwrite an already-paid order.
+- Courier retries and direct booking calls use per-order serialization and re-check COD OTP, inventory holds, package state, POS origin, order status and existing tracking before provider submission. Unverified physical COD orders remain blocked even if an order status is manually changed back to processing.
+- Source-level smoke assertions cover these paths. No CI/runtime result is claimed; merchant sandbox and WordPress/WooCommerce concurrency acceptance remain outstanding.
