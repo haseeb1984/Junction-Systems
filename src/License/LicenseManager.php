@@ -132,7 +132,8 @@ final class LicenseManager {
         $providerConfig = is_array($data['provider_config'] ?? null) ? $data['provider_config'] : [];
         $fbr = is_array($providerConfig['fbr'] ?? null) ? $providerConfig['fbr'] : [];
         $environment = (string) ($fbr['environment'] ?? '');
-        $apiToken = is_string($fbr['api_token'] ?? null) ? trim($fbr['api_token']) : '';
+        $apiTokens = is_array($fbr['api_tokens'] ?? null) ? $fbr['api_tokens'] : [];
+        $apiToken = is_string($apiTokens[$environment] ?? null) ? trim($apiTokens[$environment]) : '';
         $sellerNtn = preg_replace('/[^0-9]/', '', (string) ($fbr['seller_ntn_cnic'] ?? ''));
         $businessName = is_string($fbr['seller_business_name'] ?? null) ? trim($fbr['seller_business_name']) : '';
         $province = is_string($fbr['seller_province'] ?? null) ? trim($fbr['seller_province']) : '';
@@ -141,7 +142,7 @@ final class LicenseManager {
 
         if (!in_array($environment, ['sandbox', 'production'], true)
             || $apiToken === '' || strlen($apiToken) > 512
-            || !in_array(strlen($sellerNtn), [7, 9, 13], true)
+            || !in_array(strlen($sellerNtn), [7, 13], true)
             || $businessName === '' || strlen($businessName) > 200
             || $province === '' || strlen($province) > 80
             || $address === '' || strlen($address) > 500
@@ -153,11 +154,16 @@ final class LicenseManager {
             $scenarioIds,
             static fn($scenario): bool => is_string($scenario) && preg_match('/^SN\\d{3}$/', $scenario) === 1
         ));
-        if ($environment === 'sandbox' && !$scenarioIds) return [];
+        $scenarioId = is_string($fbr['scenario_id'] ?? null) ? trim($fbr['scenario_id']) : '';
+        if ($environment === 'sandbox'
+            && (!$scenarioIds || !preg_match('/^SN\\d{3}$/', $scenarioId) || !in_array($scenarioId, $scenarioIds, true))) {
+            return [];
+        }
 
         return [
             'environment' => $environment,
             'api_token' => $apiToken,
+            'scenario_id' => $scenarioId,
             'seller_ntn_cnic' => $sellerNtn,
             'seller_business_name' => $businessName,
             'seller_province' => $province,
