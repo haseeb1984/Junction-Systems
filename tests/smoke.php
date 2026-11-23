@@ -780,7 +780,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'claim_token=NULL') === false
     || strpos($returnQueueSource, 'claim_token=%s') === false
     || strpos($returnQueueSource, '[\'id\' => $id, \'status\' => \'processing\', \'claim_token\' => $claimToken]') === false
-    || strpos($returnQueueSource, "'claim_token' => $claimToken") === false
+    || strpos($returnQueueSource, "'claim_token' => \$claimToken") === false
     || !is_string($returnQueueSchema)
     || strpos($returnQueueSchema, 'claim_token CHAR(36) DEFAULT NULL') === false
     || !is_string($returnQueueMigrations)
@@ -806,7 +806,7 @@ if (!is_string($orderQueueSource)
     || strpos($migrationRunnerSource, "'2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity']") === false
     || strpos($orderQueueSource, 'claim_token=%s') === false
     || strpos($orderQueueSource, '$claimToken = wp_generate_uuid4()') === false
-    || strpos($orderQueueSource, "'claim_token' => $claimToken") === false
+    || strpos($orderQueueSource, "'claim_token' => \$claimToken") === false
     || strpos($orderQueueSource, 'function complete(int $id, string $generation, string $claimToken)') === false
     || substr_count($orderQueueSource, 'generation<>%s AND claim_token=%s') !== 2
     || strpos($orderQueueSource, 'SET status=%s, claimed_at=NULL, claim_token=NULL') === false
@@ -945,6 +945,7 @@ if (!is_string($stockCycleInstallerSource)
 
 
 
+$trackingControllerSource = file_get_contents($src . '/Infrastructure/Http/TrackingController.php');
 $trackingModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/tracking.mjs');
 if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     || strpos($trackingControllerSource, "'order_key'=>['required'=>true") === false
