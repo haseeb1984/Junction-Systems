@@ -27,3 +27,11 @@ Until that payload is deployed and verified, the client deliberately reports Gro
 The agreed requirements for hosting-owned automated backups, customer-initiated encrypted exports, backup retention/restore, central invoices, monthly/yearly subscriptions, seven-day grace, suspension, payment verification, and automatic reactivation require the central hosting/billing control plane. No such control-plane repository or API contract is included in this project checkout. The client theme must not simulate successful backups, payments, license changes, or reactivation without authoritative confirmation from that service.
 
 The client-side migration runner remains fail-closed until the hosting integration confirms a recent full database and website-files backup through `pkstore_migration_backup_confirmed`. This is intentional; do not bypass the backup gate to make an upgrade appear successful.
+
+
+## AI catalogue and provider hardening
+
+- Groq streaming now consumes SSE chunks as they arrive using the cURL multi interface instead of buffering the entire response before yielding. HTTP 429 handling honors both numeric and HTTP-date `Retry-After` values; an interrupted stream is not silently retried after content has already been shown.
+- Roman Urdu hard-budget parsing now understands `5 hazar`, `5 hazaar`, and `5 thousand` as PKR 5,000, and removes those budget tokens from product-search keywords.
+- A parent variable-product SKU no longer returns a fabricated minimum/starting price as though it identified an exact variant. It expands verified child variations and returns their own SKU, attributes, price, stock and product URL.
+- Source smoke assertions cover these rules; runtime streaming, multilingual search, and catalogue acceptance remain pending.
