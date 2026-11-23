@@ -67,7 +67,7 @@ $c->singleton(PralClient::class,fn()=>new PralClient(new LicenseManager()));
     $c->singleton(PayoutRepositoryInterface::class,function(){global $wpdb;return new WpPayoutRepository($wpdb);});
     $c->singleton(RegisterAffiliateUseCase::class,fn()=>new RegisterAffiliateUseCase($c->make(AffiliateRepositoryInterface::class),new WpLogger()));
     $c->singleton(TrackAffiliateClickUseCase::class,fn()=>new TrackAffiliateClickUseCase($c->make(AffiliateRepositoryInterface::class)));
-    $c->singleton(ProcessPayoutUseCase::class,fn()=>new ProcessPayoutUseCase($c->make(AffiliateRepositoryInterface::class),$c->make(PayoutRepositoryInterface::class),$s,new WpLogger()));
+    $c->singleton(ProcessPayoutUseCase::class,fn()=>new ProcessPayoutUseCase());
     $c->singleton(RecordCommissionUseCase::class,fn()=>new RecordCommissionUseCase($c->make(AffiliateRepositoryInterface::class),$c->make(CommissionRepositoryInterface::class),new WpLogger()));
     $c->singleton(SubmitAffiliateProductUseCase::class,fn()=>new SubmitAffiliateProductUseCase($c->make(AffiliateRepositoryInterface::class),$c->make(AffiliateProductRepositoryInterface::class),new WpLogger()));
     $c->singleton(TrackAffiliateProductClickUseCase::class,fn()=>new TrackAffiliateProductClickUseCase($c->make(AffiliateProductRepositoryInterface::class)));
