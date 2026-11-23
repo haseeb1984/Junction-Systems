@@ -21,7 +21,7 @@ sub.addEventListener('click',go);
 append(msgs,'السلام علیکم! میں Dukaan AI ہوں۔\nHow can I help you shop today?');
 async function go(){const t=inp.value.trim();if(!t)return;disableButton(sub,'بھیج رہے ہیں...');inp.value='';inp.disabled=true;user(msgs,t);
 try{let session=await getChatSession();try{await sendWithSession(t,msgs,session);}catch(e){if(!(e instanceof ApiError)||e.code!=='session_expired')throw e;sessionStorage.removeItem(SESSION_KEY);session=await getChatSession();await sendWithSession(t,msgs,session);}}
-catch(e){showMessage(w,e instanceof ApiError&&e.isRateLimited?'Too many questions. Wait a few minutes.':'Error. Please try again.','error');}
+catch(e){const msg=e instanceof ApiError&&e.isRateLimited?'The assistant is busy right now.':'The assistant is temporarily unavailable.';showMessage(w,msg,'error');handoff(msgs,t);}
 finally{enableButton(sub);inp.disabled=false;inp.focus();}}
 }
 async function sendWithSession(t,msgs,session){if(typeof EventSource!=='undefined')await stream(t,msgs,session);else await block(t,msgs,session);}
@@ -42,3 +42,5 @@ function hideTyping(b){b.querySelector('.pk-chat__typing-indicator')?.remove();}
 function dir(e,t){e.dir=URDU.test(t)?'rtl':'ltr';e.setAttribute('lang',URDU.test(t)?'ur':'en');}
 function scroll(l){requestAnimationFrame(()=>{l.scrollTop=l.scrollHeight;});}
 function open(w,t,o){w.setAttribute('aria-hidden',String(!o));w.classList.toggle('pk-chat--open',o);t.setAttribute('aria-expanded',String(o));}
+
+function handoff(list,question){const digits=(config.whatsapp||'').replace(/\\D/g,'');if(!digits)return;const link=document.createElement('a');link.href='https://wa.me/'+digits+'?text='+encodeURIComponent('Assalam-o-alaikum. I need help with: '+question);link.target='_blank';link.rel='noopener noreferrer';link.className='pk-chat__handoff';link.textContent='Continue on WhatsApp';const wrap=el('div',{class:'pk-chat__message pk-chat__message--assistant'});wrap.appendChild(link);list.appendChild(wrap);scroll(list);}
