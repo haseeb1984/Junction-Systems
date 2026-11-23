@@ -26,7 +26,7 @@ final class InventoryInstaller {
             PRIMARY KEY (id),
             UNIQUE INDEX idx_sku (sku),
             INDEX idx_barcode (barcode),
-            INDEX idx_wc_product (wc_product_id)
+            UNIQUE INDEX idx_wc_product (wc_product_id)
         ) ENGINE=InnoDB {$cs};");
 
         // Stock levels per location
@@ -387,6 +387,61 @@ final class InventoryInstaller {
             INDEX idx_queue (queue_type, queue_id),
             INDEX idx_actor (actor_id, created_at)
         ) ENGINE=InnoDB {$cs};");
+    }
+
+    /**
+     * Enforce one Junction inventory record per WooCommerce product.
+     * Existing duplicate mappings are never deleted or auto-merged: the
+     * migration stops until an administrator reconciles them.
+     */
+    public static function installInventoryProductMappingConstraint(): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'pkstore_inventory_products';
+
+        $duplicate = $wpdb->get_var(
+            "SELECT wc_product_id FROM {$table}
+             WHERE wc_product_id IS NOT NULL AND wc_product_id > 0
+             GROUP BY wc_product_id HAVING COUNT(*) > 1 LIMIT 1"
+        );
+        if ($wpdb->last_error !== '') {
+            throw new \RuntimeException('Unable to audit existing WooCommerce inventory product mappings.');
+        }
+        if ($duplicate !== null) {
+            throw new \RuntimeException('Duplicate WooCommerce inventory product mappings must be reconciled before this upgrade.');
+        }
+
+        // Zero is not a valid WooCommerce product ID; normalize legacy sentinel
+        // values to NULL so multiple unlinked products remain valid.
+        $normalized = $wpdb->query("UPDATE {$table} SET wc_product_id=NULL WHERE wc_product_id=0");
+        if ($normalized === false) {
+            throw new \RuntimeException('Unable to normalize empty WooCommerce inventory product mappings.');
+        }
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SHOW INDEX FROM ' . $table . ' WHERE Key_name = %s',
+            'idx_wc_product'
+        ), ARRAY_A);
+        if ($rows === null && $wpdb->last_error !== '') {
+            throw new \RuntimeException('Unable to inspect the WooCommerce inventory mapping index.');
+        }
+
+        $valid = is_array($rows) && count($rows) === 1
+            && (int) ($rows[0]['Non_unique'] ?? 1) === 0
+            && (int) ($rows[0]['Seq_in_index'] ?? 0) === 1
+            && (string) ($rows[0]['Column_name'] ?? '') === 'wc_product_id';
+        if ($valid) return;
+
+        if (is_array($rows) && $rows) {
+            $dropped = $wpdb->query("ALTER TABLE {$table} DROP INDEX idx_wc_product");
+            if ($dropped === false) {
+                throw new \RuntimeException('Unable to replace the legacy WooCommerce inventory mapping index.');
+            }
+        }
+
+        $created = $wpdb->query("ALTER TABLE {$table} ADD UNIQUE INDEX idx_wc_product (wc_product_id)");
+        if ($created === false) {
+            throw new \RuntimeException('Unable to enforce unique WooCommerce inventory product mappings.');
+        }
     }
 
     private static function seedLocations(): void {
