@@ -1573,6 +1573,13 @@ if (!is_string($jazzCashSource)
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
 
+$assetEnqueuerSource = file_get_contents($src . '/Infrastructure/WooCommerce/AssetEnqueuer.php');
+if (!is_string($assetEnqueuerSource)
+    || strpos($assetEnqueuerSource, 'deregisterJQuery') !== false
+    || strpos($assetEnqueuerSource, 'wp_deregister_script') !== false) {
+    throw new \RuntimeException('The storefront must not globally deregister jQuery required by WooCommerce checkout and payment integrations.');
+}
+
 $securityHardenerSource = file_get_contents($src . '/Bootstrap/SecurityHardener.php');
 if (!is_string($securityHardenerSource)
     || strpos($securityHardenerSource, "add_action('wp_login',[\$this,'loginSuccess'],10,2)") === false
