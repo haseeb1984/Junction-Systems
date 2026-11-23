@@ -45,7 +45,7 @@
    const first=wrap.querySelector('.pkstore-po-item');
    const row=first.cloneNode(true);
    row.querySelectorAll('select,input').forEach(function(el){
-     el.name=el.name.replace(/items\\[\\d+\\]/,'items['+index+']');
+     el.name=el.name.replace(/items\[\d+\]/,'items['+index+']');
      if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';
    });
    wrap.appendChild(row);
