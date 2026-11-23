@@ -9,7 +9,7 @@ final class ContextSelector {
         'with','any','available','stock','get','buy','kya','hai','ka','ki','ke','mein','ko','aur',
         'ya','nahi','ap','aap','mujhe','chahiye','kitna','under','below','less','than','up','to',
         'max','maximum','budget','within','rs','pkr','rupees','size','tak','se','kam','andar',
-        'suggest','recommend','good','best','please','find','search'
+        'suggest','recommend','good','best','please','find','search','product','products','item','items','something','anything','koi','acha','achi','achha','achhi','karain','karo'
     ];
 
     private const CAT = [
