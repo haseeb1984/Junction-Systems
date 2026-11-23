@@ -40,7 +40,10 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
         );
         $changed = $this->db->query($sql);
         if ($changed === false) throw new \RuntimeException('Unable to record POS session sale: '.$this->db->last_error);
-        if ($changed !== 1) throw new \RuntimeException('POS session is closed or does not exist.');
+        if ($changed === 0) {
+            $stillOpen = (int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t()} WHERE id=%d AND status='open'", $sessionId));
+            if ($stillOpen === 0) throw new \RuntimeException('POS session is closed or does not exist.');
+        }
     }
     public function findById(int $id): ?POSSession {
         $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
