@@ -12,7 +12,7 @@ use PkStore\License\LicenseManager;
  * by Junction's central platform. API hosts and paths are fixed here so a
  * store-level setting cannot redirect taxpayer credentials to another host.
  */
-final class PralClient {
+class PralClient {
     private const BASE_URL = 'https://gw.fbr.gov.pk';
     private const REFERENCE_TTL = 900;
 
