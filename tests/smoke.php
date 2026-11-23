@@ -1307,6 +1307,10 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "add_action('woocommerce_api_easypaisa_ipn'") === false
     || strpos($easyPaisaSource, "add_action('woocommerce_thankyou_easypaisa'") === false
     || strpos($easyPaisaSource, 'public function verifyOnReturn(') === false
+    || strpos($easyPaisaSource, 'private function withPaymentOrderLock(') === false
+    || strpos($easyPaisaSource, '$this->withPaymentOrderLock((int) $candidate->get_id()') === false
+    || strpos($easyPaisaSource, '$this->withPaymentOrderLock($orderId') === false
+    || strpos($easyPaisaSource, 'Easypaisa IPN could not acquire or use the order payment lock.') === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/initiate-ma-transaction'") === false
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/inquire-transaction'") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
@@ -1346,6 +1350,10 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "add_query_arg('wc-api', 'jazzcash_callback', home_url('/'))") === false
     || strpos($jazzCashSource, "'pp_ReturnURL' => $callbackUrl") === false
     || strpos($jazzCashSource, 'calculateSecureHash(') === false
+    || strpos($jazzCashSource, 'private function processCallbackPayload(array $payload, int $orderId)') === false
+    || strpos($jazzCashSource, '$this->processCallbackPayload($payload, $orderId)') === false
+    || strpos($jazzCashSource, 'JazzCash callback payment lock release could not be confirmed.') === false
+    || strpos($jazzCashSource, "update_meta_data('_pkstore_jazzcash_state', 'confirmed')") === false
     || strpos($jazzCashSource, "iconv('UTF-8', 'ISO-8859-1', \$message)") === false
     || strpos($jazzCashSource, 'verifySecureHash(') === false
     || strpos($jazzCashSource, 'pp_TxnDateTime') === false
