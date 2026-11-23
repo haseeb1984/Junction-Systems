@@ -1144,7 +1144,11 @@ if (!is_string($trackingControllerSource) || !is_string($shippingRegistryLifecyc
     || strpos($shippingRegistryLifecycleSource, "'wc-on-hold'") === false
     || strpos($shippingRegistryLifecycleSource, "as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',[\$orderId]") === false
     || strpos($shippingRegistryLifecycleSource, "['order_id'=>\$orderId]") !== false
-    || strpos($shippingRegistryLifecycleSource, "_pkstore_pos_origin") === false) {
+    || strpos($shippingRegistryLifecycleSource, "_pkstore_pos_origin") === false
+    || strpos($shippingRegistryLifecycleSource, "_pkstore_cod_otp_review_required") === false
+    || strpos($shippingRegistryLifecycleSource, "_pkstore_cod_otp_verified") === false
+    || strpos($shippingRegistryLifecycleSource, 'if (!$items) return false;') === false
+    || strpos($shippingRegistryLifecycleSource, 'if (!($p instanceof \WC_Product)) return false;') === false) {
     throw new \RuntimeException('Courier tracking must use HPOS-compatible order queries and licensed providers only.');
 }
 
@@ -1187,6 +1191,8 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource)
     || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_create_order') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_order_processed') === false
+    || strpos($codOtpControllerSource, 'enforceCodOtpFulfilmentHold') === false
+    || strpos($codOtpControllerSource, "woocommerce_order_status_processing', [$this, 'enforceCodOtpFulfilmentHold'], 1") === false
     || strpos($codOtpControllerSource, 'bindConsumedAttemptToOrder(') === false
     || strpos($codOtpControllerSource, 'holdCodOrderForOtpReview(') === false
     || strpos($codOtpControllerSource, "_pkstore_cod_otp_review_required") === false
