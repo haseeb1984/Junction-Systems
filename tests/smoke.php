@@ -1081,7 +1081,7 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($aiChatControllerSource, '2 * HOUR_IN_SECONDS') === false
     || strpos($bootstrapSource, "wp_schedule_event(time() + 300, 'hourly', 'pkstore_purge_chat_history')") === false
     || strpos($bootstrapSource, 'purgeExpiredSessions(7200)') === false
-    || strpos($aiChatControllerSource, 'hash_equals($storedHash, hash(\\'sha256\\', $token))') === false
+    || strpos($aiChatControllerSource, "hash_equals(\$storedHash, hash('sha256', \$token))") === false
     || strpos($aiChatControllerSource, 'validSessionUuid(') === false
     || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
     || strpos($aiChatControllerSource, '$ipCount >= 100') === false
@@ -1434,7 +1434,7 @@ if (!is_string($stockCycleReturnQueueSource)
     || strpos($stockCycleReturnQueueSource, 'resolveCycleUuidForReturn($order)') === false
     || strpos($stockCycleReturnQueueSource, 'Unable to persist recovered WooCommerce return-cycle identity.') === false
     || strpos($stockCycleReturnQueueSource, 'onWooCommerceOrderItemRestored($item, $quantity, 0, $order, $cycleUuid)') === false
-    || strpos($stockCycleReturnQueueSource, '$job[\\'cycle_uuid\\'] !== null ? (string) $job[\\'cycle_uuid\\'] : null') === false) {
+    || strpos($stockCycleReturnQueueSource, "\$job['cycle_uuid'] !== null ? (string) \$job['cycle_uuid'] : null") === false) {
     throw new \RuntimeException('Durable WooCommerce returns must recover missing cycle identity and never fall back to legacy order-level accounting.');
 }
 
@@ -1585,7 +1585,7 @@ if (!is_string($securityHardenerSource)
     || strpos($securityHardenerSource, 'SELECT GET_LOCK(%s, %d)') === false
     || strpos($securityHardenerSource, 'SELECT RELEASE_LOCK(%s)') === false
     || strpos($securityHardenerSource, "get_transient(\$keys['user']) >= 10") === false
-    || strpos($securityHardenerSource, 'delete_transient($keys[\\'ip\\'])') === false) {
+    || strpos($securityHardenerSource, "delete_transient(\$keys['ip'])") === false) {
     throw new \RuntimeException('Login throttling must be atomic, account-aware, non-spoofable and reset after successful authentication.');
 }
 
