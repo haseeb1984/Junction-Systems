@@ -37,6 +37,9 @@ jobs:
       - name: Test inventory mapping migration safety
         run: php tests/inventory-mapping-migration.php
 
+      - name: Test WooCommerce stock mapping policy
+        run: php tests/woocommerce-stock-mapping-policy.php
+
       - name: Check JavaScript syntax
         shell: bash
         run: |
