@@ -33,3 +33,6 @@ jobs:
           for file in "${files[@]}"; do
             php -l "$file"
           done
+
+      - name: Run POS session domain tests
+        run: php tests/run.php
