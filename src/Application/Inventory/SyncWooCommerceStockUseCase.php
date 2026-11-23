@@ -25,9 +25,14 @@ final class SyncWooCommerceStockUseCase {
             }
 
             $order = wc_get_order($orderId);
-            if ($order instanceof \WC_Order
-                && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
-                throw new \RuntimeException('Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.');
+            if ($order instanceof \WC_Order) {
+                $snapshotVersion = (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true);
+                if ($snapshotVersion !== '' && $snapshotVersion !== '1') {
+                    throw new \RuntimeException('WooCommerce stock-reduction snapshot capture is incomplete and must be reviewed before ledger ingestion.');
+                }
+                if ($snapshotVersion === '1') {
+                    throw new \RuntimeException('Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.');
+                }
             }
 
             $this->applyWooCommerceSale($orderId);
