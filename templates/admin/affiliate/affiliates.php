@@ -20,9 +20,9 @@ $affiliates=$wpdb->get_results("SELECT * FROM {$t} ORDER BY created_at DESC LIMI
   $accountKey='AFFILIATE_PAYMENT_ACCOUNT_'.(int)$a['id'];
   $paymentAccount='';
   if($storedAccount==='__encrypted__') {
-    $paymentAccount=\\PkStore\\Settings\\SettingsManager::getInstance()->get($accountKey,'');
+    $paymentAccount=\PkStore\Settings\SettingsManager::getInstance()->get($accountKey,'');
   } elseif($storedAccount!=='') {
-    $settings=\\PkStore\\Settings\\SettingsManager::getInstance();
+    $settings=\PkStore\Settings\SettingsManager::getInstance();
     $encrypted=$settings->setSecret($accountKey,$storedAccount)||hash_equals($storedAccount,$settings->get($accountKey,''));
     $updated=$encrypted?$wpdb->update($t,['payment_account'=>'__encrypted__'],['id'=>(int)$a['id']]):false;
     $paymentAccount=$updated===1?$storedAccount:'••••'.substr($storedAccount,-4);
