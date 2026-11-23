@@ -37,8 +37,7 @@ final class ProcessPOSSaleUseCase {
             }
         }
         // Update session totals
-        $effectiveMethod = $paymentSplit ? 'split' : $paymentMethod;
-        $session->recordSale($order->totalPkr, $effectiveMethod);
+        $session->recordSale($order->totalPkr, $paymentMethod, $paymentSplit);
         $this->sessionRepo->update($session);
         $this->log->info('POS sale processed.', ['order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'method'=>$paymentMethod]);
         return $this->orderRepo->findById($orderId);
