@@ -493,6 +493,17 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         $transactionStatus = strtoupper((string) ($status['transactionStatus'] ?? ''));
         $transactionId = sanitize_text_field((string) ($status['transactionId'] ?? ''));
+        if (in_array($order->get_status(), ['cancelled', 'refunded'], true)
+            || ($order->is_paid() && $transactionStatus !== 'PAID')) {
+            $order->update_meta_data('_pkstore_easypaisa_state', 'review');
+            $order->add_order_note(
+                'Easypaisa reported ' . sanitize_text_field($transactionStatus)
+                . ' after the order was already cancelled, refunded or paid through another path. '
+                . 'The existing WooCommerce payment state was preserved; manual reconciliation is required.'
+            );
+            $order->save();
+            return 'review';
+        }
         if ($transactionStatus === 'PAID') {
             if (!$order->is_paid() && !in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
                 $order->update_meta_data('_pkstore_easypaisa_state', 'confirmed');
