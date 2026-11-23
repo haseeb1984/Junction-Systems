@@ -6,7 +6,7 @@ use Psr\Log\LoggerInterface;
 final class ReceivePurchaseOrderUseCase {
     public function __construct(private readonly PurchaseOrderRepositoryInterface $orders,private readonly InventoryProductRepositoryInterface $products,private readonly StockRepositoryInterface $stock,private readonly LoggerInterface $log) {}
     public function execute(int $purchaseOrderId,array $items,string $receiptReference): void {
-        if ($purchaseOrderId<=0 || trim($receiptReference)==='') throw new \InvalidArgumentException('Purchase order and stable receipt reference are required.');
+        if ($purchaseOrderId<=0 || trim($receiptReference)==='' || strlen(trim($receiptReference))>64) throw new \InvalidArgumentException('Purchase order and stable receipt reference are required.');
         if (!$items) throw new \InvalidArgumentException('At least one received item is required.');
         $clean=[]; $seen=[];
         foreach($items as $item) {
