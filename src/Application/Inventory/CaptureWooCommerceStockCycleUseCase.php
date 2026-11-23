@@ -232,6 +232,7 @@ final class CaptureWooCommerceStockCycleUseCase {
             throw new \RuntimeException('WordPress database is unavailable while resolving a WooCommerce return cycle.');
         }
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+        $activeMetaUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
         $openCycleUuid = $wpdb->get_var($wpdb->prepare(
             "SELECT cycle_uuid FROM {$cyclesTable}
              WHERE wc_order_id=%d AND state IN ('reducing','active','restoring')
@@ -241,10 +242,6 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ($wpdb->last_error !== '') {
             throw new \RuntimeException('Unable to resolve an open WooCommerce stock cycle.');
         }
-        if (is_string($openCycleUuid) && preg_match('/^[a-f0-9-]{36}$/i', $openCycleUuid) === 1) {
-            return $openCycleUuid;
-        }
-
         $cycleCount = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d",
             $orderId
@@ -252,10 +249,25 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ($wpdb->last_error !== '' || !is_numeric($cycleCount)) {
             throw new \RuntimeException('Unable to inspect WooCommerce stock-cycle history.');
         }
+
+        if ($activeMetaUuid !== '') {
+            if (is_string($openCycleUuid) && hash_equals($activeMetaUuid, $openCycleUuid)) {
+                return $openCycleUuid;
+            }
+            throw new \RuntimeException('WooCommerce active cycle metadata does not match the durable open cycle.');
+        }
+
+        if ((int) $cycleCount === 1
+            && is_string($openCycleUuid)
+            && preg_match('/^[a-f0-9-]{36}$/i', $openCycleUuid) === 1) {
+            // The first cycle header committed but its order meta write failed.
+            // With exactly one cycle in history, the open cycle is unambiguous.
+            return $openCycleUuid;
+        }
         if ((int) $cycleCount > 0) {
-            // A closed prior cycle with no active identity is ambiguous. Never
-            // create a fresh cycle from a late duplicate return callback.
-            throw new \RuntimeException('WooCommerce return has no active cycle identity; prior closed cycles require manual reconciliation.');
+            // Once multiple or closed cycles exist, an unbound return cannot be
+            // safely assigned by recency alone; never attach it to a later sale.
+            throw new \RuntimeException('WooCommerce return has no unambiguous active cycle identity; manual reconciliation is required.');
         }
 
         // A reduction snapshot can exist even when the first cycle header write
