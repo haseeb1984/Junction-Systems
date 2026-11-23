@@ -34,5 +34,5 @@ jobs:
             php -l "$file"
           done
 
-      - name: Run POS session domain tests
+      - name: Run POS domain smoke tests
         run: php tests/run.php
