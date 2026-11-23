@@ -1388,6 +1388,8 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, '_pkstore_inventory_allocations') === false
     || strpos($stockSaleSource, 'applyAllocatedOnlineReturn(') === false
     || strpos($stockSaleSource, 'applyWooCommerceSaleCycle(') === false
+    || strpos($stockSaleSource, 'snapshot capture is incomplete and must be reviewed before ledger ingestion.') === false
+    || strpos($stockSaleSource, 'Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.') === false
     || strpos($stockSaleSource, 'wc_stock_cycle') === false
     || strpos($stockSaleSource, '_pkstore_inventory_cycle_states') === false
     || strpos($stockSaleSource, 'applyAllocatedCycleReturn(') === false
