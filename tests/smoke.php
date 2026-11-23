@@ -301,6 +301,24 @@ if (strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
 }
 
 
+$ga4AnalyticsSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/GA4Service.php');
+$facebookPixelSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/FacebookPixelService.php');
+if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
+    || strpos($ga4AnalyticsSource, "wp_has_consent('statistics')") === false
+    || strpos($ga4AnalyticsSource, "_pkstore_ga4_statistics_consent") === false
+    || strpos($ga4AnalyticsSource, "_pkstore_ga4_purchase_fired") === false
+    || strpos($ga4AnalyticsSource, "get_post_meta(") !== false
+    || strpos($ga4AnalyticsSource, "value:'") !== false
+    || strpos($facebookPixelSource, "wp_has_consent('marketing')") === false
+    || strpos($facebookPixelSource, "_pkstore_facebook_marketing_consent") === false
+    || strpos($facebookPixelSource, "'event_id' => \$eventId") === false
+    || strpos($facebookPixelSource, "eventID:'") === false
+    || strpos($facebookPixelSource, "get_post_meta(") !== false
+    || strpos($settingsManagerSource, "'google_analytics'=>['GA4_MEASUREMENT_ID'=>false,'GA4_API_SECRET'=>true") === false
+    || strpos($settingsManagerSource, "'facebook_pixel'=>['FACEBOOK_PIXEL_ID'=>false,'FACEBOOK_CAPI_TOKEN'=>true") === false) {
+    throw new \\RuntimeException('GA4 and Meta tracking must require explicit consent, use HPOS-safe order metadata and deduplicate browser/server purchase events.');
+}
+
 $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 $inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
