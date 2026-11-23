@@ -901,6 +901,9 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || strpos($wcProductRepositorySource, 'stockQty    = $isDigital ? 999') !== false
     || strpos($productContextServiceSource, 'findByKeywords($keywords, self::MAX, $budget)') === false
     || strpos($productContextServiceSource, 'findPopular(self::MAX, $budget)') === false
+    || strpos($productContextServiceSource, 'includeAvailableAlternatives') === false
+    || strpos($productContextServiceSource, 'findByCategory($category, self::MAX, $budget)') === false
+    || strpos($promptComposerSource, 'offer only verified available alternatives') === false
     || strpos($contextSelectorSource, 'extractBudget(') === false
     || strpos($contextSelectorSource, 'extractSku(') === false
     || strpos($productContextSource, "'url' => \$this->productUrl") === false
