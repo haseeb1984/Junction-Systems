@@ -345,39 +345,54 @@ const POS = {
     async processSale() {
         if (!this.cart.length) return;
         if (!this.sessionId) { alert('Please open a session first.'); return; }
-        const btn  = document.getElementById('pos-charge-btn');
-        btn.disabled = true; btn.textContent = 'Processing...';
-        const discount = parseInt(document.getElementById('pos-discount').value)||0;
-        const cname    = document.getElementById('pos-cname').value.trim()||'Walk-in';
-        const cphone   = document.getElementById('pos-cphone').value.trim();
-        const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
-        const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
-        const stableOrderRef = 'POS-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
-        const payload  = {session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount, order_ref:stableOrderRef};
+        const btn = document.getElementById('pos-charge-btn');
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
 
+        const discount = parseInt(document.getElementById('pos-discount').value)||0;
+        const cname = document.getElementById('pos-cname').value.trim()||'Walk-in';
+        const cphone = document.getElementById('pos-cphone').value.trim();
+        const items = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
+        const total = Math.max(0,this.cart.reduce((sum,i)=>sum+(i.price*i.qty),0)-discount);
+        const stableOrderRef = 'POS-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
+        const payload = {session_id:this.sessionId,location_id:this.locationId,items,payment_method:this.paymentMethod,customer_name:cname,customer_phone:cphone,discount_pkr:discount,order_ref:stableOrderRef};
+        let sale;
+
+        // Only the sale endpoint decides whether the sale was committed.
         try {
-            const r = await this.api('/pos/sale','POST',payload);
-            // WhatsApp receipt if phone provided
-            if (cphone) {
-                const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:r.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
-                if (wr.whatsapp_url) window.open(wr.whatsapp_url,'_blank');
-            }
-            // Thermal print
-            this.printReceipt({ref:r.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
-            this.clearCart();
-            this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
+            sale = await this.api('/pos/sale','POST',payload);
         } catch(e) {
-            // Queue only transport/offline failures. Validation and stock errors must remain visible.
             if (!navigator.onLine || e instanceof TypeError) {
-                const offlineRef = stableOrderRef;
-                await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
+                await DB.put('queue',{...payload,ref:stableOrderRef,total,offline:true});
                 this.clearCart();
-                this.toast(`⚡ Offline — sale queued (${offlineRef})`);
+                this.toast(`⚡ Offline — sale queued (${stableOrderRef})`);
             } else {
                 this.toast(`Sale not completed: ${e.message}`);
             }
+            btn.disabled = false;
+            this.updateTotals();
+            return;
         }
-        btn.disabled = false; this.updateTotals();
+
+        // The sale is committed. Never report it as failed because a receipt
+        // notification or the local printer fails afterward.
+        this.clearCart();
+        this.toast(`✓ Sale ${sale.order_ref} — PKR ${total.toLocaleString()}`);
+        try {
+            if (cphone) {
+                const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:sale.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
+                if (wr.whatsapp_url) window.open(wr.whatsapp_url,'_blank');
+            }
+        } catch(e) {
+            this.toast(`Sale saved; WhatsApp receipt could not be sent: ${e.message}`,5000);
+        }
+        try {
+            this.printReceipt({ref:sale.order_ref,total,items,method:this.paymentMethod,cname,cphone,discount});
+        } catch(e) {
+            this.toast('Sale saved; receipt printing failed.',5000);
+        }
+        btn.disabled = false;
+        this.updateTotals();
     },
 
     printReceipt({ref, total, items, method, cname, cphone, discount}) {
