@@ -326,6 +326,8 @@ if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($facebookPixelSource, "_pkstore_facebook_marketing_consent") === false
     || strpos($facebookPixelSource, "'event_id' => \$eventId") === false
     || strpos($facebookPixelSource, "eventID:'") === false
+    || strpos($facebookPixelSource, 'graph.facebook.com/v27.0/') === false
+    || strpos($facebookPixelSource, 'graph.facebook.com/v18.0/') !== false
     || strpos($facebookPixelSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($facebookPixelSource, "SELECT RELEASE_LOCK(%s)") === false
     || strpos($ga4AnalyticsSource, "public function captureConsent(\\WC_Order $order") === false
