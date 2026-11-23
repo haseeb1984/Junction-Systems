@@ -49,15 +49,8 @@ final class WcProductRepository implements ProductRepositoryInterface {
         }
 
         $where = implode(' AND ', $conditions);
-        $keywordParams = $params;
-        $params = [];
-        $priceFilter = '';
-        if ($maxPrice !== null) {
-            $priceFilter = ' AND lookup.min_price <= %f';
-            $params[] = max(0, $maxPrice);
-        }
-        // SQL placeholder order is price filter, then keyword clauses, then limit.
-        $params = array_merge($params, $keywordParams);
+        $params = $params;
+        $budgetOrder = $maxPrice !== null ? 'lookup.min_price ASC, ' : '';
 
         $sql = "SELECT p.ID
             FROM {$this->db->posts} p
@@ -70,9 +63,8 @@ final class WcProductRepository implements ProductRepositoryInterface {
               AND parent.post_status='publish'
               AND parent.post_password=''
               AND p.post_password=''
-              {$priceFilter}
               AND {$where}
-            ORDER BY (p.post_type='product_variation') DESC, (lookup.stock_status='instock') DESC,
+            ORDER BY (p.post_type='product_variation') DESC, (lookup.stock_status='instock') DESC, {$budgetOrder}
               CAST(COALESCE((SELECT sales.meta_value FROM {$postmeta} sales WHERE sales.post_id=parent.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
             LIMIT %d";
@@ -87,13 +79,8 @@ final class WcProductRepository implements ProductRepositoryInterface {
     public function findByCategory(string $slug, int $limit = 12, ?float $maxPrice = null): array {
         $limit = max(1, min($limit, 50));
         $lookup = $this->db->prefix . 'wc_product_meta_lookup';
-        $priceFilter = '';
-        $params = [$slug];
-        if ($maxPrice !== null) {
-            $priceFilter = ' AND lookup.min_price <= %f';
-            $params[] = max(0, $maxPrice);
-        }
-        $params[] = $limit;
+        $params = [$slug, $maxPrice !== null ? min($limit * 10, 200) : $limit];
+        $budgetOrder = $maxPrice !== null ? 'lookup.min_price ASC, ' : '';
 
         $sql = "SELECT DISTINCT p.ID
             FROM {$this->db->posts} p
@@ -104,8 +91,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
             WHERE p.post_type='product' AND p.post_status='publish' AND p.post_password=''
               AND tt.taxonomy='product_cat' AND t.slug=%s
               AND lookup.stock_status IN ('instock','onbackorder')
-              {$priceFilter}
-            ORDER BY CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
+            ORDER BY {$budgetOrder}CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
             LIMIT %d";
         $ids = $this->db->get_col($this->db->prepare($sql, ...$params));
@@ -117,21 +103,15 @@ final class WcProductRepository implements ProductRepositoryInterface {
     public function findPopular(int $limit = 12, ?float $maxPrice = null): array {
         $limit = max(1, min($limit, 50));
         $lookup = $this->db->prefix . 'wc_product_meta_lookup';
-        $priceFilter = '';
-        $params = [];
-        if ($maxPrice !== null) {
-            $priceFilter = ' AND lookup.min_price <= %f';
-            $params[] = max(0, $maxPrice);
-        }
-        $params[] = $limit;
+        $params = [$maxPrice !== null ? min($limit * 10, 200) : $limit];
+        $budgetOrder = $maxPrice !== null ? 'lookup.min_price ASC, ' : '';
 
         $sql = "SELECT p.ID
             FROM {$this->db->posts} p
             INNER JOIN {$lookup} lookup ON lookup.product_id=p.ID
             WHERE p.post_type='product' AND p.post_status='publish' AND p.post_password=''
               AND lookup.stock_status IN ('instock','onbackorder')
-              {$priceFilter}
-            ORDER BY CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
+            ORDER BY {$budgetOrder}CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
             LIMIT %d";
         $ids = $this->db->get_col($this->db->prepare($sql, ...$params));
