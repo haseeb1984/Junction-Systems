@@ -508,3 +508,10 @@ This section supersedes earlier dated snapshots above wherever their status diff
 - Commission recording now runs in a database transaction, locks the affiliate balance row, relies on the unique WooCommerce order index for duplicate-hook idempotency, and rolls back commission inserts if the balance update fails.
 - Automatic JazzCash affiliate disbursement was disabled because the current provider payout endpoint/response contract has not been independently verified. Reaching the payout threshold notifies the administrator for manual review; balances are not marked paid automatically. A complete audited manual payout action/history workflow remains a separate outstanding requirement.
 - Source smoke guards were added. PHP/JS execution, database migration/runtime checks and affiliate end-to-end acceptance remain pending.
+
+
+### Affiliate financial controls still requiring product/provider sign-off
+
+- Affiliate commissions are recorded once per eligible PKR WooCommerce order, with self-referrals excluded and balance writes protected by a row lock/transaction.
+- Automated affiliate disbursement remains disabled. The current codebase has no verified provider payout contract and no audited manual payout approval/settlement workflow. The administrator receives a threshold notification; the affiliate balance remains pending.
+- Commission reversal/adjustment for full or partial WooCommerce refunds and chargebacks is not implemented. Do not treat affiliate payouts as production-ready until reversal rules, manual settlement controls and provider contracts are approved and tested.
