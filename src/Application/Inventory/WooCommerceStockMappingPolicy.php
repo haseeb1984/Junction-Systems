@@ -22,14 +22,19 @@ final class WooCommerceStockMappingPolicy {
             if (!method_exists($product, 'get_children')) {
                 return 'WooCommerce variation stock ownership could not be verified.';
             }
-            foreach ($product->get_children() as $variationId) {
+            $children = $product->get_children();
+            $parentManagedChildren = 0;
+            foreach ($children as $variationId) {
                 $variation = function_exists('wc_get_product') ? wc_get_product((int) $variationId) : null;
                 if (!is_object($variation) || !method_exists($variation, 'get_manage_stock')) {
                     return 'A WooCommerce variation is unavailable; stock ownership could not be verified.';
                 }
-                if ((bool) $variation->get_manage_stock('edit')) {
-                    return 'This variable product has independently managed variations. Map those stock-owning variations separately.';
+                if (!(bool) $variation->get_manage_stock('edit')) {
+                    $parentManagedChildren++;
                 }
+            }
+            if ($children && $parentManagedChildren === 0) {
+                return 'All variations manage stock independently. Map each stock-owning variation separately.';
             }
         }
 
