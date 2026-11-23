@@ -49,11 +49,15 @@ final class WcProductRepository implements ProductRepositoryInterface {
         }
 
         $where = implode(' AND ', $conditions);
+        $keywordParams = $params;
+        $params = [];
         $priceFilter = '';
         if ($maxPrice !== null) {
             $priceFilter = ' AND lookup.min_price <= %f';
             $params[] = max(0, $maxPrice);
         }
+        // SQL placeholder order is price filter, then keyword clauses, then limit.
+        $params = array_merge($params, $keywordParams);
 
         $sql = "SELECT p.ID
             FROM {$this->db->posts} p
