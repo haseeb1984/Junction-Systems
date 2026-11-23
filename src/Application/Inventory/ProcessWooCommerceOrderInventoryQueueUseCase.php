@@ -120,9 +120,21 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         }
         $heldCycleUuid = (string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_cycle_uuid', true);
         if ($heldCycleUuid !== '' && !hash_equals($cycleUuid, $heldCycleUuid)) {
-            throw new \RuntimeException('WooCommerce inventory hold belongs to a different stock cycle.');
+            global $wpdb;
+            if (!$wpdb instanceof \wpdb) {
+                throw new \RuntimeException('WordPress database is unavailable while rebinding an inventory hold.');
+            }
+            $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+            $previousState = $wpdb->get_var($wpdb->prepare(
+                "SELECT state FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s",
+                $orderId,
+                $heldCycleUuid
+            ));
+            if ($wpdb->last_error !== '' || $previousState !== 'closed') {
+                throw new \RuntimeException('WooCommerce inventory hold belongs to an unresolved stock cycle.');
+            }
         }
-        if ($heldCycleUuid === '') {
+        if ($heldCycleUuid === '' || !hash_equals($cycleUuid, $heldCycleUuid)) {
             $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_cycle_uuid', $cycleUuid);
             if ((int) $freshOrder->save() !== $orderId) {
                 throw new \RuntimeException('Unable to bind WooCommerce inventory hold to its recovered stock cycle.');
