@@ -230,6 +230,17 @@ final class CodOtpController {
         $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
         if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) return;
 
+        try {
+            $billingPhone = new PakistanPhoneNumber((string) $order->get_billing_phone());
+        } catch (\Throwable) {
+            $this->holdCodOrderForOtpReview($order, 'The order billing phone could not be matched to the verified COD phone.');
+            return;
+        }
+        if (!hash_equals((string) ($proof['phone'] ?? ''), $billingPhone->e164)) {
+            $this->holdCodOrderForOtpReview($order, 'The order billing phone differs from the phone verified for COD.');
+            return;
+        }
+
         $order->update_meta_data('_pkstore_cod_otp_verified', 'yes');
         $order->update_meta_data('_pkstore_cod_otp_attempt_id', sanitize_text_field((string) $proof['attempt_id']));
         $order->update_meta_data('_pkstore_cod_otp_verified_at', current_time('mysql'));
@@ -248,24 +259,44 @@ final class CodOtpController {
             || $this->isDigitalOnlyOrder($order)) return;
 
         $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
-        if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) return;
+        if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) {
+            $this->holdCodOrderForOtpReview($order, 'No consumed server-side phone verification proof was present when the COD order was finalized.');
+            return;
+        }
 
         try {
+            $billingPhone = new PakistanPhoneNumber((string) $order->get_billing_phone());
+            if (!hash_equals((string) ($proof['phone'] ?? ''), $billingPhone->e164)) {
+                $this->holdCodOrderForOtpReview($order, 'The final COD order billing phone differs from the verified phone.');
+                $this->clearSessionProof();
+                return;
+            }
             $bound = $this->container->make(OtpRepositoryInterface::class)->bindConsumedAttemptToOrder(
                 (string) $proof['attempt_id'],
                 (string) $proof['session_ref'],
                 (string) $orderId
             );
             if (!$bound) {
-                $order->add_order_note('COD phone verification was consumed but its OTP audit record could not be linked. Review before dispatch.');
+                $this->holdCodOrderForOtpReview($order, 'COD phone verification was consumed but its OTP audit record could not be linked to this order.');
                 error_log('[PK Store] COD OTP consumed-proof order binding failed for order ' . $orderId . '.');
             }
         } catch (\Throwable $error) {
-            $order->add_order_note('COD phone verification audit binding failed. Review before dispatch.');
+            $this->holdCodOrderForOtpReview($order, 'COD phone verification audit binding failed; manual review is required.');
             error_log('[PK Store] COD OTP order binding failed for order ' . $orderId . ' (' . get_class($error) . ').');
         }
 
         $this->clearSessionProof();
+    }
+
+    private function holdCodOrderForOtpReview(\WC_Order $order, string $reason): void {
+        $order->update_meta_data('_pkstore_cod_otp_verified', 'no');
+        $order->update_meta_data('_pkstore_cod_otp_review_required', 'yes');
+        $order->add_order_note($reason . ' Dispatch is paused pending Junction support review.');
+        if (!in_array($order->get_status(), ['cancelled', 'refunded', 'failed', 'on-hold'], true)) {
+            $order->update_status('on-hold', 'Junction requires COD phone-verification review before fulfilment.');
+        } else {
+            $order->save();
+        }
     }
 
     private function isDigitalOnlyCart(): bool {
