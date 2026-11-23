@@ -64,6 +64,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
               AND p.post_status='publish'
               AND parent.post_type='product'
               AND parent.post_status='publish'
+              AND parent.post_password=''
               AND p.post_password=''
               {$priceFilter}
               AND {$where}
