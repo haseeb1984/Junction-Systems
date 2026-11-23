@@ -45,7 +45,18 @@ final class InventoryHooks {
         ),ARRAY_A)?:[];
         foreach($rows as $row) {
             $productId=(int)$row['product_id'];
+            // Multiple WP-Cron workers may overlap. Serialize each product projection so
+            // retries/attempt counters cannot race on the same queue revision.
+            $lockName = 'pkstore_proj_' . $productId;
+            $lockResult = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', $lockName));
+            if ((string)$lockResult !== '1') continue;
             try {
+                $current = $wpdb->get_row($wpdb->prepare(
+                    "SELECT product_id,attempts,revision FROM {$queue} WHERE product_id=%d AND status IN ('pending','failed') AND next_attempt_at<=%s",
+                    $productId,current_time('mysql',true)
+                ),ARRAY_A);
+                if (!$current) continue;
+                $row = $current;
                 $productRow=$wpdb->get_row($wpdb->prepare(
                     "SELECT wc_product_id FROM {$wpdb->prefix}pkstore_inventory_products WHERE id=%d",$productId
                 ),ARRAY_A);
@@ -67,6 +78,8 @@ final class InventoryHooks {
                     'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql',true),
                 ],['product_id'=>$productId,'revision'=>(int)$row['revision']],['%s','%d','%s','%s','%s'],['%d','%d']);
                 error_log('[PKStore Inventory] POS stock projection retry failed for product '.$productId.': '.$e->getMessage());
+            } finally {
+                $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
             }
         }
     }
