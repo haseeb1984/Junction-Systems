@@ -1064,7 +1064,7 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($licenseManagerSource, "'api_tokens'") === false
     || strpos($licenseManagerSource, "'scenario_id'") === false
     || strpos($licenseManagerSource, 'strlen($sellerNtn), [7, 13]') === false
-    || strpos($pralClientSource, 'https://gw.fbr.gov.pk/di_data/v1/di/') === false
+    || strpos($pralClientSource, "private const BASE_URL = 'https://gw.fbr.gov.pk'") === false
     || strpos($pralClientSource, 'postinvoicedata') === false
     || strpos($pralClientSource, 'validateinvoicedata') === false
     || strpos($pralClientSource, 'Authorization') === false
