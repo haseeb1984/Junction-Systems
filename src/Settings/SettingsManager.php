@@ -83,6 +83,8 @@ final class SettingsManager{
         'rider'=>['RIDER_API_KEY'=>true],
         'mailchimp'=>['MAILCHIMP_API_KEY'=>true,'MAILCHIMP_LIST_ID'=>false,'MAILCHIMP_STORE_ID'=>false],
         'klaviyo'=>['KLAVIYO_PRIVATE_KEY'=>true,'KLAVIYO_LIST_ID'=>false],
+        'google_analytics'=>['GA4_MEASUREMENT_ID'=>false,'GA4_API_SECRET'=>true],
+        'facebook_pixel'=>['FACEBOOK_PIXEL_ID'=>false,'FACEBOOK_CAPI_TOKEN'=>true],
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
@@ -97,6 +99,7 @@ final class SettingsManager{
             'DARAZ_APP_SECRET','DARAZ_ACCESS_TOKEN','DARAZ_REFRESH_TOKEN',
             'POSTEX_TOKEN','RIDER_API_KEY',
             'MAILCHIMP_API_KEY','KLAVIYO_PRIVATE_KEY',
+            'GA4_API_SECRET','FACEBOOK_CAPI_TOKEN',
         ];
         return in_array($key,$keys,true);
     }
