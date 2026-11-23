@@ -13,8 +13,8 @@ $delta=(int)$m['quantity_delta'];$isPos=$delta>0;
 <td><?=esc_html($m['location_name']??'—')?></td>
 <td><span style="font-size:11px;text-transform:uppercase;font-weight:600;color:#646970;"><?=esc_html(str_replace('_',' ',$m['movement_type']))?></span></td>
 <td style="font-weight:700;color:<?=$isPos?'#00a32a':'#d63638'?>;"><?=$isPos?'+':'' ?><?=$delta?></td>
-<td><?=$m['quantity_before'?></td>
-<td><strong><?=$m['quantity_after'?></strong></td>
+<td><?=$m['quantity_before']?></td>
+<td><strong><?=$m['quantity_after']?></strong></td>
 <td style="font-size:11px;"><?=esc_html($m['reference_type'])?><?=$m['reference_id']?' #'.esc_html($m['reference_id']):'' ?></td>
 <td style="font-size:12px;color:#646970;"><?=esc_html($m['note'])?></td>
 </tr>
