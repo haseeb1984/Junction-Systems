@@ -9,18 +9,18 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
     private function ti(): string { return $this->db->prefix . 'pkstore_pos_order_items'; }
     public function save(POSOrder $o): int {
         $ok=$this->db->insert($this->t(),['session_id'=>$o->sessionId,'location_id'=>$o->locationId,'order_ref'=>$o->orderRef,'subtotal_pkr'=>$o->subtotalPkr,'discount_pkr'=>$o->discountPkr,'total_pkr'=>$o->totalPkr,'payment_method'=>$o->paymentMethod,'payment_split'=>$o->paymentSplit?wp_json_encode($o->paymentSplit):null,'customer_phone'=>$o->customerPhone,'customer_name'=>$o->customerName,'receipt_sent'=>0,'sync_status'=>'pending','wc_order_id'=>null,'created_at'=>$o->createdAt->format('Y-m-d H:i:s'),'synced_at'=>null]);
-        if ($ok === false) throw new \\RuntimeException('Unable to insert POS order: '.$this->db->last_error);
+        if ($ok === false) throw new \RuntimeException('Unable to insert POS order: '.$this->db->last_error);
         return (int)$this->db->insert_id;
     }
     public function saveWithItems(POSOrder $o, array $items): int {
-        if ($this->db->query('START TRANSACTION') === false) throw new \\RuntimeException('Unable to start POS order transaction: '.$this->db->last_error);
+        if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start POS order transaction: '.$this->db->last_error);
         try {
             $id = $this->save($o);
-            if ($id <= 0) throw new \\RuntimeException('Unable to save POS order: '.$this->db->last_error);
+            if ($id <= 0) throw new \RuntimeException('Unable to save POS order: '.$this->db->last_error);
             $this->saveItems($id, $items);
-            if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit POS order: '.$this->db->last_error);
+            if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit POS order: '.$this->db->last_error);
             return $id;
-        } catch (\\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+        } catch (\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     public function update(POSOrder $o): void {
         $data=['sync_status'=>$o->getSyncStatus()->value,'wc_order_id'=>$o->getWcOrderId()];
@@ -48,7 +48,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
     public function saveItems(int $orderId, array $items): void {
         foreach ($items as $item) {
             $ok=$this->db->insert($this->ti(),['order_id'=>$orderId,'product_id'=>$item['product_id'],'sku'=>$item['sku'],'product_name'=>$item['name'],'quantity'=>$item['quantity'],'unit_price_pkr'=>$item['unit_price_pkr'],'discount_pkr'=>$item['discount_pkr']??0,'total_pkr'=>max(0,$item['unit_price_pkr']*$item['quantity']-($item['discount_pkr']??0))]);
-            if ($ok === false) throw new \\RuntimeException('Unable to save POS order item: '.$this->db->last_error);
+            if ($ok === false) throw new \RuntimeException('Unable to save POS order item: '.$this->db->last_error);
         }
     }
     private function loadItems(int $orderId): array {
