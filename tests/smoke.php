@@ -1238,6 +1238,7 @@ if (!is_string($stockCycleCaptureSource)
 }
 
 if (!is_string($stockCycleHooksSource)
+    || strpos($stockCycleHooksSource, "if (!is_numeric($reduced))") === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_reduced_stock_snapshot') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_reduction_snapshot_version') === false
     || strpos($stockCycleHooksSource, 'Unable to persist WooCommerce stock-reduction snapshot.') === false) {
