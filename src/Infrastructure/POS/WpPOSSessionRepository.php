@@ -11,10 +11,30 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
         return (int)$this->db->insert_id;
     }
     public function update(POSSession $s): void {
-        $this->db->update($this->t(),['total_sales_pkr'=>$s->getTotalSalesPkr(),'status'=>$s->getStatus()->value],['id'=>$s->id]);
+        $this->db->update($this->t(),[
+            'closing_cash'=>$s->getClosingCash(),
+            'total_sales_pkr'=>$s->getTotalSalesPkr(),
+            'total_cash_pkr'=>$s->getTotalCashPkr(),
+            'total_card_pkr'=>$s->getTotalCardPkr(),
+            'total_jazzcash'=>$s->getTotalJazzcashPkr(),
+            'total_easypaisa'=>$s->getTotalEasypaisaPkr(),
+            'status'=>$s->getStatus()->value,
+            'closed_at'=>$s->getClosedAt()?$s->getClosedAt()->format('Y-m-d H:i:s'):null,
+        ],['id'=>$s->id]);
     }
-    public function findById(int $id): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
-    public function findOpenByLocation(int $locationId): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A); return $r?$this->h($r):null; }
-    public function findRecent(int $locationId, int $limit=10): array { $r=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d ORDER BY opened_at DESC LIMIT %d",$locationId,$limit),ARRAY_A)?:[]; return array_map(fn($r)=>$this->h($r),$r); }
-    private function h(array $r): POSSession { return new POSSession((int)$r['id'],(int)$r['location_id'],(int)$r['cashier_id'],(int)$r['opening_cash'],$r['closing_cash']?(int)$r['closing_cash']:null,(int)$r['total_sales_pkr'],(int)$r['total_cash_pkr'],(int)$r['total_jazzcash'],(int)$r['total_easypaisa'],SessionStatus::from($r['status']),new \DateTimeImmutable($r['opened_at']),$r['closed_at']?new \DateTimeImmutable($r['closed_at']):null); }
+    public function findById(int $id): ?POSSession {
+        $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
+        return $r?$this->h($r):null;
+    }
+    public function findOpenByLocation(int $locationId): ?POSSession {
+        $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A);
+        return $r?$this->h($r):null;
+    }
+    public function findRecent(int $locationId, int $limit=10): array {
+        $r=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d ORDER BY opened_at DESC LIMIT %d",$locationId,$limit),ARRAY_A)?:[];
+        return array_map(fn($r)=>$this->h($r),$r);
+    }
+    private function h(array $r): POSSession {
+        return new POSSession((int)$r['id'],(int)$r['location_id'],(int)$r['cashier_id'],(int)$r['opening_cash'],$r['closing_cash']!==null?(int)$r['closing_cash']:null,(int)$r['total_sales_pkr'],(int)$r['total_cash_pkr'],(int)$r['total_card_pkr'],(int)$r['total_jazzcash'],(int)$r['total_easypaisa'],SessionStatus::from($r['status']),new \DateTimeImmutable($r['opened_at']),$r['closed_at']?new \DateTimeImmutable($r['closed_at']):null);
+    }
 }
