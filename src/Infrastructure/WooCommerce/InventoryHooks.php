@@ -23,6 +23,16 @@ final class InventoryHooks {
             return;
         }
 
+        // WooCommerce's per-line restore hook is required to reconcile actual
+        // cancellation/pending/failed stock restoration without guessing from
+        // order status. Older versions must not sell Junction-managed products.
+        if (!defined('WC_VERSION') || version_compare(WC_VERSION, '9.1', '<')) {
+            add_filter('woocommerce_is_purchasable', [$this, 'blockPurchasesOnUnsupportedWooCommerce'], 99, 2);
+            add_action('woocommerce_check_cart_items', [$this, 'blockCheckoutOnUnsupportedWooCommerce']);
+            add_action('admin_notices', [$this, 'woocommerceVersionNotice']);
+            return;
+        }
+
         // Queue an online sale only after WooCommerce has completed its actual
         // order stock-reduction pass. Payment/status transitions alone are not proof.
         add_action('woocommerce_reduce_order_stock', [$this, 'onOrderStockReduced'], 10, 1);
@@ -39,6 +49,43 @@ final class InventoryHooks {
     public function blockPurchasesDuringMigration(bool $purchasable, $product): bool {
         return false;
     }
+
+    public function blockPurchasesOnUnsupportedWooCommerce(bool $purchasable, $product): bool {
+        if (!$purchasable) return false;
+        return $this->hasJunctionInventoryMapping($product) ? false : $purchasable;
+    }
+
+    public function blockCheckoutOnUnsupportedWooCommerce(): void {
+        if (!function_exists('WC') || !WC()->cart || !function_exists('wc_add_notice')) return;
+        foreach (WC()->cart->get_cart() as $cartItem) {
+            if ($this->hasJunctionInventoryMapping($cartItem['data'] ?? null)) {
+                wc_add_notice('This store requires WooCommerce 9.1 or later for safe Junction online/POS stock and return synchronization. Please contact the store administrator.', 'error');
+                return;
+            }
+        }
+    }
+
+    public function woocommerceVersionNotice(): void {
+        if (!current_user_can('manage_woocommerce')) return;
+        echo '<div class="notice notice-error"><p>Junction online inventory requires WooCommerce 9.1 or later. Junction-managed products are not purchasable until WooCommerce is updated because older versions do not expose the required per-line stock-restoration hook.</p></div>';
+    }
+
+    private function hasJunctionInventoryMapping($product): bool {
+        if (!$product instanceof \WC_Product) return false;
+        try {
+            $repo = $this->c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class);
+            if ($repo->findByWcProductId((int) $product->get_id())) return true;
+            if ($product->is_type('variation')) {
+                return (bool) $repo->findByWcProductId((int) $product->get_parent_id());
+            }
+            return false;
+        } catch (\Throwable $error) {
+            // Mapping lookup failures must not silently allow an online sale
+            // when the lifecycle hooks required for safe stock restoration are absent.
+            return true;
+        }
+    }
+
 
     public function blockCheckoutDuringMigration(): void {
         if (function_exists('wc_add_notice')) {
