@@ -589,6 +589,7 @@ if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, 'return false;') === false
     || strpos($wcLifecycleSource, 'return $this->withOrderLock($orderId') === false
     || strpos($wcLifecycleSource, 'return $callback();') === false
+    || strpos($wcLifecycleSource, "'processed_at' => \$now") === false
     || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
     throw new \RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
 }
