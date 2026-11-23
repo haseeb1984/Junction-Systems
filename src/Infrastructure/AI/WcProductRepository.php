@@ -71,12 +71,12 @@ final class WcProductRepository implements ProductRepositoryInterface {
               CAST(COALESCE((SELECT sales.meta_value FROM {$postmeta} sales WHERE sales.post_id=parent.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
             LIMIT %d";
-        $params[] = $limit;
+        $params[] = min($limit * 10, 200);
         $prepared = $this->db->prepare($sql, ...$params);
         $ids = $this->db->get_col($prepared);
         if ($this->db->last_error !== '') return [];
 
-        return $this->hydrateProducts((array) $ids, $limit, $maxPrice, false, true);
+        return $this->hydrateProducts((array) $ids, $limit, $maxPrice, false, false);
     }
 
     public function findByCategory(string $slug, int $limit = 12, ?float $maxPrice = null): array {
@@ -217,9 +217,11 @@ final class WcProductRepository implements ProductRepositoryInterface {
 
             $contexts = [];
             $seen = [];
+            $perParentVariationCount = [];
             foreach ($objects as $product) {
-                if ($product->is_type('variable') && $expandVariables) {
+                if ($product->is_type('variable')) {
                     if (isset($matchedVariationParents[(int) $product->get_id()])) continue;
+                    if ($expandVariables) {
                     $children = $product->get_children();
                     $variationContexts = [];
                     foreach ($children as $variationId) {
@@ -239,6 +241,13 @@ final class WcProductRepository implements ProductRepositoryInterface {
                     }
                     if (count($contexts) >= $limit) break;
                     continue;
+                    }
+                }
+
+                if ($product->is_type('variation')) {
+                    $parentId = (int) $product->get_parent_id();
+                    if (($perParentVariationCount[$parentId] ?? 0) >= 3) continue;
+                    $perParentVariationCount[$parentId] = ($perParentVariationCount[$parentId] ?? 0) + 1;
                 }
 
                 $context = $this->mapToContext($product);
