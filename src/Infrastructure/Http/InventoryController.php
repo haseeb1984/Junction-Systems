@@ -120,6 +120,81 @@ final class InventoryController {
         ]],200);
     }
 
+    public function createProduct(\WP_REST_Request $req): \WP_REST_Response {
+        $sku = sanitize_text_field((string) ($req->get_param('sku') ?? ''));
+        $name = sanitize_text_field((string) ($req->get_param('name') ?? ''));
+        $category = sanitize_text_field((string) ($req->get_param('category') ?? ''));
+        $unit = sanitize_text_field((string) ($req->get_param('unit') ?? 'piece'));
+        $barcode = sanitize_text_field((string) ($req->get_param('barcode') ?? ''));
+
+        $salePriceRaw = $req->get_param('sale_price');
+        $costPriceRaw = current_user_can('manage_options') ? ($req->get_param('cost_price') ?? 0) : 0;
+        $reorderRaw = $req->get_param('reorder_point') ?? 5;
+        $wcProductRaw = $req->get_param('wc_product_id') ?? 0;
+        $salePrice = filter_var($salePriceRaw, FILTER_VALIDATE_INT);
+        $costPrice = filter_var($costPriceRaw, FILTER_VALIDATE_INT);
+        $reorderPoint = filter_var($reorderRaw, FILTER_VALIDATE_INT);
+        $wcProductId = filter_var($wcProductRaw, FILTER_VALIDATE_INT);
+
+        if ($sku === '' || strlen($sku) > 100 || $name === '' || strlen($name) > 255
+            || strlen($category) > 100 || $unit === '' || strlen($unit) > 20 || strlen($barcode) > 50
+            || $salePrice === false || $costPrice === false || $reorderPoint === false || $wcProductId === false
+            || $salePrice < 0 || $costPrice < 0 || $reorderPoint < 0 || $wcProductId < 0) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Product fields must contain valid values and whole-number PKR amounts.'], 422);
+        }
+        if ($wcProductId > 0 && (!function_exists('wc_get_product') || !wc_get_product($wcProductId))) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'The selected WooCommerce product does not exist.'], 422);
+        }
+
+        try {
+            $repo = $this->c->make(InventoryProductRepositoryInterface::class);
+            if ($repo->findBySku($sku)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'SKU already exists.'], 409);
+            }
+            if ($barcode !== '' && $repo->findByBarcode($barcode)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Barcode already exists.'], 409);
+            }
+            if ($wcProductId > 0 && $repo->findByWcProductId($wcProductId)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'This WooCommerce product is already mapped to Junction inventory.'], 409);
+            }
+
+            $product = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
+                $sku,
+                $name,
+                $costPrice,
+                $salePrice,
+                $category,
+                $wcProductId > 0 ? $wcProductId : null,
+                $barcode,
+                $unit,
+                $reorderPoint
+            );
+            $id = $repo->save($product);
+            $barcodeGenerated = false;
+            if (!$product->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) {
+                try {
+                    $barcodeGenerated = (bool) $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
+                } catch (\Throwable $barcodeError) {
+                    error_log('[PKStore Inventory] Product was created but automatic barcode generation failed ('.get_class($barcodeError).').');
+                }
+            }
+            return new \WP_REST_Response([
+                'success' => true,
+                'message' => 'Inventory product created.',
+                'product' => [
+                    'id' => $id,
+                    'sku' => $sku,
+                    'name' => $name,
+                    'wc_product_id' => $wcProductId > 0 ? $wcProductId : null,
+                    'barcode_generated' => $barcodeGenerated,
+                ],
+            ], 201);
+        } catch (\Throwable $error) {
+            error_log('[PKStore Inventory] REST product creation failed ('.get_class($error).').');
+            return new \WP_REST_Response(['success' => false, 'message' => 'Inventory product could not be created. Check the product mapping and try again.'], 500);
+        }
+    }
+
     public function adjustStock(\WP_REST_Request $req): \WP_REST_Response {
         $productRaw = $req->get_param('product_id');
         $locationRaw = $req->get_param('location_id');
