@@ -63,7 +63,7 @@ final class SyncPOSQueueUseCase {
                             'subtotal'=>max(0, $gross),
                             'total'=>max(0, $gross - $lineDiscount),
                         ]);
-                        if(!$lineItemId) throw new \\RuntimeException('WooCommerce failed to add POS line item '.$item['sku'].' to order '.$wcOrder->get_id().'.');
+                        if(!$lineItemId) throw new \RuntimeException('WooCommerce failed to add POS line item '.$item['sku'].' to order '.$wcOrder->get_id().'.');
                     }
                     $wcOrder->set_billing_first_name($order->customerName);
                     $wcOrder->set_billing_phone($order->customerPhone);
