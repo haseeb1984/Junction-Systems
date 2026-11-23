@@ -1503,6 +1503,7 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "strpos(\$path, '/order-status/') === false") === false
     || strpos($easyPaisaSource, "if (\$responseCode === '0001') return 'pending';") === false
     || strpos($easyPaisaSource, "'REVERSED'") === false
+    || strpos($easyPaisaSource, "'0002', '0003', '0004', '0005'") === false
     || strpos($easyPaisaSource, "in_array(\$order->get_status(), ['cancelled', 'refunded'], true)") === false
     || strpos($easyPaisaSource, 'The existing WooCommerce payment state was preserved; manual reconciliation is required.') === false
     || strpos($easyPaisaSource, 'Manual/provider reconciliation is required before another payment attempt.') === false
