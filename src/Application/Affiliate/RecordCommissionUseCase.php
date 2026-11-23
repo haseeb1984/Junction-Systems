@@ -39,6 +39,23 @@ final class RecordCommissionUseCase {
                 $wpdb->query('COMMIT');
                 return;
             }
+            $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
+            if (!($order instanceof \WC_Order) || strtoupper((string) $order->get_currency()) !== 'PKR') {
+                $wpdb->query('COMMIT');
+                return;
+            }
+            $customerId = (int) $order->get_customer_id();
+            $orderEmail = strtolower(trim((string) $order->get_billing_email()));
+            $affiliateEmail = strtolower(trim($affiliate->email));
+            if (($customerId > 0 && $customerId === $affiliate->userId)
+                || ($orderEmail !== '' && $affiliateEmail !== '' && hash_equals($affiliateEmail, $orderEmail))) {
+                $wpdb->query('COMMIT');
+                $this->log->info('Self-referred affiliate order excluded from commission.', [
+                    'affiliate_id' => $affiliate->id,
+                    'order_id' => $orderId,
+                ]);
+                return;
+            }
             if ($this->commissionRepo->findByOrderId($orderId) !== null) {
                 $wpdb->query('COMMIT');
                 return;
