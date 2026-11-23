@@ -903,7 +903,8 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($wcProductRepositorySource, "p.post_type IN ('product','product_variation')") === false
     || strpos($wcProductRepositorySource, "LEFT(attr.meta_key,11)='_attribute_'") === false
     || strpos($wcProductRepositorySource, 'wc_product_meta_lookup') === false
-    || strpos($wcProductRepositorySource, 'lookup.min_price <= %f') === false
+    || strpos($wcProductRepositorySource, 'lookup.min_price ASC') === false
+    || strpos($wcProductRepositorySource, '$this->effectivePrice($context) > $maxPrice') === false
     || strpos($wcProductRepositorySource, 'get_variation_attributes()') === false
     || strpos($wcProductRepositorySource, 'get_permalink()') === false
     || strpos($wcProductRepositorySource, 'woocommerce_stock_format') === false
