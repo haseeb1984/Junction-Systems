@@ -789,7 +789,7 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || strpos($pralSubmissionSource, 'validateInvoice($payload)') === false
     || strpos($pralSubmissionSource, 'postInvoice($payload)') === false
     || strpos($pralSubmissionSource, '$error->ambiguous') === false
-    || strpos($pralSubmissionSource, "if ($status === 'rejected' && $invoiceNumber !== '')") === false
+    || strpos($pralSubmissionSource, 'if ($status === \'rejected\' && $invoiceNumber !== \'\')') === false
     || strpos($pralSubmissionSource, "'retry_safe' => false") === false
     || strpos($aiServicesSource, 'new SubmitPralInvoiceUseCase(') === false
     || strpos($licenseManagerSource, 'getFbrProviderConfig(): array') === false
