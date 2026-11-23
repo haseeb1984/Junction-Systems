@@ -7,7 +7,7 @@ use PkStore\Domain\AI\Security\PromptInjectionDetector;
 use PkStore\Domain\AI\ValueObject\{ChatMessage,ChatRequest,ChatResponse};
 use Psr\Log\LoggerInterface;
 final class HandleAiChatUseCase {
-    private const HIST=10; private const MAXCHARS=600;
+    private const HIST=20; private const MAXCHARS=600;
     public function __construct(private readonly AiProviderInterface $ai, private readonly ChatRepositoryInterface $chat, private readonly ProductContextService $ctx, private readonly PromptInjectionDetector $det, private readonly LoggerInterface $log) {}
     public function execute(string $uuid, string $msg):ChatResponse {
         if(!$this->validUuid($uuid))throw new \InvalidArgumentException('Invalid session UUID.');
