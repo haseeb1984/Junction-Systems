@@ -26,6 +26,8 @@ final class POSOrder {
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
     public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $orderRef = null): self {
         if ($discountPkr < 0) throw new \InvalidArgumentException('Order discount cannot be negative.');
+        if ($sessionId <= 0 || $locationId <= 0) throw new \InvalidArgumentException('A valid POS session and location are required.');
+        if ($items === []) throw new \InvalidArgumentException('A POS order must contain at least one item.');
         $subtotal = 0;
         $lineDiscountTotal = 0;
         foreach ($items as $item) {
