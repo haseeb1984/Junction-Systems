@@ -157,9 +157,15 @@ final class ShippingRegistry {
     }
 
     private function isDigitalOnlyOrder(\WC_Order $order): bool {
-        foreach ($order->get_items() as $item) {
+        $items = $order->get_items();
+        if (!$items) return false;
+        foreach ($items as $item) {
             $p = $item->get_product();
-            if ($p instanceof \WC_Product && !$p->is_virtual() && !$p->is_downloadable()) return false;
+            // Missing/deleted product records are not proof of a digital-only
+            // order. Fail closed so physical COD verification and fulfilment
+            // controls are not bypassed by an unresolved catalogue mapping.
+            if (!($p instanceof \WC_Product)) return false;
+            if (!$p->is_virtual() && !$p->is_downloadable()) return false;
         }
         return true;
     }
