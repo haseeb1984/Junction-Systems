@@ -437,3 +437,11 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Both adapters are therefore no longer auto-registered from ThemeBootstrapper. This is a safety stop, not a claim that either integration is complete; package-level QuickBooks/Daraz commitments remain outstanding for the original-project integration phase.
 - Their full implementation must include provider-approved OAuth/configuration, encrypted secrets, explicit customer/catalogue mapping, HPOS-safe idempotent order import/export, line-item/tax/discount/shipping reconciliation, inventory/fulfilment rules, retry/review queues, and sandbox acceptance before registration is restored.
 - Added a source smoke guard to prevent accidental re-enablement of these placeholder adapters.
+
+
+## Unsafe email-marketing sync disabled pending consent and API correction
+
+- Review found that the Mailchimp/Klaviyo adapters passed combined method+path strings as HTTP methods, and both automatically added purchasers to marketing lists without a recorded opt-in. Those behaviors are not safe to run.
+- Their automatic registration is disabled until the provider request contracts are corrected and an explicit, auditable marketing-consent flow is implemented. Transactional order processing remains unaffected.
+- Mailchimp and Klaviyo API credentials are now classified as encrypted secrets, including legacy plaintext migration on read.
+- Added source smoke guards. The original-project integration phase must implement consent capture, unsubscribe/suppression handling, idempotent event delivery, provider error/retry handling and sandbox acceptance before re-enabling either adapter.
