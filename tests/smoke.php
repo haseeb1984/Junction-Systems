@@ -532,7 +532,10 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'ORDER BY id ASC LIMIT 2') === false
     || strpos($inventoryProductRepositorySource, '$rows === null && $this->db->last_error !==') === false
     || strpos($inventoryProductRepositorySource, 'count($rows ?: []) > 1') === false
-    || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products are mapped to the same WooCommerce product.') === false) {
+    || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products are mapped to the same WooCommerce product.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to check inventory SKU.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to check inventory barcode.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to read inventory product.') === false) {
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
 }
 
