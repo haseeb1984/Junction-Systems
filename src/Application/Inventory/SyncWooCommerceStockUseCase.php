@@ -50,8 +50,12 @@ final class SyncWooCommerceStockUseCase {
             if ($reducedStock === '' || $reducedStock === null) {
                 $reducedStock = $item->get_meta('_pkstore_wc_reduced_stock_snapshot', true);
             }
-            if ($reducedStock === '' || $reducedStock === null || (float) $reducedStock === 0.0) continue;
-            if (!is_numeric($reducedStock) || (float) $reducedStock < 0
+            if ($reducedStock === '' || $reducedStock === null) continue;
+            if (!is_numeric($reducedStock)) {
+                throw new \\RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
+            }
+            if ((float) $reducedStock === 0.0) continue;
+            if ((float) $reducedStock < 0
                 || floor((float) $reducedStock) !== (float) $reducedStock) {
                 throw new \RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
             }
