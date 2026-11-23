@@ -60,8 +60,8 @@ final class WpStockRepository implements StockRepositoryInterface {
                         || (int)$entry['quantity_delta'] !== $expected[$location]['delta']
                         || $entry['movement_type'] !== $expected[$location]['type']) $valid = false;
                 }
-                if (!$valid) throw new \\DomainException('Stock transfer reference was already used for a different or incomplete transfer.');
-                if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
+                if (!$valid) throw new \DomainException('Stock transfer reference was already used for a different or incomplete transfer.');
+                if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
                 return;
             }
             $byLocation = [];
@@ -108,9 +108,9 @@ final class WpStockRepository implements StockRepositoryInterface {
                 if ($existing) {
                     $prior = $this->db->get_row($this->db->prepare("SELECT quantity_delta,movement_type FROM {$this->tm()} WHERE id=%d",(int)$existing),ARRAY_A);
                     if (!$prior || (int)$prior['quantity_delta'] !== (int)$delta || $prior['movement_type'] !== $type->value) {
-                        throw new \\DomainException('Stock movement reference was already used for a different quantity or movement type.');
+                        throw new \DomainException('Stock movement reference was already used for a different quantity or movement type.');
                     }
-                    if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
+                    if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
                     return null;
                 }            }
             if ($after < 0) throw new \DomainException("Stock cannot go below 0. Current: {$before}, Requested: ".($delta ?? $after));
