@@ -108,7 +108,10 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
      * Restore the WooCommerce order's prior fulfilment status only after its
      * shared Junction stock ledger event has committed successfully.
      */
-    public function releaseInventorySyncHold(\WC_Order $order): void {
+    public function releaseInventorySyncHold(\WC_Order $order, ?string $expectedCycleUuid = null): void {
+        if ($expectedCycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $expectedCycleUuid)) {
+            throw new \InvalidArgumentException('WooCommerce inventory hold cycle identity is invalid.');
+        }
         $orderId = (int) $order->get_id();
         if ($orderId < 1) throw new \InvalidArgumentException('WooCommerce inventory hold order ID is invalid.');
         $freshOrder = wc_get_order($orderId);
@@ -116,6 +119,13 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             throw new \RuntimeException('WooCommerce order is unavailable while releasing its inventory hold.');
         }
         if ($freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
+        $heldCycleUuid = (string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_cycle_uuid', true);
+        if (($expectedCycleUuid === null && $heldCycleUuid !== '')
+            || ($expectedCycleUuid !== null && !hash_equals($expectedCycleUuid, $heldCycleUuid))) {
+            // A stale sale worker must not release a hold established for a
+            // different stock-reduction cycle on this same WooCommerce order.
+            return;
+        }
 
         $currentStatus = $freshOrder->get_status();
         $previousStatus = sanitize_key((string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_previous_status', true));
@@ -138,6 +148,11 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
             throw new \RuntimeException('WooCommerce order disappeared while releasing its inventory hold.');
         }
         if ($freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') return;
+        $reloadedCycleUuid = (string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_cycle_uuid', true);
+        if (($expectedCycleUuid === null && $reloadedCycleUuid !== '')
+            || ($expectedCycleUuid !== null && !hash_equals($expectedCycleUuid, $reloadedCycleUuid))) {
+            return;
+        }
         if ($freshOrder->get_status() === 'on-hold' && $previousStatus !== 'on-hold') {
             throw new \RuntimeException('WooCommerce order remains on hold after inventory synchronization.');
         }
@@ -195,7 +210,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
                     $this->ensureActiveCycleMeta($order, $orderId, $cycleUuid);
                 }
                 $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
-                $this->releaseInventorySyncHold($order);
+                $this->releaseInventorySyncHold($order, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
                 $this->complete($id, $generation, $claimToken);
                 $result['processed']++;
             } catch (\Throwable $error) {
