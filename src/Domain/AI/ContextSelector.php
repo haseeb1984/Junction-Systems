@@ -8,7 +8,7 @@ final class ContextSelector {
         'want','need','looking','tell','show','price','cost','much','how','this','that','and','or',
         'with','any','available','stock','get','buy','kya','hai','ka','ki','ke','mein','ko','aur',
         'ya','nahi','ap','aap','mujhe','chahiye','kitna','under','below','less','than','up','to',
-        'max','maximum','budget','within','rs','pkr','rupees','size','tak','se','kam','andar',
+        'maximum','budget','within','rs','pkr','rupees','size','tak','se','kam','andar',
         'suggest','recommend','good','best','please','find','search','product','products','item','items','something','anything','koi','acha','achi','achha','achhi','karain','karo'
     ];
 
@@ -28,7 +28,7 @@ final class ContextSelector {
         foreach ($tokens as $token) {
             $numeric = preg_match('/^\d+$/', $token) === 1;
             if (in_array($token, self::STOP, true)) continue;
-            if ($numeric ? strlen($token) < 2 : strlen($token) < 3) continue;
+            if ($numeric ? strlen($token) < 1 : strlen($token) < 3) continue;
             $keywords[] = $token;
         }
 
