@@ -25,8 +25,9 @@ final class POSController {
         $openingCash=(int)($req->get_param('opening_cash')??0);
         try {
             $session=POSSession::open($locationId,get_current_user_id(),$openingCash);
-            $opened=$this->c->make(POSSessionRepositoryInterface::class)->openOrResume($session);
-            $resumed=$opened->cashierId!==get_current_user_id() || $opened->openedAt<$session->openedAt;
+            $result=$this->c->make(POSSessionRepositoryInterface::class)->openOrResume($session);
+            $opened=$result['session'];
+            $resumed=$result['resumed'];
             return new \\WP_REST_Response(['success'=>true,'session_id'=>$opened->id,'message'=>$resumed?'Existing session resumed.':'POS session opened.','resumed'=>$resumed],$resumed?200:201);
         } catch(\\Throwable $e) { return new \\WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
