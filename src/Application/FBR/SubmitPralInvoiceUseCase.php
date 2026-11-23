@@ -84,11 +84,19 @@ final class SubmitPralInvoiceUseCase {
         }
 
         $postedResult = $this->parser->parse($posted, $expectedItemCount, true);
+        $status = $postedResult['status'];
+        $invoiceNumber = $postedResult['invoice_number'];
+        // Even an invalid status is not safe to replay if PRAL supplied an
+        // invoice number: reconcile it in IRIS before any further submission.
+        if ($status === 'rejected' && $invoiceNumber !== '') {
+            $status = 'unknown';
+        }
+
         return [
-            'status' => $postedResult['status'],
-            'invoice_number' => $postedResult['invoice_number'],
+            'status' => $status,
+            'invoice_number' => $invoiceNumber,
             'errors' => $postedResult['errors'],
-            'retry_safe' => $postedResult['status'] === 'rejected',
+            'retry_safe' => $status === 'rejected' && $invoiceNumber === '',
         ];
     }
 }
