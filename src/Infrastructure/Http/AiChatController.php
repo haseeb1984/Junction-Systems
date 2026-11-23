@@ -45,7 +45,7 @@ final class AiChatController {
         return (bool) wp_verify_nonce($r->get_param('_nonce'), 'pkstore_ai_chat');
     }
 
-    public function createSession(\\WP_REST_Request $request): \\WP_REST_Response {
+    public function createSession(\WP_REST_Request $request): \WP_REST_Response {
         try {
             $uuid = wp_generate_uuid4();
             $token = bin2hex(random_bytes(32));
@@ -55,16 +55,16 @@ final class AiChatController {
                 2 * HOUR_IN_SECONDS
             );
             if (!$stored) {
-                throw new \\RuntimeException('Unable to establish chat-session ownership.');
+                throw new \RuntimeException('Unable to establish chat-session ownership.');
             }
-            return new \\WP_REST_Response([
+            return new \WP_REST_Response([
                 'success' => true,
                 'session_uuid' => $uuid,
                 'session_token' => $token,
             ], 201);
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             error_log('[PK Store] Chat session creation failed (' . get_class($error) . ').');
-            return new \\WP_REST_Response([
+            return new \WP_REST_Response([
                 'success' => false,
                 'code' => 'session_unavailable',
                 'message' => 'Chat session could not be started. Please refresh and try again.',
