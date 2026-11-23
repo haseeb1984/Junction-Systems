@@ -6,7 +6,7 @@ interface StockRepositoryInterface {
     public function getStock(int $productId, int $locationId): StockLevel;
     public function updateStock(StockLevel $stock): void;
     /** Atomically applies a delta and writes its matching ledger entry. */
-    public function applyMovement(StockMovement $movement): StockMovement;
+    public function applyMovement(StockMovement $movement): ?StockMovement;
     /** Atomically sets a count and writes the resulting adjustment to the ledger. */
     public function setStockAndRecordMovement(int $productId, int $locationId, int $quantity, string $note, ?int $userId): ?StockMovement;
     public function recordMovement(StockMovement $movement): int;
