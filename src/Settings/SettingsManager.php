@@ -59,14 +59,15 @@ final class SettingsManager{
         $missing=array_filter($req,fn($k)=>!$this->isConfigured($k));
         return['complete'=>empty($missing),'missing'=>array_values($missing),'percent'=>(int)round((count($req)-count($missing))/count($req)*100)];
     }
-    public function saveFromPost(array $post,string $section):void{
+    public function saveFromPost(array $post,string $section):bool{
         foreach($this->getSectionKeys($section) as $k=>$sensitive){
             $pk=strtolower($k);if(!isset($post[$pk]))continue;
             $v=sanitize_text_field((string)$post[$pk]);
             if($sensitive&&str_starts_with($v,'●●●●●●●●'))continue;
             if($v==='')continue;
-            $sensitive?$this->setSecret($k,$v):$this->set($k,$v);
+            if($sensitive){if(!$this->setSecret($k,$v))return false;}else{$this->set($k,$v);}
         }
+        return true;
     }
     private function getSectionKeys(string $s):array{return match($s){
         'jazzcash'=>['JAZZCASH_MERCHANT_ID'=>false,'JAZZCASH_PASSWORD'=>true,'JAZZCASH_INTEGRITY_KEY'=>true,'JAZZCASH_SANDBOX'=>false],
