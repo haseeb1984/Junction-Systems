@@ -72,12 +72,12 @@ final class InventoryAdminController {
     private function handleTransferStock(): void {
         try {
             $reference=sanitize_text_field($_POST['reference_id']??'');
-            $this->c->make(\\PkStore\\Application\\Inventory\\TransferStockUseCase::class)->execute(
+            $this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
                 (int)($_POST['product_id']??0),(int)($_POST['from_location_id']??0),(int)($_POST['to_location_id']??0),
                 (int)($_POST['quantity']??0),$reference,sanitize_text_field($_POST['note']??'')
             );
             $this->redirect('pkstore-inventory','transferred','Stock transfer completed.');
-        } catch(\\Throwable $e) { $this->redirect('pkstore-inventory','error',$e->getMessage()); }
+        } catch(\Throwable $e) { $this->redirect('pkstore-inventory','error',$e->getMessage()); }
     }
 
     private function handleGenerateBarcodes(): void {
