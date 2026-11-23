@@ -87,7 +87,8 @@ final class InventoryAdminController {
     }
     private function handleCreatePurchaseOrder(): void {
         try {
-            $items=[['product_id'=>(int)($_POST['product_id']??0),'quantity'=>(int)($_POST['quantity']??0),'unit_cost_pkr'=>(int)($_POST['unit_cost_pkr']??-1)]];
+            $rawItems=$_POST['items']??[]; $items=[];
+            if(is_array($rawItems)) foreach($rawItems as $item) if(is_array($item)) $items[]=['product_id'=>(int)($item['product_id']??0),'quantity'=>(int)($item['quantity']??0),'unit_cost_pkr'=>(int)($item['unit_cost_pkr']??-1)];
             $id=$this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute((int)($_POST['supplier_id']??0),(int)($_POST['location_id']??0),$items,sanitize_textarea_field($_POST['notes']??''));
             $this->redirect('pkstore-purchase-orders','po_created','Purchase order #'.$id.' created.');
         } catch(\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
