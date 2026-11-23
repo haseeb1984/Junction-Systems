@@ -11,10 +11,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Groq OpenAI-compatible chat bridge.
  *
- * Credentials and the resolved per-install key limit are provisioned by the
- * central licensing service. LicenseManager keeps the complete provider
- * configuration inside its encrypted license cache; no customer-facing key
- * editor or plaintext option is introduced on the store installation.
+ * Each store installation supplies its own encrypted Groq API key.
+ * License entitlement is checked independently by the application layer.
  */
 final class GroqBridge implements AiProviderInterface {
     private const API = 'https://api.groq.com/openai/v1/chat/completions';
@@ -24,7 +22,7 @@ final class GroqBridge implements AiProviderInterface {
 
     public function __construct(
         private readonly LoggerInterface $log,
-        private readonly LicenseManager $license
+        private readonly SettingsManager $settings
     ) {}
 
     public function getProviderName(): string {
@@ -32,8 +30,7 @@ final class GroqBridge implements AiProviderInterface {
     }
 
     public function getModelName(): string {
-        $config = $this->license->getGroqProviderConfig();
-        return $config['model'] !== '' ? $config['model'] : 'groq-unconfigured';
+        return 'openai/gpt-oss-20b';
     }
 
     public function estimateTokens(string $text): int {
@@ -269,11 +266,11 @@ final class GroqBridge implements AiProviderInterface {
 
     /** @return array{keys: string[], model: string} */
     private function configuration(): array {
-        $config = $this->license->getGroqProviderConfig();
-        if (empty($config['keys']) || empty($config['model'])) {
-            throw new AiProviderException('Groq is not configured for this installation. Contact Junction support.');
+        $key = trim($this->settings->get('GROQ_API_KEY'));
+        if ($key === '' || strlen($key) > 512) {
+            throw new AiProviderException('Groq is not configured for this store. Add the store API key in Setup Wizard → Dukaan AI.');
         }
-        return ['keys' => $config['keys'], 'model' => $config['model']];
+        return ['keys' => [$key], 'model' => 'openai/gpt-oss-20b'];
     }
 
     /** @param string[] $keys
