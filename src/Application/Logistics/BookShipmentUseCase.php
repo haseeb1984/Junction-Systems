@@ -73,7 +73,15 @@ final class BookShipmentUseCase {
             $order->update_meta_data('_pkstore_courier_booking_provider', $result->courierCode);
             $order->update_meta_data('_pkstore_courier_booking_review_reason', 'Provider may have accepted the booking but Junction did not receive a confirmed tracking response.');
             $order->add_order_note('[PK Store] Courier booking outcome is unknown with ' . sanitize_text_field($result->courierCode) . '. Automatic failover/retry has been stopped to prevent duplicate parcels. Reconcile the provider portal before taking further action.');
-            $order->save();
+            try {
+                $order->save();
+            } catch (\Throwable $saveError) {
+                $this->log->critical('Courier booking review state could not be persisted after an ambiguous provider outcome.', [
+                    'order_id' => $orderId,
+                    'provider' => $result->courierCode,
+                    'error_class' => get_class($saveError),
+                ]);
+            }
         } elseif ($order instanceof \WC_Order && $result->success
             && str_starts_with($result->trackingNumber, 'PENDING-')) {
             $order->update_meta_data('_pkstore_courier_booking_state', 'pending');
