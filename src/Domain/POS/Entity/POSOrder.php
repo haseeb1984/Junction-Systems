@@ -45,7 +45,7 @@ final class POSOrder {
         }
         $total = $subtotal - $lineDiscountTotal - $discountPkr;
         $ref = 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
-        $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr + $lineDiscountTotal, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
+        $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
         $order->items = $items;
         return $order;
     }
