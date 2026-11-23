@@ -1493,7 +1493,12 @@ if (!is_string($easyPaisaSource) || !is_string($settingsManagerSource)
     || strpos($easyPaisaSource, "wp_remote_post(\$baseUrl . '/inquire-transaction'") === false
     || strpos($easyPaisaSource, "if (\$transactionStatus === 'PAID')") === false
     || strpos($easyPaisaSource, "if (\$paymentMode !== '' && \$paymentMode !== 'MA')") === false
-    || strpos($easyPaisaSource, "hash_equals(\$expectedPhone, \$reportedPhone)") === false
+    || strpos($easyPaisaSource, "hash_equals(\$expectedPhoneHash, hash_hmac('sha256', \$reportedPhone, wp_salt('auth')))") === false
+    || strpos($easyPaisaSource, '$this->has_fields = true;') === false
+    || strpos($easyPaisaSource, 'public function payment_fields(): void') === false
+    || strpos($easyPaisaSource, 'public function validate_fields(): bool') === false
+    || strpos($easyPaisaSource, "easypaisa_mobile_account_no") === false
+    || strpos($easyPaisaSource, "_pkstore_easypaisa_mobile_hash") === false
     || strpos($easyPaisaSource, "\$scheme !== 'https'") === false
     || strpos($easyPaisaSource, "strpos(\$path, '/order-status/') === false") === false
     || strpos($easyPaisaSource, "if (\$responseCode === '0001') return 'pending';") === false
