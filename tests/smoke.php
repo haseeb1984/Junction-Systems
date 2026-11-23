@@ -1350,7 +1350,10 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($stockCycleHooksSource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
-    || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order)') === false
+    || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order, $cycleUuid)') === false
+    || strpos($stockCycleHooksSource, "'capturing'") === false
+    || strpos($stockCycleHooksSource, 'Unable to mark WooCommerce stock-reduction snapshot as pending.') === false
+    || strpos($stockCycleHooksSource, 'Unable to restore WooCommerce stock-reduction snapshot state.') === false
     || !is_string($stockCycleServicesSource)
     || strpos($stockCycleServicesSource, 'CaptureWooCommerceStockCycleUseCase::class') === false) {
     throw new \RuntimeException('WooCommerce stock-cycle capture must be wired to the real reduction hook and registered with the cycle-aware ledger workers.');
