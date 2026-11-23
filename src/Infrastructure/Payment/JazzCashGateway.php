@@ -422,4 +422,4 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
         return ['status' => 200, 'body' => 'OK'];
     }
-
+}
