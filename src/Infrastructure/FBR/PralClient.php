@@ -78,15 +78,15 @@ final class PralClient {
         return $result;
     }
 
-    public function saleTypeToRate(string $date, string $transactionTypeId, string $supplierProvince): array {
+    public function saleTypeToRate(string $date, string $transactionTypeId, string $supplierProvinceId): array {
         return $this->reference('sale_type_to_rate', [
             'date' => $date,
             'transTypeId' => $transactionTypeId,
-            'originationSupplier' => $supplierProvince,
+            'originationSupplier' => $supplierProvinceId,
         ]);
     }
 
-    public function hsUom(string $hsCode, string $annexureId = '3'): array {
+    public function hsUom(string $hsCode, string $annexureId): array {
         return $this->reference('hs_uom', [
             'hs_code' => $hsCode,
             'annexure_id' => $annexureId,
