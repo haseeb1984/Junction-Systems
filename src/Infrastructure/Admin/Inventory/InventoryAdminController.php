@@ -88,17 +88,17 @@ final class InventoryAdminController {
     private function handleCreatePurchaseOrder(): void {
         try {
             $items=[['product_id'=>(int)($_POST['product_id']??0),'quantity'=>(int)($_POST['quantity']??0),'unit_cost_pkr'=>(int)($_POST['unit_cost_pkr']??-1)]];
-            $id=$this->c->make(\\PkStore\\Application\\Inventory\\CreatePurchaseOrderUseCase::class)->execute((int)($_POST['supplier_id']??0),(int)($_POST['location_id']??0),$items,sanitize_textarea_field($_POST['notes']??''));
+            $id=$this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute((int)($_POST['supplier_id']??0),(int)($_POST['location_id']??0),$items,sanitize_textarea_field($_POST['notes']??''));
             $this->redirect('pkstore-purchase-orders','po_created','Purchase order #'.$id.' created.');
-        } catch(\\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
+        } catch(\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
     }
     private function handleReceivePurchaseOrder(): void {
         try {
             $quantities=$_POST['receive_qty']??[]; $items=[];
             if(is_array($quantities)) foreach($quantities as $itemId=>$qty) if((int)$qty>0) $items[]=['item_id'=>(int)$itemId,'quantity'=>(int)$qty];
-            $this->c->make(\\PkStore\\Application\\Inventory\\ReceivePurchaseOrderUseCase::class)->execute((int)($_POST['purchase_order_id']??0),$items,sanitize_text_field($_POST['receipt_reference']??''));
+            $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute((int)($_POST['purchase_order_id']??0),$items,sanitize_text_field($_POST['receipt_reference']??''));
             $this->redirect('pkstore-purchase-orders','received','Purchase order receipt saved.');
-        } catch(\\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
+        } catch(\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
     }
 
     private function redirect(string $page, string $status, string $msg): void {
@@ -152,7 +152,7 @@ final class InventoryAdminController {
         $locations=$this->c->make(LocationRepositoryInterface::class)->findAll();
         $products=$this->c->make(InventoryProductRepositoryInterface::class)->findAll(500,0);
         $poItems=[];
-        foreach($pos as $po) $poItems[(int)$po['id']]=$wpdb->get_results($wpdb->prepare("SELECT id AS item_id,product_id,quantity_ordered,quantity_received,unit_cost_pkr FROM {$wpdb->prefix}pkstore_purchase_order_items WHERE po_id=%d ORDER BY id",(int)$po['id']),ARRAY_A)?:[];
+        foreach($pos as $po) $poItems[(int)$po['id']]=$wpdb->get_results($wpdb->prepare("SELECT i.id AS item_id,i.product_id,p.name AS product_name,i.quantity_ordered,i.quantity_received,i.unit_cost_pkr FROM {$wpdb->prefix}pkstore_purchase_order_items i LEFT JOIN {$wpdb->prefix}pkstore_inventory_products p ON i.product_id=p.id WHERE i.po_id=%d ORDER BY i.id",(int)$po['id']),ARRAY_A)?:[];
         $msg=sanitize_text_field($_GET['msg']??'');
         $status=sanitize_key($_GET['status']??'');
         include PKSTORE_DIR.'/templates/admin/inventory/purchase-orders.php';
