@@ -26,29 +26,29 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
         $sessionTable=$this->db->prefix.'pkstore_pos_sessions';
         $stockTable=$this->db->prefix.'pkstore_inventory_stock';
         $movementTable=$this->db->prefix.'pkstore_inventory_movements';
-        if($this->db->query('START TRANSACTION')===false) throw new \\RuntimeException('Unable to start POS checkout transaction: '.$this->db->last_error);
+        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS checkout transaction: '.$this->db->last_error);
         try {
             $session=$this->db->get_row($this->db->prepare("SELECT id,location_id,status FROM {$sessionTable} WHERE id=%d FOR UPDATE",$o->sessionId),ARRAY_A);
-            if(!$session || $session['status']!=='open') throw new \\RuntimeException('POS session is closed or does not exist.');
-            if((int)$session['location_id']!==$o->locationId) throw new \\DomainException('POS sale location does not match its session location.');
+            if(!$session || $session['status']!=='open') throw new \RuntimeException('POS session is closed or does not exist.');
+            if((int)$session['location_id']!==$o->locationId) throw new \DomainException('POS sale location does not match its session location.');
             $amounts=['cash'=>0,'card'=>0,'jazzcash'=>0,'easypaisa'=>0];
             if($o->paymentSplit!==null) {
                 foreach($o->paymentSplit as $method=>$amount) {
-                    if(!array_key_exists((string)$method,$amounts) || (int)$amount<0) throw new \\InvalidArgumentException('Invalid split payment entry.');
+                    if(!array_key_exists((string)$method,$amounts) || (int)$amount<0) throw new \InvalidArgumentException('Invalid split payment entry.');
                     $amounts[$method]+=(int)$amount;
                 }
-                if(array_sum($amounts)!==$o->totalPkr) throw new \\InvalidArgumentException('Split payment amounts must equal the sale total.');
+                if(array_sum($amounts)!==$o->totalPkr) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
             } else {
-                if(!array_key_exists($o->paymentMethod,$amounts)) throw new \\InvalidArgumentException('Unsupported POS payment method.');
+                if(!array_key_exists($o->paymentMethod,$amounts)) throw new \InvalidArgumentException('Unsupported POS payment method.');
                 $amounts[$o->paymentMethod]=$o->totalPkr;
             }
             $deductions=[];
             foreach($items as $item) {
                 $productId=(int)$item['product_id']; $quantity=(int)$item['quantity'];
-                if($productId<=0 || $quantity<=0) throw new \\InvalidArgumentException('POS stock deduction contains an invalid product or quantity.');
+                if($productId<=0 || $quantity<=0) throw new \InvalidArgumentException('POS stock deduction contains an invalid product or quantity.');
                 $deductions[$productId]=($deductions[$productId]??0)+$quantity;
             }
-            if(!$deductions) throw new \\InvalidArgumentException('A POS sale must contain at least one product.');
+            if(!$deductions) throw new \InvalidArgumentException('A POS sale must contain at least one product.');
             ksort($deductions,SORT_NUMERIC);
             foreach($deductions as $productId=>$quantity) {
                 $this->db->query($this->db->prepare("INSERT IGNORE INTO {$stockTable} (product_id,location_id,quantity,updated_at) VALUES (%d,%d,0,%s)",$productId,$o->locationId,current_time('mysql')));
@@ -56,30 +56,30 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             $locked=[];
             foreach($deductions as $productId=>$quantity) {
                 $row=$this->db->get_row($this->db->prepare("SELECT id,quantity FROM {$stockTable} WHERE product_id=%d AND location_id=%d FOR UPDATE",$productId,$o->locationId),ARRAY_A);
-                if(!$row) throw new \\RuntimeException('Unable to lock POS stock row: '.$this->db->last_error);
+                if(!$row) throw new \RuntimeException('Unable to lock POS stock row: '.$this->db->last_error);
                 $before=(int)$row['quantity'];
-                if($before<$quantity) throw new \\DomainException("Insufficient stock for product {$productId}. Available: {$before}, Requested: {$quantity}.");
+                if($before<$quantity) throw new \DomainException("Insufficient stock for product {$productId}. Available: {$before}, Requested: {$quantity}.");
                 $locked[$productId]=['row'=>$row,'before'=>$before,'after'=>$before-$quantity,'quantity'=>$quantity];
             }
             $orderId=$this->save($o);
             $this->saveItems($orderId,$items);
             foreach($locked as $productId=>$stock) {
-                if($this->db->update($stockTable,['quantity'=>$stock['after'],'updated_at'=>current_time('mysql')],['id'=>(int)$stock['row']['id']])===false) throw new \\RuntimeException('Unable to deduct POS stock: '.$this->db->last_error);
+                if($this->db->update($stockTable,['quantity'=>$stock['after'],'updated_at'=>current_time('mysql')],['id'=>(int)$stock['row']['id']])===false) throw new \RuntimeException('Unable to deduct POS stock: '.$this->db->last_error);
                 $ok=$this->db->insert($movementTable,['product_id'=>$productId,'location_id'=>$o->locationId,'movement_type'=>'sale','quantity_delta'=>-$stock['quantity'],'quantity_before'=>$stock['before'],'quantity_after'=>$stock['after'],'reference_type'=>'pos_order','reference_id'=>$o->orderRef,'note'=>'POS sale '.$o->orderRef,'created_by'=>get_current_user_id(),'created_at'=>current_time('mysql')]);
-                if($ok===false) throw new \\RuntimeException('Unable to write POS stock movement: '.$this->db->last_error);
+                if($ok===false) throw new \RuntimeException('Unable to write POS stock movement: '.$this->db->last_error);
             }
             $sql=$this->db->prepare("UPDATE {$sessionTable} SET total_sales_pkr=total_sales_pkr+%d,total_cash_pkr=total_cash_pkr+%d,total_card_pkr=total_card_pkr+%d,total_jazzcash=total_jazzcash+%d,total_easypaisa=total_easypaisa+%d WHERE id=%d AND status='open'",
                 $o->totalPkr,$amounts['cash'],$amounts['card'],$amounts['jazzcash'],$amounts['easypaisa'],$o->sessionId
             );
             $changed=$this->db->query($sql);
-            if($changed===false) throw new \\RuntimeException('Unable to update POS session totals: '.$this->db->last_error);
+            if($changed===false) throw new \RuntimeException('Unable to update POS session totals: '.$this->db->last_error);
             if($changed===0) {
                 $stillOpen=(int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$sessionTable} WHERE id=%d AND status='open'",$o->sessionId));
-                if($stillOpen===0) throw new \\RuntimeException('POS session was closed while processing the sale.');
+                if($stillOpen===0) throw new \RuntimeException('POS session was closed while processing the sale.');
             }
-            if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS checkout: '.$this->db->last_error);
+            if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS checkout: '.$this->db->last_error);
             return $orderId;
-        } catch(\\Throwable $e) {
+        } catch(\Throwable $e) {
             $this->db->query('ROLLBACK');
             throw $e;
         }
