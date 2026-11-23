@@ -197,6 +197,18 @@ final class InventoryAdminController {
             $this->redirect('pkstore-inventory','error','Prices, reorder point or WooCommerce product mapping are invalid.'); return;
         }
 
+        if ($wcProductId > 0) {
+            try {
+                if ($repo->findByWcProductId($wcProductId)) {
+                    $this->redirect('pkstore-inventory', 'error', 'This WooCommerce product is already mapped to Junction inventory.');
+                    return;
+                }
+            } catch (\\Throwable $mappingError) {
+                $this->redirect('pkstore-inventory', 'error', 'WooCommerce product mapping is ambiguous and needs review.');
+                return;
+            }
+        }
+
         $p = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
             $sku,
             $name,
