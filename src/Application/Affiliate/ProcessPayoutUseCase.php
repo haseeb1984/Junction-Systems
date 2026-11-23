@@ -34,9 +34,10 @@ final class ProcessPayoutUseCase {
         $pd=['pp_Version'=>'2.0','pp_TxnType'=>'OTC','pp_Language'=>'EN','pp_MerchantID'=>$mid,'pp_Password'=>$pass,'pp_TxnRefNo'=>$txn,'pp_Amount'=>$amt,'pp_TxnCurrency'=>'PKR','pp_TxnDateTime'=>$dt,'pp_BillReference'=>'AFF-'.$payoutId,'pp_Description'=>'Affiliate Payout','pp_MobileNumber'=>$mobile];
         ksort($pd); $hs=$ik.'&'.implode('&',array_values($pd)); $pd['pp_SecureHash']=strtoupper(hash_hmac('sha256',$hs,$ik));
         $isSandbox=$this->settings->get('JAZZCASH_SANDBOX','0')==='1';
-        $r=wp_remote_post(($isSandbox?'https://sandbox.jazzcash.com.pk':'https://payments.jazzcash.com.pk')'/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction', ['timeout'=>15,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode($pd)]);
+        $baseUrl = $isSandbox ? 'https://sandbox.jazzcash.com.pk' : 'https://payments.jazzcash.com.pk';
+        $r = wp_remote_post($baseUrl . '/ApplicationAPI/API/2.0/Purchase/DoMWalletTransaction', ['timeout'=>15,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode($pd)]);
         if (is_wp_error($r)) return false;
         $b=json_decode(wp_remote_retrieve_body($r),true);
-        return ($b['pp_ResponseCode']??'')=== '000';
+        return ($b['pp_ResponseCode']??'') === '000';
     }
 }
