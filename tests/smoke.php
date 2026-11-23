@@ -1589,6 +1589,7 @@ if (!is_string($commissionUseCaseSource) || !is_string($processPayoutSource) || 
     || strpos($processPayoutSource, 'Automated affiliate disbursement is disabled') === false
     || strpos($processPayoutSource, 'wp_remote_post') !== false
     || strpos($commissionRepositorySource, 'Unable to persist affiliate commission.') === false
+    || strpos($commissionRepositorySource, 'Unable to check affiliate commission idempotency.') === false
     || strpos($affiliateRepositorySource, 'FOR UPDATE') === false) {
     throw new \RuntimeException('Affiliate commissions must be transactional/idempotent and unverified automated payouts must remain disabled.');
 }
