@@ -217,6 +217,8 @@ const POS = {
     async init() {
         await DB.open();
         await this.loadLocations();
+        // Recover sales queued before a browser restart when the device is already online.
+        if (navigator.onLine) this.flushOfflineQueue();
         window.addEventListener('online',  () => this.setOnline(true));
         window.addEventListener('offline', () => this.setOnline(false));
         document.getElementById('pos-search').addEventListener('input', e => this.searchProducts(e.target.value));
