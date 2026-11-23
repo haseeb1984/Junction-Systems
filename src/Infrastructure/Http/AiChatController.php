@@ -48,6 +48,13 @@ final class AiChatController {
     public function createSession(\WP_REST_Request $request): \WP_REST_Response {
         try {
             $uuid = wp_generate_uuid4();
+            if ($this->rateLimited($uuid)) {
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'code' => 'rate_limited',
+                    'message' => 'Too many chat sessions. Please wait before starting another session.',
+                ], 429);
+            }
             $token = bin2hex(random_bytes(32));
             $stored = set_transient(
                 'pkstore_chat_owner_' . hash('sha256', $uuid),
