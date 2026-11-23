@@ -18,7 +18,7 @@ final class SyncPOSQueueUseCase {
                 if (!function_exists('wc_create_order') || !function_exists('wc_get_orders')) {
                     throw new \RuntimeException('WooCommerce order APIs are unavailable.');
                 }
-                // A retry after an interrupted request must reuse the order already created.
+                // Find an earlier attempt first so a retry never creates a second order.
                 $matches = wc_get_orders([
                     'limit'=>1, 'return'=>'objects',
                     'meta_key'=>'_pkstore_pos_order_ref', 'meta_value'=>$order->orderRef,
@@ -31,6 +31,14 @@ final class SyncPOSQueueUseCase {
                     }
                     $wcOrder->update_meta_data('_pkstore_pos_order_ref', $order->orderRef);
                     $wcOrder->update_meta_data('_pkstore_pos_location_id', $order->locationId);
+                    $wcOrder->update_meta_data('_pkstore_pos_sync_state', 'building');
+                    $wcOrder->save();
+                }
+                // Rebuild incomplete imports safely after a crash or a failed item mapping.
+                if ($wcOrder->get_meta('_pkstore_pos_sync_state') !== 'complete') {
+                    foreach ($wcOrder->get_items('line_item') as $itemId => $lineItem) {
+                        $wcOrder->remove_item($itemId);
+                    }
                     foreach ($order->getItems() as $item) {
                         $product = $this->productRepo->findById((int)$item['product_id']);
                         if (!$product || !$product->wcProductId) {
@@ -56,7 +64,10 @@ final class SyncPOSQueueUseCase {
                     $wcOrder->set_total((float)$order->totalPkr);
                     // POS already deducted physical stock; WooCommerce must not deduct it again.
                     if (method_exists($wcOrder, 'set_stock_reduced')) $wcOrder->set_stock_reduced(true);
+                    $wcOrder->update_meta_data('_pkstore_pos_sync_state', 'complete');
                     $wcOrder->save();
+                }
+                if ($wcOrder->get_status() !== 'processing') {
                     $wcOrder->update_status('processing', 'Imported from POS '.$order->orderRef, true);
                 }
                 $order->markSynced((int)$wcOrder->get_id());
