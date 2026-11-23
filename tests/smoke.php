@@ -303,6 +303,7 @@ if (strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
 
 $ga4AnalyticsSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/GA4Service.php');
 $facebookPixelSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/FacebookPixelService.php');
+$settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
 if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($ga4AnalyticsSource, "wp_has_consent('statistics')") === false
     || strpos($ga4AnalyticsSource, "_pkstore_ga4_statistics_consent") === false
