@@ -13,6 +13,7 @@ final class MigrationRunner {
     private const VERSION_OPTION = 'pkstore_db_version';
     private const LOCK_OPTION = 'pkstore_db_migration_lock';
     private const ERROR_OPTION = 'pkstore_db_migration_error';
+    private const FRESH_INSTALL_OPTION = 'pkstore_db_fresh_install_in_progress';
     private const LOCK_TTL = 900;
 
     /** @var array<string, callable> */
@@ -72,7 +73,18 @@ final class MigrationRunner {
             // Determine whether this is an upgrade before the first migration creates
             // tables. Re-checking inside the loop misclassifies a fresh install as an
             // existing store on migration 2.0.1 and blocks setup behind the backup gate.
-            $isExistingInstall = self::hasExistingTables();
+            $freshInstallInProgress = get_option(self::FRESH_INSTALL_OPTION, '') === 'yes';
+            $isExistingInstall = $freshInstallInProgress ? false : self::hasExistingTables();
+            if (!$isExistingInstall && !$freshInstallInProgress) {
+                // Persist the fresh-install decision before the first schema
+                // write. If a later migration fails, the next request can
+                // resume setup without misclassifying the partial fresh schema
+                // as a customer upgrade requiring an external backup.
+                if (!add_option(self::FRESH_INSTALL_OPTION, 'yes', '', false)
+                    && get_option(self::FRESH_INSTALL_OPTION, '') !== 'yes') {
+                    throw new \RuntimeException('Unable to persist fresh-install migration state.');
+                }
+            }
 
             foreach (self::MIGRATIONS as $version => $migration) {
                 $current = (string) get_option(self::VERSION_OPTION, '0.0.0');
@@ -91,6 +103,7 @@ final class MigrationRunner {
             }
 
             delete_option(self::ERROR_OPTION);
+            delete_option(self::FRESH_INSTALL_OPTION);
         } catch (\Throwable $error) {
             // Do not expose SQL details or configuration values to store users.
             update_option(self::ERROR_OPTION, 'Database migration failed. Contact Junction support.', false);
