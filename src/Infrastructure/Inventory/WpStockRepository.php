@@ -42,6 +42,17 @@ final class WpStockRepository implements StockRepositoryInterface {
             if (!$row) throw new \RuntimeException('Unable to lock stock row: '.$this->db->last_error);
             $before=(int)$row['quantity'];
             [$after,$type,$refType,$refId,$note,$userId,$createdAt]=$build($before);
+            // A committed movement with the same business reference must never be applied twice.
+            if ($refType !== '' && $refId !== '') {
+                $existing=$this->db->get_var($this->db->prepare(
+                    "SELECT id FROM {$this->tm()} WHERE product_id=%d AND location_id=%d AND reference_type=%s AND reference_id=%s LIMIT 1",
+                    $productId,$locationId,$refType,$refId
+                ));
+                if ($existing) {
+                    if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
+                    return null;
+                }
+            }
             if ($after < 0) throw new \DomainException("Stock cannot go below 0. Current: {$before}, Requested: ".($delta ?? $after));
             $actualDelta=$after-$before;
             if ($delta !== null && $actualDelta !== $delta) throw new \LogicException('Stock movement delta mismatch.');
