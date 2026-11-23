@@ -101,7 +101,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
             INNER JOIN {$this->db->term_taxonomy} tt ON tr.term_taxonomy_id=tt.term_taxonomy_id
             INNER JOIN {$this->db->terms} t ON tt.term_id=t.term_id
             INNER JOIN {$lookup} lookup ON lookup.product_id=p.ID
-            WHERE p.post_type='product' AND p.post_status='publish'
+            WHERE p.post_type='product' AND p.post_status='publish' AND p.post_password=''
               AND tt.taxonomy='product_cat' AND t.slug=%s
               AND lookup.stock_status IN ('instock','onbackorder')
               {$priceFilter}
@@ -128,7 +128,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
         $sql = "SELECT p.ID
             FROM {$this->db->posts} p
             INNER JOIN {$lookup} lookup ON lookup.product_id=p.ID
-            WHERE p.post_type='product' AND p.post_status='publish'
+            WHERE p.post_type='product' AND p.post_status='publish' AND p.post_password=''
               AND lookup.stock_status IN ('instock','onbackorder')
               {$priceFilter}
             ORDER BY CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
