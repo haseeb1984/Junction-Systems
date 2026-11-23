@@ -7,14 +7,90 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_pos_sessions'; }
     public function save(POSSession $s): int {
-        $this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        $ok=$this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        if($ok===false) throw new \RuntimeException('Unable to create POS session: '.$this->db->last_error);
         return (int)$this->db->insert_id;
     }
-    public function update(POSSession $s): void {
-        $this->db->update($this->t(),['total_sales_pkr'=>$s->getTotalSalesPkr(),'status'=>$s->getStatus()->value],['id'=>$s->id]);
+    public function openOrResume(POSSession $s): array {
+        $locations=$this->db->prefix.'pkstore_inventory_locations';
+        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS session transaction: '.$this->db->last_error);
+        try {
+            $location=$this->db->get_row($this->db->prepare("SELECT id FROM {$locations} WHERE id=%d AND is_active=1 FOR UPDATE",$s->locationId),ARRAY_A);
+            if(!$location) throw new \DomainException('POS location does not exist or is inactive.');
+            $existing=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' ORDER BY id DESC LIMIT 1 FOR UPDATE",$s->locationId),ARRAY_A);
+            if($existing) {
+                if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session resume: '.$this->db->last_error);
+                return ['session'=>$this->h($existing),'resumed'=>true];
+            }
+            $id=$this->save($s);
+            $created=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
+            if(!$created) throw new \RuntimeException('Unable to reload newly opened POS session.');
+            if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session opening: '.$this->db->last_error);
+            return ['session'=>$this->h($created),'resumed'=>false];
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
-    public function findById(int $id): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A); return $r?$this->h($r):null; }
-    public function findOpenByLocation(int $locationId): ?POSSession { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A); return $r?$this->h($r):null; }
-    public function findRecent(int $locationId, int $limit=10): array { $r=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d ORDER BY opened_at DESC LIMIT %d",$locationId,$limit),ARRAY_A)?:[]; return array_map(fn($r)=>$this->h($r),$r); }
-    private function h(array $r): POSSession { return new POSSession((int)$r['id'],(int)$r['location_id'],(int)$r['cashier_id'],(int)$r['opening_cash'],$r['closing_cash']?(int)$r['closing_cash']:null,(int)$r['total_sales_pkr'],(int)$r['total_cash_pkr'],(int)$r['total_jazzcash'],(int)$r['total_easypaisa'],SessionStatus::from($r['status']),new \DateTimeImmutable($r['opened_at']),$r['closed_at']?new \DateTimeImmutable($r['closed_at']):null); }
+    public function closeAtomic(int $sessionId,int $closingCash): POSSession {
+        if($sessionId<=0 || $closingCash<0) throw new \InvalidArgumentException('A valid session and non-negative closing cash are required.');
+        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS session close transaction: '.$this->db->last_error);
+        try {
+            $row=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$sessionId),ARRAY_A);
+            if(!$row || $row['status']!=='open') throw new \DomainException('POS session not found or already closed.');
+            $updated=$this->db->update($this->t(),['closing_cash'=>$closingCash,'status'=>'closed','closed_at'=>current_time('mysql')],['id'=>$sessionId,'status'=>'open']);
+            if($updated===false || $updated===0) throw new \RuntimeException('Unable to close POS session: '.$this->db->last_error);
+            $closed=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$sessionId),ARRAY_A);
+            if(!$closed) throw new \RuntimeException('Unable to reload closed POS session.');
+            if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit POS session close: '.$this->db->last_error);
+            return $this->h($closed);
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+    }
+    public function update(POSSession $s): void {
+        $this->db->update($this->t(),[
+            'closing_cash'=>$s->getClosingCash(),
+            'total_sales_pkr'=>$s->getTotalSalesPkr(),
+            'total_cash_pkr'=>$s->getTotalCashPkr(),
+            'total_card_pkr'=>$s->getTotalCardPkr(),
+            'total_jazzcash'=>$s->getTotalJazzcashPkr(),
+            'total_easypaisa'=>$s->getTotalEasypaisaPkr(),
+            'status'=>$s->getStatus()->value,
+            'closed_at'=>$s->getClosedAt()?$s->getClosedAt()->format('Y-m-d H:i:s'):null,
+        ],['id'=>$s->id]);
+    }
+    public function recordSaleAtomic(int $sessionId, int $total, string $paymentMethod, ?array $paymentSplit = null): void {
+        if ($total < 0) throw new \InvalidArgumentException('Sale total cannot be negative.');
+        $amounts = ['cash'=>0,'card'=>0,'jazzcash'=>0,'easypaisa'=>0];
+        if ($paymentSplit !== null) {
+            foreach ($paymentSplit as $method=>$amount) {
+                if (!array_key_exists((string)$method,$amounts) || (int)$amount < 0) throw new \InvalidArgumentException('Invalid split payment entry.');
+                $amounts[$method] += (int)$amount;
+            }
+            if (array_sum($amounts) !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
+        } else {
+            if (!array_key_exists($paymentMethod,$amounts)) throw new \InvalidArgumentException('Unsupported POS payment method.');
+            $amounts[$paymentMethod] = $total;
+        }
+        $sql = $this->db->prepare("UPDATE {$this->t()} SET total_sales_pkr=total_sales_pkr+%d,total_cash_pkr=total_cash_pkr+%d,total_card_pkr=total_card_pkr+%d,total_jazzcash=total_jazzcash+%d,total_easypaisa=total_easypaisa+%d WHERE id=%d AND status='open'",
+            $total,$amounts['cash'],$amounts['card'],$amounts['jazzcash'],$amounts['easypaisa'],$sessionId
+        );
+        $changed = $this->db->query($sql);
+        if ($changed === false) throw new \RuntimeException('Unable to record POS session sale: '.$this->db->last_error);
+        if ($changed === 0) {
+            $stillOpen = (int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->t()} WHERE id=%d AND status='open'", $sessionId));
+            if ($stillOpen === 0) throw new \RuntimeException('POS session is closed or does not exist.');
+        }
+    }
+    public function findById(int $id): ?POSSession {
+        $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
+        return $r?$this->h($r):null;
+    }
+    public function findOpenByLocation(int $locationId): ?POSSession {
+        $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' LIMIT 1",$locationId),ARRAY_A);
+        return $r?$this->h($r):null;
+    }
+    public function findRecent(int $locationId, int $limit=10): array {
+        $r=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d ORDER BY opened_at DESC LIMIT %d",$locationId,$limit),ARRAY_A)?:[];
+        return array_map(fn($r)=>$this->h($r),$r);
+    }
+    private function h(array $r): POSSession {
+        return new POSSession((int)$r['id'],(int)$r['location_id'],(int)$r['cashier_id'],(int)$r['opening_cash'],$r['closing_cash']!==null?(int)$r['closing_cash']:null,(int)$r['total_sales_pkr'],(int)$r['total_cash_pkr'],(int)$r['total_card_pkr'],(int)$r['total_jazzcash'],(int)$r['total_easypaisa'],SessionStatus::from($r['status']),new \DateTimeImmutable($r['opened_at']),$r['closed_at']?new \DateTimeImmutable($r['closed_at']):null);
+    }
 }

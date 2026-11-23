@@ -21,24 +21,23 @@ final class POSController {
         });
     }
     public function openSession(\WP_REST_Request $req): \WP_REST_Response {
-        $locationId  = (int)($req->get_param('location_id')??1);
-        $openingCash = (int)($req->get_param('opening_cash')??0);
-        $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
-        $existing    = $sessionRepo->findOpenByLocation($locationId);
-        if ($existing) return new \WP_REST_Response(['success'=>true,'session_id'=>$existing->id,'message'=>'Existing session resumed.','resumed'=>true],200);
-        $session   = POSSession::open($locationId, get_current_user_id(), $openingCash);
-        $sessionId = $sessionRepo->save($session);
-        return new \WP_REST_Response(['success'=>true,'session_id'=>$sessionId,'message'=>'POS session opened.','resumed'=>false],201);
+        $locationId=(int)($req->get_param('location_id')??1);
+        $openingCash=(int)($req->get_param('opening_cash')??0);
+        try {
+            $session=POSSession::open($locationId,get_current_user_id(),$openingCash);
+            $result=$this->c->make(POSSessionRepositoryInterface::class)->openOrResume($session);
+            $opened=$result['session'];
+            $resumed=$result['resumed'];
+            return new \WP_REST_Response(['success'=>true,'session_id'=>$opened->id,'message'=>$resumed?'Existing session resumed.':'POS session opened.','resumed'=>$resumed],$resumed?200:201);
+        } catch(\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
     public function closeSession(\WP_REST_Request $req): \WP_REST_Response {
-        $sessionId   = (int)($req->get_param('session_id')??0);
-        $closingCash = (int)($req->get_param('closing_cash')??0);
-        $sessionRepo = $this->c->make(POSSessionRepositoryInterface::class);
-        $session     = $sessionRepo->findById($sessionId);
-        if (!$session||!$session->isOpen()) return new \WP_REST_Response(['success'=>false,'message'=>'Session not found or already closed.'],404);
-        $session->close($closingCash);
-        $sessionRepo->update($session);
-        return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
+        $sessionId=(int)($req->get_param('session_id')??0);
+        $closingCash=(int)($req->get_param('closing_cash')??0);
+        try {
+            $session=$this->c->make(POSSessionRepositoryInterface::class)->closeAtomic($sessionId,$closingCash);
+            return new \WP_REST_Response(['success'=>true,'message'=>'Session closed.','total_sales'=>$session->getTotalSalesPkr(),'cash_variance'=>$session->getCashVariance()],200);
+        } catch(\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
     public function currentSession(\WP_REST_Request $req): \WP_REST_Response {
         $locationId = (int)($req->get_param('location_id')??1);
@@ -55,9 +54,10 @@ final class POSController {
         $customerName = sanitize_text_field($req->get_param('customer_name')??'Walk-in');
         $discount     = (int)($req->get_param('discount_pkr')??0);
         $split        = $req->get_param('payment_split');
+        $orderRef     = sanitize_text_field($req->get_param('order_ref')??$req->get_param('idempotency_key')??'');
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
         try {
-            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split);
+            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split,$orderRef!==''?$orderRef:null);
             return new \WP_REST_Response(['success'=>true,'order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'message'=>'Sale processed.'],201);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }

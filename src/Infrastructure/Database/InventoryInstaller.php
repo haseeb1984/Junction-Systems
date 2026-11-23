@@ -179,6 +179,40 @@ final class InventoryInstaller {
             INDEX idx_product (product_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
 
+        // Purchase receipt headers and lines make each receipt retry-safe.
+        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_purchase_receipts (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            receipt_reference VARCHAR(64) NOT NULL,
+            po_id INT UNSIGNED NOT NULL,
+            received_by BIGINT UNSIGNED NOT NULL,
+            received_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_receipt_reference (receipt_reference),
+            INDEX idx_po (po_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_purchase_receipt_items (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            receipt_id BIGINT UNSIGNED NOT NULL,
+            item_id INT UNSIGNED NOT NULL,
+            quantity INT NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_receipt_item (receipt_id,item_id),
+            INDEX idx_item (item_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+
+        // Durable outbox for POS stock projections to WooCommerce.
+        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_stock_projection_queue (
+            product_id INT UNSIGNED NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+            next_attempt_at DATETIME NOT NULL,
+            last_error TEXT DEFAULT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (product_id),
+            INDEX idx_status_retry (status,next_attempt_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+
         // Seed default locations
         self::seedLocations();
     }

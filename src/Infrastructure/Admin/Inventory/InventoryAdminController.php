@@ -36,8 +36,12 @@ final class InventoryAdminController {
         match($action) {
             'add_product'     => $this->handleAddProduct(),
             'adjust_stock'    => $this->handleAdjustStock(),
+            'transfer_stock'  => $this->handleTransferStock(),
             'generate_barcodes' => $this->handleGenerateBarcodes(),
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
+            'create_supplier' => $this->handleCreateSupplier(),
+            'create_purchase_order' => $this->handleCreatePurchaseOrder(),
+            'receive_purchase_order' => $this->handleReceivePurchaseOrder(),
             default            => null,
         };
     }
@@ -65,6 +69,17 @@ final class InventoryAdminController {
         } catch(\Throwable $e){ $this->redirect('pkstore-inventory','error',$e->getMessage()); }
     }
 
+    private function handleTransferStock(): void {
+        try {
+            $reference=sanitize_text_field($_POST['reference_id']??'');
+            $this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
+                (int)($_POST['product_id']??0),(int)($_POST['from_location_id']??0),(int)($_POST['to_location_id']??0),
+                (int)($_POST['quantity']??0),$reference,sanitize_text_field($_POST['note']??'')
+            );
+            $this->redirect('pkstore-inventory','transferred','Stock transfer completed.');
+        } catch(\Throwable $e) { $this->redirect('pkstore-inventory','error',$e->getMessage()); }
+    }
+
     private function handleGenerateBarcodes(): void {
         $count = $this->c->make(GenerateBarcodeUseCase::class)->generateForAll();
         $this->redirect('pkstore-inventory','barcodes_generated',"Generated barcodes for {$count} products.");
@@ -73,6 +88,30 @@ final class InventoryAdminController {
     private function handleSyncWooCommerce(): void {
         $count = $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce();
         $this->redirect('pkstore-inventory','synced',"Synced {$count} products to WooCommerce.");
+    }
+
+    private function handleCreateSupplier(): void {
+        global $wpdb; $table=$wpdb->prefix.'pkstore_inventory_suppliers';
+        $name=sanitize_text_field($_POST['supplier_name']??'');
+        if($name===''){ $this->redirect('pkstore-purchase-orders','error','Supplier name is required.'); return; }
+        $ok=$wpdb->insert($table,['name'=>$name,'contact'=>sanitize_text_field($_POST['supplier_contact']??''),'phone'=>sanitize_text_field($_POST['supplier_phone']??''),'email'=>sanitize_email($_POST['supplier_email']??''),'address'=>sanitize_textarea_field($_POST['supplier_address']??''),'is_active'=>1,'created_at'=>current_time('mysql')]);
+        $this->redirect('pkstore-purchase-orders',$ok===false?'error':'supplier_added',$ok===false?'Unable to save supplier.':'Supplier created.');
+    }
+    private function handleCreatePurchaseOrder(): void {
+        try {
+            $rawItems=$_POST['items']??[]; $items=[];
+            if(is_array($rawItems)) foreach($rawItems as $item) if(is_array($item)) $items[]=['product_id'=>(int)($item['product_id']??0),'quantity'=>(int)($item['quantity']??0),'unit_cost_pkr'=>(int)($item['unit_cost_pkr']??-1)];
+            $id=$this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute((int)($_POST['supplier_id']??0),(int)($_POST['location_id']??0),$items,sanitize_textarea_field($_POST['notes']??''));
+            $this->redirect('pkstore-purchase-orders','po_created','Purchase order #'.$id.' created.');
+        } catch(\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
+    }
+    private function handleReceivePurchaseOrder(): void {
+        try {
+            $quantities=$_POST['receive_qty']??[]; $items=[];
+            if(is_array($quantities)) foreach($quantities as $itemId=>$qty) if((int)$qty>0) $items[]=['item_id'=>(int)$itemId,'quantity'=>(int)$qty];
+            $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute((int)($_POST['purchase_order_id']??0),$items,sanitize_text_field($_POST['receipt_reference']??''));
+            $this->redirect('pkstore-purchase-orders','received','Purchase order receipt saved.');
+        } catch(\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
     }
 
     private function redirect(string $page, string $status, string $msg): void {
@@ -122,6 +161,13 @@ final class InventoryAdminController {
              ORDER BY po.created_at DESC LIMIT 100",
             ARRAY_A
         ) ?: [];
+        $suppliers=$wpdb->get_results("SELECT id,name FROM {$wpdb->prefix}pkstore_inventory_suppliers WHERE is_active=1 ORDER BY name",ARRAY_A)?:[];
+        $locations=$this->c->make(LocationRepositoryInterface::class)->findAll();
+        $products=$this->c->make(InventoryProductRepositoryInterface::class)->findAll(500,0);
+        $poItems=[];
+        foreach($pos as $po) $poItems[(int)$po['id']]=$wpdb->get_results($wpdb->prepare("SELECT i.id AS item_id,i.product_id,p.name AS product_name,i.quantity_ordered,i.quantity_received,i.unit_cost_pkr FROM {$wpdb->prefix}pkstore_purchase_order_items i LEFT JOIN {$wpdb->prefix}pkstore_inventory_products p ON i.product_id=p.id WHERE i.po_id=%d ORDER BY i.id",(int)$po['id']),ARRAY_A)?:[];
+        $msg=sanitize_text_field($_GET['msg']??'');
+        $status=sanitize_key($_GET['status']??'');
         include PKSTORE_DIR.'/templates/admin/inventory/purchase-orders.php';
     }
 }

@@ -212,11 +212,13 @@ const DB = {
 
 const POS = {
     cart: [], products: [], sessionId: null, locationId: 1,
-    paymentMethod: 'cash', isOnline: navigator.onLine, scannerStream: null,
+    paymentMethod: 'cash', isOnline: navigator.onLine, scannerStream: null, isFlushingQueue: false,
 
     async init() {
         await DB.open();
         await this.loadLocations();
+        // Recover sales queued before a browser restart when the device is already online.
+        if (navigator.onLine) this.flushOfflineQueue();
         window.addEventListener('online',  () => this.setOnline(true));
         window.addEventListener('offline', () => this.setOnline(false));
         document.getElementById('pos-search').addEventListener('input', e => this.searchProducts(e.target.value));
@@ -343,34 +345,54 @@ const POS = {
     async processSale() {
         if (!this.cart.length) return;
         if (!this.sessionId) { alert('Please open a session first.'); return; }
-        const btn  = document.getElementById('pos-charge-btn');
-        btn.disabled = true; btn.textContent = 'Processing...';
-        const discount = parseInt(document.getElementById('pos-discount').value)||0;
-        const cname    = document.getElementById('pos-cname').value.trim()||'Walk-in';
-        const cphone   = document.getElementById('pos-cphone').value.trim();
-        const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
-        const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
-        const payload  = {session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
+        const btn = document.getElementById('pos-charge-btn');
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
 
+        const discount = parseInt(document.getElementById('pos-discount').value)||0;
+        const cname = document.getElementById('pos-cname').value.trim()||'Walk-in';
+        const cphone = document.getElementById('pos-cphone').value.trim();
+        const items = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
+        const total = Math.max(0,this.cart.reduce((sum,i)=>sum+(i.price*i.qty),0)-discount);
+        const stableOrderRef = 'POS-' + Date.now() + '-' + Math.random().toString(36).slice(2,7).toUpperCase();
+        const payload = {session_id:this.sessionId,location_id:this.locationId,items,payment_method:this.paymentMethod,customer_name:cname,customer_phone:cphone,discount_pkr:discount,order_ref:stableOrderRef};
+        let sale;
+
+        // Only the sale endpoint decides whether the sale was committed.
         try {
-            const r = await this.api('/pos/sale','POST',payload);
-            // WhatsApp receipt if phone provided
+            sale = await this.api('/pos/sale','POST',payload);
+        } catch(e) {
+            if (!navigator.onLine || e instanceof TypeError) {
+                await DB.put('queue',{...payload,ref:stableOrderRef,total,offline:true});
+                this.clearCart();
+                this.toast(`⚡ Offline — sale queued (${stableOrderRef})`);
+            } else {
+                this.toast(`Sale not completed: ${e.message}`);
+            }
+            btn.disabled = false;
+            this.updateTotals();
+            return;
+        }
+
+        // The sale is committed. Never report it as failed because a receipt
+        // notification or the local printer fails afterward.
+        this.clearCart();
+        this.toast(`✓ Sale ${sale.order_ref} — PKR ${total.toLocaleString()}`);
+        try {
             if (cphone) {
-                const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:r.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
+                const wr = await this.api('/pos/receipt/whatsapp','POST',{phone:cphone,order_ref:sale.order_ref,total,items:items.map(i=>({...i,total_pkr:i.unit_price_pkr*i.quantity}))});
                 if (wr.whatsapp_url) window.open(wr.whatsapp_url,'_blank');
             }
-            // Thermal print
-            this.printReceipt({ref:r.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
-            this.clearCart();
-            this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
         } catch(e) {
-            // Offline: queue locally in IndexedDB
-            const offlineRef = 'OFFLINE-' + Date.now();
-            await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
-            this.clearCart();
-            this.toast(`⚡ Offline — sale queued (${offlineRef})`);
+            this.toast(`Sale saved; WhatsApp receipt could not be sent: ${e.message}`,5000);
         }
-        btn.disabled = false; this.updateTotals();
+        try {
+            this.printReceipt({ref:sale.order_ref,total,items,method:this.paymentMethod,cname,cphone,discount});
+        } catch(e) {
+            this.toast('Sale saved; receipt printing failed.',5000);
+        }
+        btn.disabled = false;
+        this.updateTotals();
     },
 
     printReceipt({ref, total, items, method, cname, cphone, discount}) {
@@ -452,18 +474,28 @@ const POS = {
     },
 
     async flushOfflineQueue() {
-        const queue = await DB.getAll('queue');
-        if (!queue.length) return;
-        this.toast(`Syncing ${queue.length} offline sale(s)...`);
-        for (const item of queue) {
-            try {
-                const {ref, offline, ...payload} = item;
-                await this.api('/pos/sale','POST',payload);
-                await DB.delete('queue', ref);
-            } catch(e) { /* leave in queue, retry next time */ }
+        // Startup recovery and the browser "online" event can fire together.
+        // Keep one replay worker per POS tab; server-side order refs remain the
+        // final idempotency guard if a request outcome is ambiguous.
+        if (this.isFlushingQueue || !navigator.onLine) return;
+        this.isFlushingQueue = true;
+        try {
+            const queue = await DB.getAll('queue');
+            if (!queue.length) return;
+            this.toast(`Syncing ${queue.length} offline sale(s)...`);
+            for (const item of queue) {
+                try {
+                    const {ref, offline, ...payload} = item;
+                    await this.api('/pos/sale','POST',payload);
+                    await DB.delete('queue', ref);
+                } catch(e) { /* retain failed sales for a later online retry */ }
+            }
+            const remaining = await DB.getAll('queue');
+            if (!remaining.length) this.toast('✓ All offline sales synced!');
+            else this.toast(`${remaining.length} offline sale(s) still need attention.`);
+        } finally {
+            this.isFlushingQueue = false;
         }
-        const remaining = await DB.getAll('queue');
-        if (!remaining.length) this.toast('✓ All offline sales synced!');
     },
 
     toast(msg, duration=3000) {
