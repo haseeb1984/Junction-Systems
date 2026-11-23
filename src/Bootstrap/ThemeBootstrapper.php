@@ -137,13 +137,12 @@ final class ThemeBootstrapper {
         if ($this->fm->isEnabled('klaviyo'))
             $this->c->make(\PkStore\Infrastructure\Integration\Email\KlaviyoService::class)->register();
 
-        // ── Accounting ────────────────────────────────────────────
-        if ($this->fm->isEnabled('quickbooks'))
-            $this->c->make(\PkStore\Infrastructure\Integration\Accounting\QuickBooksService::class)->register();
-
-        // ── Marketplace ───────────────────────────────────────────
-        if ($this->fm->isEnabled('daraz_sync'))
-            $this->c->make(\PkStore\Infrastructure\Integration\Marketplace\DarazSyncService::class)->register();
+        // QuickBooks and Daraz adapters are intentionally not auto-registered.
+        // Their current source does not yet provide complete OAuth/configuration,
+        // catalogue/customer mappings, idempotent accounting writes, or safe
+        // HPOS-compatible order import. Enabling either placeholder could create
+        // incorrect accounting records or empty Daraz orders. Complete these
+        // original-project integrations before wiring their package entitlements.
 
         // ── Admin ─────────────────────────────────────────────────
         if (is_admin()) {
