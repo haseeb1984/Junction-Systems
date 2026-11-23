@@ -1387,7 +1387,7 @@ if (!is_string($stockRepositorySource)
 
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 $stockCycleHooksSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
-$stockCycleServicesSource = file_get_contents($root . '/config/services.php');
+$stockCycleServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "get_meta('_reduced_stock', true)") === false
     || strpos($stockCycleCaptureSource, "SELECT GET_LOCK(%s, %d)") === false
