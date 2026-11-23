@@ -32,11 +32,25 @@ final class PralClient {
     public function __construct(private readonly LicenseManager $license) {}
 
     public function validateInvoice(array $payload): array {
-        return $this->post($this->invoicePath('validateinvoicedata'), $payload, false);
+        $config = $this->configuration();
+        return $this->request(
+            'POST',
+            $this->invoicePath('validateinvoicedata', $config['environment']),
+            $payload,
+            false,
+            $config['api_token']
+        );
     }
 
     public function postInvoice(array $payload): array {
-        return $this->post($this->invoicePath('postinvoicedata'), $payload, true);
+        $config = $this->configuration();
+        return $this->request(
+            'POST',
+            $this->invoicePath('postinvoicedata', $config['environment']),
+            $payload,
+            true,
+            $config['api_token']
+        );
     }
 
     /**
@@ -117,15 +131,9 @@ final class PralClient {
         );
     }
 
-    private function invoicePath(string $method): string {
-        $config = $this->configuration();
-        $suffix = $config['environment'] === 'sandbox' ? '_sb' : '';
+    private function invoicePath(string $method, string $environment): string {
+        $suffix = $environment === 'sandbox' ? '_sb' : '';
         return self::BASE_URL . '/di_data/v1/di/' . $method . $suffix;
-    }
-
-    private function post(string $path, array $payload, bool $invoiceSubmission): array {
-        $config = $this->configuration();
-        return $this->request('POST', $path, $payload, $invoiceSubmission, $config['api_token']);
     }
 
     private function request(
