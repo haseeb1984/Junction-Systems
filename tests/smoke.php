@@ -615,6 +615,7 @@ if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, "'2.0.10' => [Installer::class, 'addOtpConsumptionColumns']") === false
     || strpos($migrationRunnerSource, "'consumed_at', 'consumed_order_id'") === false
     || strpos($migrationRunnerSource, 'Detect every Junction-owned table, not only a small sample.') === false
+    || strpos($migrationRunnerSource, 'Duplicate WooCommerce inventory product mappings must be reconciled before this upgrade.') === false
     || strpos($migrationRunnerSource, "esc_like(\$wpdb->prefix . 'pkstore_')") === false) {
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
