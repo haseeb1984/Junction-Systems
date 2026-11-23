@@ -24,8 +24,8 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
-            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
-            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
