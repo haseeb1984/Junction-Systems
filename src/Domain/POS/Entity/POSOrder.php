@@ -59,7 +59,7 @@ final class POSOrder {
             if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
         }
         $ref = $orderRef !== null && $orderRef !== '' ? trim($orderRef) : 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
-        if (!preg_match('/^[A-Za-z0-9_-]{6,30}$/', $ref)) throw new \\InvalidArgumentException('POS order reference must be 6-30 letters, numbers, hyphens or underscores.');
+        if (!preg_match('/^[A-Za-z0-9_-]{6,30}$/', $ref)) throw new \InvalidArgumentException('POS order reference must be 6-30 letters, numbers, hyphens or underscores.');
         $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
         $order->items = $items;
         return $order;
