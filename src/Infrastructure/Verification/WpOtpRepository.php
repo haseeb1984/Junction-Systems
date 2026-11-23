@@ -62,15 +62,32 @@ final class WpOtpRepository implements OtpRepositoryInterface {
 
     public function bindConsumedAttemptToOrder(string $attemptId, string $sessionRef, string $orderId): bool {
         $result = $this->db->query($this->db->prepare(
-            "UPDATE {$this->t()} SET consumed_order_id=%s WHERE id=%s AND order_id=%s AND consumed_at IS NOT NULL AND consumed_order_id IS NULL",
+            "UPDATE {$this->t()} SET consumed_order_id=%s
+             WHERE id=%s AND order_id=%s AND consumed_at IS NOT NULL
+               AND (consumed_order_id IS NULL OR consumed_order_id=%s)",
             $orderId,
             $attemptId,
-            $sessionRef
+            $sessionRef,
+            $orderId
         ));
         if ($result === false) {
             throw new \RuntimeException('Unable to bind consumed COD OTP proof to the order.');
         }
-        return $this->db->rows_affected === 1;
+        if ($this->db->rows_affected === 1) return true;
+
+        // Checkout hooks can be retried after the first successful bind. Treat
+        // an already-bound attempt for this exact order as idempotent success,
+        // but never accept a proof consumed for another order.
+        $boundOrderId = $this->db->get_var($this->db->prepare(
+            "SELECT consumed_order_id FROM {$this->t()}
+             WHERE id=%s AND order_id=%s AND consumed_at IS NOT NULL",
+            $attemptId,
+            $sessionRef
+        ));
+        if ($this->db->last_error !== '') {
+            throw new \RuntimeException('Unable to verify consumed COD OTP order binding.');
+        }
+        return (string) $boundOrderId === $orderId;
     }
 
     public function invalidatePrevious(PakistanPhoneNumber $p,string $oid):void {
