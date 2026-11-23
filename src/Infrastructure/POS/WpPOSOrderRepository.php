@@ -77,6 +77,14 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
                 if($this->db->update($stockTable,['quantity'=>$stock['after'],'updated_at'=>current_time('mysql')],['id'=>(int)$stock['row']['id']])===false) throw new \RuntimeException('Unable to deduct POS stock: '.$this->db->last_error);
                 $ok=$this->db->insert($movementTable,['product_id'=>$productId,'location_id'=>$o->locationId,'movement_type'=>'sale','quantity_delta'=>-$stock['quantity'],'quantity_before'=>$stock['before'],'quantity_after'=>$stock['after'],'reference_type'=>'pos_order','reference_id'=>$o->orderRef,'note'=>'POS sale '.$o->orderRef,'created_by'=>get_current_user_id(),'created_at'=>current_time('mysql')]);
                 if($ok===false) throw new \RuntimeException('Unable to write POS stock movement: '.$this->db->last_error);
+                // The projection request is committed with the POS sale, so a process crash
+                // after checkout cannot permanently leave WooCommerce stock stale.
+                $queueTable=$this->db->prefix.'pkstore_stock_projection_queue';
+                $queued=$this->db->query($this->db->prepare(
+                    "INSERT INTO {$queueTable} (product_id,status,attempts,next_attempt_at,last_error,updated_at) VALUES (%d,'pending',0,%s,NULL,%s) ON DUPLICATE KEY UPDATE status='pending',attempts=0,next_attempt_at=VALUES(next_attempt_at),last_error=NULL,updated_at=VALUES(updated_at)",
+                    (int)$productId,current_time('mysql'),current_time('mysql')
+                ));
+                if($queued===false) throw new \\RuntimeException('Unable to queue WooCommerce stock projection: '.$this->db->last_error);
             }
             $sql=$this->db->prepare("UPDATE {$sessionTable} SET total_sales_pkr=total_sales_pkr+%d,total_cash_pkr=total_cash_pkr+%d,total_card_pkr=total_card_pkr+%d,total_jazzcash=total_jazzcash+%d,total_easypaisa=total_easypaisa+%d WHERE id=%d AND status='open'",
                 $o->totalPkr,$amounts['cash'],$amounts['card'],$amounts['jazzcash'],$amounts['easypaisa'],$o->sessionId
