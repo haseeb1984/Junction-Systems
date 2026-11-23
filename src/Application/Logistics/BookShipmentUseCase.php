@@ -13,7 +13,39 @@ final class BookShipmentUseCase {
         $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
 
         if ($result->success && !str_starts_with($result->trackingNumber, 'PENDING-')) {
-            $this->meta->saveTrackingNumber($s->internalOrderId, $result->trackingNumber, $result->courierCode);
+            try {
+                $this->meta->saveTrackingNumber($s->internalOrderId, $result->trackingNumber, $result->courierCode);
+            } catch (\Throwable $error) {
+                // The provider has confirmed a parcel, but Junction failed to
+                // persist its tracking reference. Never let the scheduled job
+                // throw and retry the booking as if no parcel existed.
+                if ($order instanceof \WC_Order) {
+                    $order->update_meta_data('_pkstore_courier_booking_state', 'needs_review');
+                    $order->update_meta_data('_pkstore_courier_booking_provider', $result->courierCode);
+                    $order->update_meta_data('_pkstore_courier_booking_review_reason', 'Provider confirmed a shipment but Junction could not persist its tracking reference.');
+                    $order->add_order_note('[PK Store] Provider confirmed a courier booking, but Junction could not persist the tracking reference. Do not retry or fail over; reconcile the provider portal. Provider: ' . sanitize_text_field($result->courierCode) . ', tracking: ' . sanitize_text_field($result->trackingNumber));
+                    try {
+                        $order->save();
+                    } catch (\Throwable $saveError) {
+                        $this->log->critical('Courier booking confirmed but neither tracking nor review state could be persisted.', [
+                            'order_id' => $orderId,
+                            'provider' => $result->courierCode,
+                            'error_class' => get_class($saveError),
+                        ]);
+                    }
+                }
+                $this->log->critical('Courier booking was confirmed but tracking persistence failed; automatic retry was suppressed.', [
+                    'order_id' => $orderId,
+                    'provider' => $result->courierCode,
+                    'error_class' => get_class($error),
+                ]);
+                return ShipmentResultDTO::failure(
+                    $result->courierCode,
+                    $result->internalOrderId,
+                    'Provider confirmed the shipment but Junction could not persist its tracking reference. Manual provider reconciliation is required.'
+                );
+            }
+
             if ($order instanceof \WC_Order) {
                 $order->update_meta_data('_pkstore_courier_booking_state', 'confirmed');
                 $order->update_meta_data('_pkstore_courier_booking_provider', $result->courierCode);
@@ -35,6 +67,7 @@ final class BookShipmentUseCase {
 
         return $result;
     }
+
     public function retryForOrder(int $orderId):void {
         if ($orderId < 1) return;
         global $wpdb;
