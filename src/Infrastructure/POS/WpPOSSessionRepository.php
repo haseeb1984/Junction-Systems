@@ -7,10 +7,11 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_pos_sessions'; }
     public function save(POSSession $s): int {
-        $this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        $ok=$this->db->insert($this->t(),['location_id'=>$s->locationId,'cashier_id'=>$s->cashierId,'opening_cash'=>$s->openingCash,'closing_cash'=>null,'total_sales_pkr'=>0,'total_cash_pkr'=>0,'total_card_pkr'=>0,'total_jazzcash'=>0,'total_easypaisa'=>0,'status'=>'open','opened_at'=>$s->openedAt->format('Y-m-d H:i:s'),'closed_at'=>null]);
+        if($ok===false) throw new \\RuntimeException('Unable to create POS session: '.$this->db->last_error);
         return (int)$this->db->insert_id;
     }
-    public function openOrResume(POSSession $s): POSSession {
+    public function openOrResume(POSSession $s): array {
         $locations=$this->db->prefix.'pkstore_inventory_locations';
         if($this->db->query('START TRANSACTION')===false) throw new \\RuntimeException('Unable to start POS session transaction: '.$this->db->last_error);
         try {
@@ -19,13 +20,13 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
             $existing=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE location_id=%d AND status='open' ORDER BY id DESC LIMIT 1 FOR UPDATE",$s->locationId),ARRAY_A);
             if($existing) {
                 if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS session resume: '.$this->db->last_error);
-                return $this->h($existing);
+                return ['session'=>$this->h($existing),'resumed'=>true];
             }
             $id=$this->save($s);
             $created=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
             if(!$created) throw new \\RuntimeException('Unable to reload newly opened POS session.');
             if($this->db->query('COMMIT')===false) throw new \\RuntimeException('Unable to commit POS session opening: '.$this->db->last_error);
-            return $this->h($created);
+            return ['session'=>$this->h($created),'resumed'=>false];
         } catch(\\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     public function closeAtomic(int $sessionId,int $closingCash): POSSession {
