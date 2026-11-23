@@ -223,6 +223,46 @@ final class CaptureWooCommerceStockCycleUseCase {
         if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear recovered cycle return capture marker.');
     }
 
+    public function resolveCycleUuidForReturn(\WC_Order $order): string {
+        $orderId = (int) $order->get_id();
+        if ($orderId < 1) throw new \InvalidArgumentException('Invalid WooCommerce order for return-cycle resolution.');
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('WordPress database is unavailable while resolving a WooCommerce return cycle.');
+        }
+        $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+        $openCycleUuid = $wpdb->get_var($wpdb->prepare(
+            "SELECT cycle_uuid FROM {$cyclesTable}
+             WHERE wc_order_id=%d AND state IN ('reducing','active','restoring')
+             ORDER BY cycle_number DESC LIMIT 1",
+            $orderId
+        ));
+        if ($wpdb->last_error !== '') {
+            throw new \RuntimeException('Unable to resolve an open WooCommerce stock cycle.');
+        }
+        if (is_string($openCycleUuid) && preg_match('/^[a-f0-9-]{36}$/i', $openCycleUuid) === 1) {
+            return $openCycleUuid;
+        }
+
+        $cycleCount = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$cyclesTable} WHERE wc_order_id=%d",
+            $orderId
+        ));
+        if ($wpdb->last_error !== '' || !is_numeric($cycleCount)) {
+            throw new \RuntimeException('Unable to inspect WooCommerce stock-cycle history.');
+        }
+        if ((int) $cycleCount > 0) {
+            // A closed prior cycle with no active identity is ambiguous. Never
+            // create a fresh cycle from a late duplicate return callback.
+            throw new \RuntimeException('WooCommerce return has no active cycle identity; prior closed cycles require manual reconciliation.');
+        }
+
+        // A reduction snapshot can exist even when the first cycle header write
+        // failed. Reconstruct only when no cycle history exists at all.
+        return $this->capture($order);
+    }
+
     private function captureLocked(\WC_Order $order, int $orderId): string {
         global $wpdb;
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
