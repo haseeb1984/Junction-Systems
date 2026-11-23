@@ -48,7 +48,9 @@ final class SetupWizard {
         check_admin_referer('pkstore_save_settings');
         if (!current_user_can('manage_options')) wp_die('Forbidden');
         $section = sanitize_key($_POST['section'] ?? 'general');
-        $this->cfg->saveFromPost($_POST, $section);
+        if (!$this->cfg->saveFromPost($_POST, $section)) {
+            wp_die('Settings could not be encrypted and saved. Verify that WordPress security salts and OpenSSL are configured.');
+        }
         wp_redirect(admin_url('admin.php?page=' . self::SLUG . '&tab=' . $section . '&saved=1'));
         exit;
     }
