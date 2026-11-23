@@ -19,8 +19,18 @@ final class ReceivePurchaseOrderUseCase {
         if($po) foreach($po->getItems() as $item) {
             $product=$this->products->findById((int)$item['product_id']);
             if($product && $product->wcProductId && function_exists('wc_get_product')) {
-                $wc=wc_get_product($product->wcProductId);
-                if($wc) { $total=$this->stock->getTotalStock($product->id); $wc->set_manage_stock(true); $wc->set_stock_quantity($total); $wc->set_stock_status($total>0?'instock':'outofstock'); $wc->save(); }
+                try {
+                    $wc=wc_get_product($product->wcProductId);
+                    if($wc) {
+                        $total=$this->stock->getTotalStock($product->id);
+                        $wc->set_manage_stock(true);
+                        $wc->set_stock_quantity($total);
+                        $wc->set_stock_status($total>0?'instock':'outofstock');
+                        $wc->save();
+                    }
+                } catch(\\Throwable $e) {
+                    $this->log->error('Purchase receipt committed but WooCommerce stock projection failed.',['product_id'=>$product->id,'purchase_order_id'=>$purchaseOrderId,'receipt_reference'=>$receiptReference,'error'=>$e->getMessage()]);
+                }
             }
         }
         $this->log->info('Purchase order receipt processed.',['purchase_order_id'=>$purchaseOrderId,'receipt_reference'=>$receiptReference]);
