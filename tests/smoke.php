@@ -920,6 +920,11 @@ if (!is_string($trackingControllerSource) || !is_string($trackingModuleSource)
     || strpos($trackingControllerSource, "'order_key'=>['required'=>true") === false
     || strpos($trackingControllerSource, 'wc_get_order_id_by_order_key') === false
     || strpos($trackingControllerSource, 'get_order_key()') === false
+    || strpos($trackingControllerSource, 'private function rateLimited(string $orderKey): bool') === false
+    || strpos($trackingControllerSource, 'pkstore_tracking_ip_') === false
+    || strpos($trackingControllerSource, 'pkstore_tracking_key_') === false
+    || strpos($trackingControllerSource, '$ipCount >= 100 || $orderCount >= 20') === false
+    || strpos($trackingControllerSource, "'code'=>'rate_limited'") === false
     || strpos($trackingControllerSource, 'customerId !== get_current_user_id()') === false
     || strpos($trackingControllerSource, "'tracking_number'") !== false
     || strpos($trackingModuleSource, "body:{order_key:orderKey}") === false
