@@ -17,7 +17,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $this->id = 'easypaisa';
         $this->method_title = 'Easypaisa';
         $this->method_description = 'Pay using your Easypaisa Mobile Account.';
-        $this->has_fields = false;
+        $this->has_fields = true;
         $this->supports = ['products'];
         $this->log = $log ?? new \PkStore\Infrastructure\Logger\WpLogger();
         $this->cfg = $cfg ?? SettingsManager::getInstance();
@@ -60,6 +60,23 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             : '';
         if (!preg_match('/^03[0-9]{9}$/', $phone)) {
             wc_add_notice('Enter a valid Pakistani mobile number linked to your Easypaisa account (03XXXXXXXXX).', 'error');
+            return false;
+        }
+        return true;
+    }
+
+    public function payment_fields(): void {
+        if ($this->description !== '') echo wpautop(wp_kses_post($this->description));
+        echo '<p class="form-row form-row-wide">';
+        echo '<label for="easypaisa_mobile_account_no">Easypaisa mobile number <span class="required">*</span></label>';
+        echo '<input id="easypaisa_mobile_account_no" name="easypaisa_mobile_account_no" type="tel" inputmode="numeric" autocomplete="tel" placeholder="03XXXXXXXXX" required>';
+        echo '</p>';
+    }
+
+    public function validate_fields(): bool {
+        $mobile = $this->normalizeMobileNumber((string) wc_clean(wp_unslash($_POST['easypaisa_mobile_account_no'] ?? '')));
+        if (!preg_match('/^03[0-9]{9}$/', $mobile)) {
+            wc_add_notice('Enter a valid 11-digit Easypaisa mobile account number.', 'error');
             return false;
         }
         return true;
@@ -122,10 +139,10 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
             return ['result' => 'fail'];
         }
 
-        $phone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
+        $phone = $this->normalizeMobileNumber((string) wc_clean(wp_unslash($_POST['easypaisa_mobile_account_no'] ?? '')));
         $email = sanitize_email((string) $order->get_billing_email());
         if (!preg_match('/^03[0-9]{9}$/', $phone) || !is_email($email)) {
-            wc_add_notice('A valid Easypaisa mobile number and billing email are required.', 'error');
+            wc_add_notice('A valid Easypaisa mobile account number and billing email are required.', 'error');
             return ['result' => 'fail'];
         }
 
@@ -176,6 +193,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         $order->update_meta_data('_pkstore_easypaisa_order_id', $orderRef);
         $order->update_meta_data('_pkstore_easypaisa_store_id', $storeId);
         $order->update_meta_data('_pkstore_easypaisa_expected_amount', $amount);
+        $order->update_meta_data('_pkstore_easypaisa_mobile_hash', hash_hmac('sha256', $phone, wp_salt('auth')));
         $order->update_meta_data('_pkstore_easypaisa_state', 'unknown');
         $order->update_status('pending', 'Awaiting Easypaisa Mobile Account confirmation.');
         $order->save();
@@ -460,9 +478,13 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
 
         $paymentMode = strtoupper((string) ($status['paymentMode'] ?? ''));
         $reportedPhone = $this->normalizeMobileNumber((string) ($status['msisdn'] ?? $status['Msisdn'] ?? ''));
-        $expectedPhone = $this->normalizeMobileNumber((string) $order->get_billing_phone());
-        if ($paymentMode !== 'MA' || $reportedPhone === '' || $expectedPhone === ''
-            || !hash_equals($expectedPhone, $reportedPhone)) {
+        $expectedPhoneHash = (string) $order->get_meta('_pkstore_easypaisa_mobile_hash');
+        $phoneMatches = $reportedPhone !== '' && (
+            $expectedPhoneHash !== ''
+                ? hash_equals($expectedPhoneHash, hash_hmac('sha256', $reportedPhone, wp_salt('auth')))
+                : hash_equals($this->normalizeMobileNumber((string) $order->get_billing_phone()), $reportedPhone)
+        );
+        if ($paymentMode !== 'MA' || !$phoneMatches) {
             $order->add_order_note('Easypaisa status rejected: payment mode or customer mobile number does not match this order. Manual reconciliation is required.');
             $order->update_meta_data('_pkstore_easypaisa_state', 'review');
             $order->save();
