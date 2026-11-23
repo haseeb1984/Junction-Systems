@@ -21,7 +21,7 @@ final class SyncPOSQueueUseCase {
                     $existingLock = (int)get_option($lockKey, 0);
                     if ($existingLock > 0 && $existingLock < (time() - 300)) delete_option($lockKey);
                     $lockAcquired = add_option($lockKey, time(), '', false);
-                    if (!$lockAcquired) throw new \\RuntimeException('This POS order is already being synchronized; retry shortly.');
+                    if (!$lockAcquired) throw new \RuntimeException('This POS order is already being synchronized; retry shortly.');
                 }
                 if (!function_exists('wc_create_order') || !function_exists('wc_get_orders')) {
                     throw new \RuntimeException('WooCommerce order APIs are unavailable.');
