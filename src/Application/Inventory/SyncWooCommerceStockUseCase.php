@@ -477,10 +477,8 @@ final class SyncWooCommerceStockUseCase {
             if ($wcProductId < 1) {
                 throw new \RuntimeException('WooCommerce order contains an invalid reduced product.');
             }
-            $product = $variationId > 0
-                ? $this->productRepo->findByWcProductId($variationId)
-                : null;
-            $product ??= $this->productRepo->findByWcProductId($wcProductId);
+            $stockManagedProductId = $this->stockManagedWooCommerceProductId($item, $wcProductId, $variationId);
+            $product = $this->productRepo->findByWcProductId($stockManagedProductId);
             if (!$product || !$product->isActive) {
                 throw new \RuntimeException('WooCommerce order product is not linked to active Junction inventory.');
             }
@@ -739,12 +737,13 @@ final class SyncWooCommerceStockUseCase {
         }
         $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
         $wcProductId = (int) $item->get_product_id();
+        $stockManagedProductId = $this->stockManagedWooCommerceProductId($item, $wcProductId, $variationId);
         if ($isPosOrder) {
             $product = $this->productRepo->findById((int) $item->get_meta('_pkstore_inventory_product_id', true));
             $locationId = (int) $item->get_meta('_pkstore_inventory_location_id', true);
             $posOrderRef = (string) $item->get_meta('_pkstore_pos_order_ref', true);
             if (!$product || !$locationId || $posOrderRef === ''
-                || !in_array((int) $product->wcProductId, array_filter([$variationId, $wcProductId]), true)) {
+                || (int) $product->wcProductId !== $stockManagedProductId) {
                 throw new \RuntimeException('POS cancellation item is missing its original Junction inventory mapping.');
             }
             $location = $this->locationRepo->findById($locationId);
@@ -752,8 +751,7 @@ final class SyncWooCommerceStockUseCase {
             $saleReference = $posOrderRef;
             $saleMovementType = MovementType::Sale;
         } else {
-            $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
-            $product ??= $this->productRepo->findByWcProductId($wcProductId);
+            $product = $this->productRepo->findByWcProductId($stockManagedProductId);
             $location = $this->locationRepo->findOnline();
             $saleSource = 'wc_order';
             $saleReference = (string) $orderId;
@@ -852,10 +850,17 @@ final class SyncWooCommerceStockUseCase {
                 continue;
             }
             $cumulative = (int) $item->get_meta('_restock_refunded_items', true);
+            $stockManagedProductId = $this->stockManagedWooCommerceProductId($item, $parentId, $variationId);
             // Keep every product-matching line in the ambiguity check, even
             // when its cumulative restock metadata is zero or smaller. Filtering
             // first could incorrectly select one line while ignoring another.
-            $candidates[] = ['item' => $item, 'cumulative' => $cumulative, 'variation_id' => $variationId, 'parent_id' => $parentId];
+            $candidates[] = [
+                'item' => $item,
+                'cumulative' => $cumulative,
+                'variation_id' => $variationId,
+                'parent_id' => $parentId,
+                'stock_managed_product_id' => $stockManagedProductId,
+            ];
         }
         $eventCumulative = $cumulativeRestocked ?? ($candidates[0]['cumulative'] ?? 0);
         if (count($candidates) !== 1 || $eventCumulative < ($newStock - $oldStock)
@@ -890,14 +895,11 @@ final class SyncWooCommerceStockUseCase {
             $saleSource = 'pos_order';
             $saleMovementType = MovementType::Sale;
             if (!$productRecord || !$returnLocation || $saleReference === ''
-                || !in_array((int) $productRecord->wcProductId, array_filter([$candidate['variation_id'], $candidate['parent_id']]), true)) {
+                || (int) $productRecord->wcProductId !== (int) $candidate['stock_managed_product_id']) {
                 throw new \RuntimeException('POS refund item is missing its original Junction inventory mapping.');
             }
         } else {
-            $productRecord = $candidate['variation_id'] > 0
-                ? $this->productRepo->findByWcProductId($candidate['variation_id'])
-                : null;
-            $productRecord ??= $this->productRepo->findByWcProductId($candidate['parent_id']);
+            $productRecord = $this->productRepo->findByWcProductId((int) $candidate['stock_managed_product_id']);
             $returnLocation = $this->locationRepo->findOnline();
             $saleReference = (string) $orderId;
             $saleSource = 'wc_order';
@@ -1454,6 +1456,34 @@ final class SyncWooCommerceStockUseCase {
             }
         }
         return true;
+    }
+
+    /**
+     * Resolve the WooCommerce product that actually owns stock for this order
+     * item. A variation can be managed by itself or by its variable parent.
+     */
+    private function stockManagedWooCommerceProductId($item, int $parentId, int $variationId): int {
+        if ($parentId < 1) {
+            throw new \RuntimeException('WooCommerce order item has an invalid parent product ID.');
+        }
+        if ($variationId < 1) return $parentId;
+        if (!is_object($item) || !method_exists($item, 'get_product')) {
+            throw new \RuntimeException('Unable to resolve the WooCommerce variation stock owner.');
+        }
+        $variation = $item->get_product();
+        if (!is_object($variation) || !method_exists($variation, 'get_stock_managed_by_id')
+            || !method_exists($variation, 'get_id')
+            || (int) $variation->get_id() !== $variationId) {
+            throw new \RuntimeException('WooCommerce variation stock ownership could not be verified.');
+        }
+        if (method_exists($variation, 'managing_stock') && !$variation->managing_stock()) {
+            throw new \RuntimeException('WooCommerce order variation does not manage stock despite reduced-stock metadata.');
+        }
+        $stockManagedId = (int) $variation->get_stock_managed_by_id();
+        if (!in_array($stockManagedId, [$parentId, $variationId], true)) {
+            throw new \RuntimeException('WooCommerce variation resolved to an unexpected stock-owning product.');
+        }
+        return $stockManagedId;
     }
 
     /**
