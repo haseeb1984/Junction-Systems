@@ -1310,6 +1310,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "\$order->get_status() !== 'processing'") === false
     || strpos($shippingRegistrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($shippingRegistrySource, "_pkstore_courier_booking_state") === false
+    || strpos($shippingRegistrySource, "_pkstore_cod_otp_review_required") === false
+    || strpos($shippingRegistrySource, "_pkstore_cod_otp_verified") === false
+    || strpos($shippingRegistrySource, 'if (!$items) return false;') === false
     || strpos($shippingRegistrySource, "'needs_review'") === false
     || strpos($shippingRegistrySource, "add_action('pkstore_inventory_sync_hold_released', [\\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\\$this, 'autoBookShipment'], 10, 1)") === false
@@ -1322,6 +1325,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, "_pkstore_courier_booking_state") === false
     || strpos($courierRetrySource, "'needs_review'") === false
     || strpos($courierRetrySource, "_pkstore_pos_origin") === false
+    || strpos($courierRetrySource, 'COD phone verification is not confirmed; courier booking is blocked.') === false
+    || strpos($courierRetrySource, 'A confirmed courier tracking reference already exists; duplicate booking is blocked.') === false
+    || strpos($courierRetrySource, 'if (!($product instanceof \\WC_Product)) return false;') === false
     || strpos($courierRetrySource, "str_starts_with(\$existingTracking, 'PENDING-')") === false
     || strpos($courierRetrySource, "str_starts_with(\$result->trackingNumber, 'PENDING-')") === false
     || strpos($courierRetrySource, 'Courier booking is still pending; no provider has confirmed a shipment yet.') === false
