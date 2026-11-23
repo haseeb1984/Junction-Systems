@@ -43,7 +43,8 @@ final class ShippingRegistry {
         $order = wc_get_order($orderId);
         if (!($order instanceof \WC_Order)) return;
         if ($order->get_status() !== 'processing'
-            || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
+            || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes'
+            || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review') return;
 
         // POS mirror orders are already fulfilled at the register and must
         // never enter the customer courier-booking workflow.
