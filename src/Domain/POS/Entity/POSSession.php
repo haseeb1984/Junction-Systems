@@ -28,16 +28,24 @@ final class POSSession {
             $splitTotal = 0;
             foreach ($paymentSplit as $method => $amount) {
                 $amount = (int)$amount;
-                if ($amount < 0) throw new \InvalidArgumentException('Split payment amounts cannot be negative.');
+                if (!in_array((string)$method, ['cash','card','jazzcash','easypaisa'], true) || $amount < 0) {
+                    throw new \\InvalidArgumentException('Invalid split payment entry.');
+                }
                 $splitTotal += $amount;
+            }
+            if ($splitTotal !== $total) throw new \\InvalidArgumentException('Split payment amounts must equal the sale total.');
+            foreach ($paymentSplit as $method => $amount) {
+                $amount = (int)$amount;
                 match($method) {
                     'cash' => $this->totalCashPkr += $amount,
                     'card' => $this->totalCardPkr += $amount,
                     'jazzcash' => $this->totalJazzcash += $amount,
                     'easypaisa' => $this->totalEasypaisa += $amount,
-                    default => throw new \InvalidArgumentException('Unsupported split payment method: '.$method),
                 };
             }
+            $this->totalSalesPkr += $total;
+            return;
+        }
             if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
             return;
         }
