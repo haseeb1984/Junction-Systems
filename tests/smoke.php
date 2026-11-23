@@ -1137,10 +1137,12 @@ if (!is_string($shippingWebhookSource)
 
 $courierCircuitBreakerSource = file_get_contents($src . '/Infrastructure/Logistics/CourierCircuitBreaker.php');
 if (!is_string($courierCircuitBreakerSource)
-    || strpos($courierCircuitBreakerSource, '$lastFailure = null') === false
-    || strpos($courierCircuitBreakerSource, '$providerException = false') === false
-    || strpos($courierCircuitBreakerSource, '$transientProviderFailure = false') === false
+    || strpos($courierCircuitBreakerSource, '$lastDefinitiveFailure = null') === false
     || strpos($courierCircuitBreakerSource, 'HTTP error:') === false
+    || strpos($courierCircuitBreakerSource, 'Booking outcome unknown after provider transport/server failure.') === false
+    || strpos($courierCircuitBreakerSource, 'Booking outcome unknown after provider exception.') === false
+    || strpos($courierCircuitBreakerSource, 'Manual provider reconciliation is required.') === false
+    || strpos($courierCircuitBreakerSource, 'return $lastDefinitiveFailure ?? $this->optimistic($s);') === false
     || strpos($courierCircuitBreakerSource, 'as_schedule_single_action(time()+300,\'pkstore_retry_courier_booking\',[$orderId]') === false
     || strpos($courierCircuitBreakerSource, "as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>") !== false
     || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
@@ -1157,6 +1159,8 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "isEnabled('courier_trax')") === false
     || strpos($shippingRegistrySource, "\$order->get_status() !== 'processing'") === false
     || strpos($shippingRegistrySource, "_pkstore_wc_inventory_sync_hold") === false
+    || strpos($shippingRegistrySource, "_pkstore_courier_booking_state") === false
+    || strpos($shippingRegistrySource, "'needs_review'") === false
     || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
@@ -1164,6 +1168,8 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, '$this->cb->hasCouriers()') === false
     || strpos($courierRetrySource, "\$order->get_status() !== 'processing'") === false
     || strpos($courierRetrySource, "_pkstore_wc_inventory_sync_hold") === false
+    || strpos($courierRetrySource, "_pkstore_courier_booking_state") === false
+    || strpos($courierRetrySource, "'needs_review'") === false
     || strpos($courierRetrySource, "_pkstore_pos_origin") === false
     || strpos($courierRetrySource, "str_starts_with(\$existingTracking, 'PENDING-')") === false
     || strpos($courierRetrySource, "str_starts_with(\$result->trackingNumber, 'PENDING-')") === false
