@@ -49,7 +49,6 @@ final class WcProductRepository implements ProductRepositoryInterface {
         }
 
         $where = implode(' AND ', $conditions);
-        $params = $params;
         $budgetOrder = $maxPrice !== null ? 'lookup.min_price ASC, ' : '';
 
         $sql = "SELECT p.ID
