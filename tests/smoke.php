@@ -1072,6 +1072,10 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($aiChatControllerSource, 'private function ownsSession(') === false
     || strpos($aiChatControllerSource, "'session_token' => ['required' => true") === false
     || strpos($aiChatControllerSource, "pkstore_chat_owner_") === false
+    || strpos($aiChatControllerSource, '$this->rateLimited($uuid)') === false
+    || strpos($aiChatControllerSource, '2 * HOUR_IN_SECONDS') === false
+    || strpos($bootstrapSource, "wp_schedule_event(time() + 300, 'hourly', 'pkstore_purge_chat_history')") === false
+    || strpos($bootstrapSource, 'purgeExpiredSessions(7200)') === false
     || strpos($aiChatControllerSource, 'hash_equals($storedHash, hash(\\'sha256\\', $token))') === false
     || strpos($aiChatControllerSource, 'validSessionUuid(') === false
     || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
