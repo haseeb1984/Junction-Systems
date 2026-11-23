@@ -113,6 +113,58 @@ final class LicenseManager {
         return $this->getStoredKey();
     }
 
+
+    /**
+     * Per-customer PRAL/FBR integration credentials and seller profile.
+     * The central platform provisions a distinct token/configuration for each
+     * domain-bound installation. Values remain inside the encrypted license cache.
+     *
+     * @return array{environment: string, api_token: string, seller_ntn_cnic: string, seller_business_name: string, seller_province: string, seller_address: string, scenario_ids: string[]}
+     */
+    public function getFbrProviderConfig(): array {
+        try {
+            $data = $this->getLicenseData();
+            $data = $this->refreshProviderConfigData($data);
+        } catch (LicenseException) {
+            return [];
+        }
+
+        $providerConfig = is_array($data['provider_config'] ?? null) ? $data['provider_config'] : [];
+        $fbr = is_array($providerConfig['fbr'] ?? null) ? $providerConfig['fbr'] : [];
+        $environment = (string) ($fbr['environment'] ?? '');
+        $apiToken = is_string($fbr['api_token'] ?? null) ? trim($fbr['api_token']) : '';
+        $sellerNtn = preg_replace('/[^0-9]/', '', (string) ($fbr['seller_ntn_cnic'] ?? ''));
+        $businessName = is_string($fbr['seller_business_name'] ?? null) ? trim($fbr['seller_business_name']) : '';
+        $province = is_string($fbr['seller_province'] ?? null) ? trim($fbr['seller_province']) : '';
+        $address = is_string($fbr['seller_address'] ?? null) ? trim($fbr['seller_address']) : '';
+        $scenarioIds = $fbr['scenario_ids'] ?? [];
+
+        if (!in_array($environment, ['sandbox', 'production'], true)
+            || $apiToken === '' || strlen($apiToken) > 512
+            || !in_array(strlen($sellerNtn), [7, 9, 13], true)
+            || $businessName === '' || strlen($businessName) > 200
+            || $province === '' || strlen($province) > 80
+            || $address === '' || strlen($address) > 500
+            || !is_array($scenarioIds) || !array_is_list($scenarioIds) || count($scenarioIds) > 28) {
+            return [];
+        }
+
+        $scenarioIds = array_values(array_filter(
+            $scenarioIds,
+            static fn($scenario): bool => is_string($scenario) && preg_match('/^SN\\d{3}$/', $scenario) === 1
+        ));
+
+        return [
+            'environment' => $environment,
+            'api_token' => $apiToken,
+            'seller_ntn_cnic' => $sellerNtn,
+            'seller_business_name' => $businessName,
+            'seller_province' => $province,
+            'seller_address' => $address,
+            'scenario_ids' => $scenarioIds,
+        ];
+    }
+
     /**
      * Platform-provisioned Groq credentials. The full license cache is
      * encrypted at rest; the resolved key limit is supplied by the central
@@ -123,7 +175,7 @@ final class LicenseManager {
     public function getGroqProviderConfig(): array {
         try {
             $data = $this->getLicenseData();
-            $data = $this->refreshGroqProviderData($data);
+            $data = $this->refreshProviderConfigData($data);
         } catch (LicenseException) {
             return ['keys' => [], 'model' => '', 'limit' => 0];
         }
@@ -163,7 +215,7 @@ final class LicenseManager {
      * If the service is offline, the last known-good provider config is usable
      * for at most 24 hours; beyond that AI fails closed.
      */
-    private function refreshGroqProviderData(array $data): array {
+    private function refreshProviderConfigData(array $data): array {
         $cachedAt = (int) ($data['cached_at'] ?? 0);
         $lastRefresh = (int) get_option('pkstore_groq_config_refreshed_at', $cachedAt);
         $lastRetry = (int) get_option('pkstore_groq_config_retry_after', 0);
