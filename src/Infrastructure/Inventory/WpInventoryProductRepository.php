@@ -23,7 +23,20 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
     public function findById(int $id): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A)); }
     public function findBySku(string $sku): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE sku=%s",$sku),ARRAY_A)); }
     public function findByBarcode(string $barcode): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE barcode=%s",$barcode),ARRAY_A)); }
-    public function findByWcProductId(int $wcId): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE wc_product_id=%d",$wcId),ARRAY_A)); }
+    public function findByWcProductId(int $wcId): ?InventoryProduct {
+        if ($wcId < 1) throw new \\InvalidArgumentException('WooCommerce product ID must be positive.');
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->t()} WHERE wc_product_id=%d ORDER BY id ASC LIMIT 2",
+            $wcId
+        ), ARRAY_A);
+        if ($rows === null && $this->db->last_error !== '') {
+            throw new \\RuntimeException('Unable to resolve WooCommerce inventory product mapping.');
+        }
+        if (count($rows ?: []) > 1) {
+            throw new \\RuntimeException('Multiple Junction inventory products are mapped to the same WooCommerce product.');
+        }
+        return $this->h($rows[0] ?? null);
+    }
     public function findAll(int $limit=50, int $offset=0, string $search=''): array {
         if ($search !== '') { $like='%'.$this->db->esc_like($search).'%'; $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE is_active=1 AND (name LIKE %s OR sku LIKE %s OR barcode LIKE %s) LIMIT %d OFFSET %d",$like,$like,$like,$limit,$offset),ARRAY_A)?:[]; }
         else { $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE is_active=1 ORDER BY name LIMIT %d OFFSET %d",$limit,$offset),ARRAY_A)?:[]; }
