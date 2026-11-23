@@ -873,6 +873,9 @@ $wcProductRepositorySource = file_get_contents($src . '/Infrastructure/AI/WcProd
 $productContextServiceSource = file_get_contents($src . '/Application/AI/ProductContextService.php');
 $contextSelectorSource = file_get_contents($src . '/Domain/AI/ContextSelector.php');
 $productContextSource = file_get_contents($src . '/Domain/AI/ValueObject/ProductContext.php');
+$chatRepositorySource = file_get_contents($src . '/Infrastructure/AI/WpChatRepository.php');
+$handleAiChatSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
+$aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
 $licenseManagerSource = file_get_contents($src . '/License/LicenseManager.php');
 $pralClientSource = file_get_contents($src . '/Infrastructure/FBR/PralClient.php');
 $pralParserSource = file_get_contents($src . '/Infrastructure/FBR/PralInvoiceResponseParser.php');
@@ -887,7 +890,12 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || !is_string($pralExceptionSource) || !is_string($aiServicesSource)
     || !is_string($aiChatModuleSource) || !is_string($wcProductRepositorySource)
     || !is_string($productContextServiceSource) || !is_string($contextSelectorSource)
-    || !is_string($productContextSource)
+    || !is_string($productContextSource) || !is_string($chatRepositorySource)
+    || !is_string($handleAiChatSource)
+    || strpos($chatRepositorySource, 'ORDER BY created_at DESC,id DESC') === false
+    || strpos($chatRepositorySource, 'Unable to save this chat session history.') === false
+    || strpos($handleAiChatSource, 'private const HIST=20') === false
+    || strpos($aiChatModuleSource, "sessionStorage.getItem(k)") === false
     || strpos($wcProductRepositorySource, "p.post_type IN ('product','product_variation')") === false
     || strpos($wcProductRepositorySource, "LEFT(attr.meta_key,11)='_attribute_'") === false
     || strpos($wcProductRepositorySource, 'wc_product_meta_lookup') === false
