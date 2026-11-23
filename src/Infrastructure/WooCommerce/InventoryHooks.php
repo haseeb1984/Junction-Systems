@@ -34,7 +34,7 @@ final class InventoryHooks {
         $stock=$wpdb->prefix.'pkstore_inventory_stock';
         $rows=$wpdb->get_results($wpdb->prepare(
             "SELECT product_id,attempts,revision FROM {$queue} WHERE status IN ('pending','failed') AND next_attempt_at<=%s ORDER BY updated_at ASC LIMIT 100",
-            current_time('mysql')
+            current_time('mysql',true)
         ),ARRAY_A)?:[];
         foreach($rows as $row) {
             $productId=(int)$row['product_id'];
@@ -57,7 +57,7 @@ final class InventoryHooks {
                 $wpdb->update($queue,[
                     'status'=>'failed','attempts'=>$attempts,
                     'next_attempt_at'=>gmdate('Y-m-d H:i:s',current_time('timestamp')+$delay),
-                    'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql'),
+                    'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql',true),
                 ],['product_id'=>$productId,'revision'=>(int)$row['revision']],['%s','%d','%s','%s','%s'],['%d','%d']);
                 error_log('[PKStore Inventory] POS stock projection retry failed for product '.$productId.': '.$e->getMessage());
             }
