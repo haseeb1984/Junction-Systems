@@ -129,10 +129,21 @@ final class CaptureWooCommerceStockCycleUseCase {
                 }
 
                 $existingEvent = $wpdb->get_row($wpdb->prepare(
-                    "SELECT id,status FROM {$eventsTable} WHERE event_key=%s FOR UPDATE",
+                    "SELECT id,status,event_kind,quantity,cumulative_quantity,cycle_uuid,wc_order_id,wc_order_item_id
+                     FROM {$eventsTable} WHERE event_key=%s FOR UPDATE",
                     $eventKey
                 ), ARRAY_A);
                 if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect WooCommerce cycle return event.');
+
+                if (is_array($existingEvent)
+                    && ((string) $existingEvent['event_kind'] !== $kind
+                        || (int) $existingEvent['quantity'] !== $quantity
+                        || (int) $existingEvent['cumulative_quantity'] !== $eventCumulative
+                        || !hash_equals((string) $existingEvent['cycle_uuid'], $cycleUuid)
+                        || (int) $existingEvent['wc_order_id'] !== $orderId
+                        || (int) $existingEvent['wc_order_item_id'] !== $itemId)) {
+                    throw new \RuntimeException('WooCommerce cycle return event identity conflicts with its previously captured payload.');
+                }
 
                 if (is_array($existingEvent) && $existingEvent['status'] === 'processed') {
                     if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to acknowledge existing cycle return event.');
