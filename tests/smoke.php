@@ -1549,7 +1549,7 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($jazzCashSource, "pkstore_payment_order_") === false
     || strpos($jazzCashSource, 'processPaymentLocked($orderId)') === false
-    || strpos($jazzCashSource, "if (\$order->is_paid()\n            || in_array(\$order->get_status(), ['cancelled', 'refunded'], true))") === false
+    || strpos($jazzCashSource, "if (!\$order || \$order->is_paid()\n            || in_array(\$order->get_status(), ['cancelled', 'refunded'], true))") === false
     || strpos($jazzCashSource, "_pkstore_easypaisa_order_id") === false
     || strpos($jazzCashSource, 'An Easypaisa payment attempt for this order is still unresolved.') === false
     || strpos($jazzCashSource, "SELECT RELEASE_LOCK(%s)") === false
