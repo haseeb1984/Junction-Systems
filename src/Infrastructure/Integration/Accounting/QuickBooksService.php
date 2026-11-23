@@ -32,7 +32,7 @@ final class QuickBooksService {
         }
         $accessToken = (string) $b['access_token'];
         $expiresIn = max(60, (int) ($b['expires_in'] ?? 3600));
-        if (!$this->s->setSecret('QUICKBOOKS_ACCESS_TOKEN', $accessToken)
+        if (($accessToken !== $cached && !$this->s->setSecret('QUICKBOOKS_ACCESS_TOKEN', $accessToken))
             || !$this->s->set('QUICKBOOKS_ACCESS_TOKEN_EXPIRES', (string) (time() + $expiresIn))) {
             $this->log->critical('QuickBooks access token could not be securely persisted.');
             return null;
