@@ -187,6 +187,7 @@ final class ThemeBootstrapper {
             add_filter('bloginfo', fn($output,$show)=>$show==='name'?$name:$output, 10, 2);
         // Inject GA4 client_id cookie into order meta
         add_action('woocommerce_checkout_order_processed', function(int $orderId): void {
+            if (!function_exists('wp_has_consent') || !wp_has_consent('statistics')) return;
             $cookie = sanitize_text_field(wp_unslash($_COOKIE['_ga'] ?? ''));
             $clientId = '';
             if (preg_match('/^GA\d+\.\d+\.(\d+\.\d+)$/', $cookie, $matches) === 1) {
