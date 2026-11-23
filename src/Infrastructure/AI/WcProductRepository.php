@@ -342,7 +342,12 @@ final class WcProductRepository implements ProductRepositoryInterface {
         $clean = wp_strip_all_tags($clean);
         $clean = preg_replace('/\s+/', ' ', $clean) ?? $clean;
         $clean = trim($clean);
-        return function_exists('mb_substr') ? mb_substr($clean, 0, 300) : substr($clean, 0, 300);
+        if (function_exists('mb_substr')) return mb_substr($clean, 0, 300);
+        if (function_exists('iconv_substr')) {
+            $truncated = iconv_substr($clean, 0, 300, 'UTF-8');
+            if ($truncated !== false) return $truncated;
+        }
+        return substr($clean, 0, 300);
     }
 
     private function extractAttrs(\WC_Product $product): array {
