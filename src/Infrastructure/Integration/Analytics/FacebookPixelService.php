@@ -156,7 +156,7 @@ final class FacebookPixelService {
             ]],
         ];
         $response = wp_remote_post(
-            'https://graph.facebook.com/v18.0/' . rawurlencode($pixelId) . '/events?access_token=' . rawurlencode($token),
+            'https://graph.facebook.com/v27.0/' . rawurlencode($pixelId) . '/events?access_token=' . rawurlencode($token),
             ['timeout' => 10, 'headers' => ['Content-Type' => 'application/json'], 'body' => wp_json_encode($payload)]
         );
         if (is_wp_error($response) || (int) wp_remote_retrieve_response_code($response) < 200
