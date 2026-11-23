@@ -33,7 +33,7 @@ return static function(ServiceContainer $c):void{
     $c->singleton(OtpRepositoryInterface::class,function(){global $wpdb;return new WpOtpRepository($wpdb);});
     $c->singleton(SendCodOtpUseCase::class,fn()=>new SendCodOtpUseCase($c->make(OtpRepositoryInterface::class),$c->make(SmsProviderInterface::class),new WpLogger()));
     $c->singleton(VerifyCodOtpUseCase::class,fn()=>new VerifyCodOtpUseCase($c->make(OtpRepositoryInterface::class),new WpLogger()));
-    $c->singleton(AiProviderInterface::class,fn()=>new GroqBridge(new WpLogger(),new LicenseManager()));
+    $c->singleton(AiProviderInterface::class,fn()=>new GroqBridge(new WpLogger(),$s));
 $c->singleton(PralClient::class,fn()=>new PralClient(new LicenseManager()));
     $c->singleton(PralInvoiceResponseParser::class,fn()=>new PralInvoiceResponseParser());
     $c->singleton(SubmitPralInvoiceUseCase::class,fn()=>new SubmitPralInvoiceUseCase($c->make(PralClient::class),$c->make(PralInvoiceResponseParser::class)));
