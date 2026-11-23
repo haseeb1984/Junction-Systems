@@ -1573,6 +1573,22 @@ if (!is_string($jazzCashSource)
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
 
+$commissionUseCaseSource = file_get_contents($src . '/Application/Affiliate/RecordCommissionUseCase.php');
+$processPayoutSource = file_get_contents($src . '/Application/Affiliate/ProcessPayoutUseCase.php');
+$commissionRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpCommissionRepository.php');
+if (!is_string($commissionUseCaseSource) || !is_string($processPayoutSource) || !is_string($commissionRepositorySource)
+    || strpos($commissionUseCaseSource, "START TRANSACTION") === false
+    || strpos($commissionUseCaseSource, "ROLLBACK") === false
+    || strpos($commissionUseCaseSource, 'findByCodeForUpdate($code)') === false
+    || strpos($commissionUseCaseSource, 'findByOrderId($orderId)') === false
+    || strpos($commissionUseCaseSource, 'payoutUseCase->execute') !== false
+    || strpos($processPayoutSource, 'Automated affiliate disbursement is disabled') === false
+    || strpos($processPayoutSource, 'wp_remote_post') !== false
+    || strpos($commissionRepositorySource, 'Unable to persist affiliate commission.') === false
+    || strpos($affiliateRepositorySource, 'FOR UPDATE') === false) {
+    throw new \RuntimeException('Affiliate commissions must be transactional/idempotent and unverified automated payouts must remain disabled.');
+}
+
 $affiliateRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpAffiliateRepository.php');
 $payoutRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpPayoutRepository.php');
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
