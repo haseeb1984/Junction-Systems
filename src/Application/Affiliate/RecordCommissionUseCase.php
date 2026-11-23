@@ -13,6 +13,7 @@ final class RecordCommissionUseCase {
         try { $code = new AffiliateCode($affiliateCode); } catch (\InvalidArgumentException) { return; }
         $a = $this->affiliateRepo->findByCode($code);
         if ($a === null || !$a->isActive()) return;
+        $pendingBefore = $a->getPendingPayoutPkr();
         $commissionPkr = $a->commissionRate->calculate($orderTotalPkr);
         if ($commissionPkr <= 0) return;
         $c = Commission::create($a->id, $orderId, $orderTotalPkr, $commissionPkr, $a->commissionRate->percentage);
@@ -20,7 +21,7 @@ final class RecordCommissionUseCase {
         $a->creditCommission($commissionPkr);
         $this->affiliateRepo->update($a);
         $this->log->info('Commission recorded.', ['affiliate_id'=>$a->id,'order_id'=>$orderId,'commission_pkr'=>$commissionPkr]);
-        if ($a->isEligibleForPayout()) {
+        if ($pendingBefore < 1000 && $a->isEligibleForPayout()) {
             $message = sprintf(
                 "Affiliate #%d (%s) has reached the payout threshold with PKR %s pending. Automated disbursement is disabled until a verified JazzCash/Easypaisa payout API contract is approved. Please review and process manually.",
                 $a->id,
