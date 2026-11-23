@@ -130,6 +130,10 @@ final class AdjustStockUseCase {
             if (!$wcProduct) {
                 throw new \RuntimeException('Linked WooCommerce product is unavailable; stock sync requires reconciliation.');
             }
+            $mappingError = WooCommerceStockMappingPolicy::errorFor($wcProduct);
+            if ($mappingError !== null) {
+                throw new \RuntimeException($mappingError);
+            }
             $wcProduct->set_manage_stock(true);
             $wcProduct->set_stock_quantity($totalStock);
             $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
