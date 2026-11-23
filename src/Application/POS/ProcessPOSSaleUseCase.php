@@ -26,8 +26,7 @@ final class ProcessPOSSaleUseCase {
             $enriched[] = ['product_id'=>$product->id,'sku'=>$product->sku,'name'=>$product->name,'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)($item['unit_price_pkr'] ?? $product->salePricePkr),'discount_pkr'=>(int)($item['discount_pkr'] ?? 0)];
         }
         $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
-        $orderId = $this->orderRepo->save($order);
-        $this->orderRepo->saveItems($orderId, $enriched);
+        $orderId = $this->orderRepo->saveWithItems($order, $enriched);
         // Aggregate duplicate product lines so one POS order produces one idempotent
         // stock movement per product/location/reference.
         $stockDeductions = [];
@@ -39,9 +38,10 @@ final class ProcessPOSSaleUseCase {
             $this->adjustStock->execute((int)$productId, $locationId, -$quantity, MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
         }
         // Update session totals
-        $session->recordSale($order->totalPkr, $paymentMethod, $paymentSplit);
-        $this->sessionRepo->update($session);
+        $this->sessionRepo->recordSaleAtomic($sessionId, $order->totalPkr, $paymentMethod, $paymentSplit);
         $this->log->info('POS sale processed.', ['order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'method'=>$paymentMethod]);
-        return $this->orderRepo->findById($orderId);
+        $savedOrder = $this->orderRepo->findById($orderId);
+        if (!$savedOrder) throw new \\RuntimeException('POS order was saved but could not be reloaded.');
+        return $savedOrder;
     }
 }
