@@ -44,15 +44,26 @@ final class WpStockRepository implements StockRepositoryInterface {
                 $productId,$locations[0],$locations[1]
             ),ARRAY_A) ?: [];
             if (count($rows) !== 2) throw new \RuntimeException('Unable to lock both stock locations for transfer.');
-            $existing = (int)$this->db->get_var($this->db->prepare(
-                "SELECT COUNT(*) FROM {$this->tm()} WHERE product_id=%d AND reference_type='stock_transfer' AND reference_id=%s AND location_id IN (%d,%d)",
-                $productId,$referenceId,$fromLocationId,$toLocationId
-            ));
-            if ($existing === 2) {
-                if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
+            $existingRows = $this->db->get_results($this->db->prepare(
+                "SELECT product_id,location_id,quantity_delta,movement_type FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s ORDER BY location_id",
+                $referenceId
+            ),ARRAY_A) ?: [];
+            if ($existingRows) {
+                $expected = [
+                    $fromLocationId => ['delta'=>-$quantity,'type'=>'transfer_out'],
+                    $toLocationId => ['delta'=>$quantity,'type'=>'transfer'],
+                ];
+                $valid = count($existingRows) === 2;
+                foreach ($existingRows as $entry) {
+                    $location = (int)$entry['location_id'];
+                    if ((int)$entry['product_id'] !== $productId || !isset($expected[$location])
+                        || (int)$entry['quantity_delta'] !== $expected[$location]['delta']
+                        || $entry['movement_type'] !== $expected[$location]['type']) $valid = false;
+                }
+                if (!$valid) throw new \\DomainException('Stock transfer reference was already used for a different or incomplete transfer.');
+                if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
                 return;
             }
-            if ($existing !== 0) throw new \RuntimeException('Stock transfer ledger is incomplete; manual reconciliation is required.');
             $byLocation = [];
             foreach ($rows as $row) $byLocation[(int)$row['location_id']] = $row;
             $source = $byLocation[$fromLocationId];
@@ -95,10 +106,13 @@ final class WpStockRepository implements StockRepositoryInterface {
                     $productId,$locationId,$refType,$refId
                 ));
                 if ($existing) {
-                    if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
+                    $prior = $this->db->get_row($this->db->prepare("SELECT quantity_delta,movement_type FROM {$this->tm()} WHERE id=%d",(int)$existing),ARRAY_A);
+                    if (!$prior || (int)$prior['quantity_delta'] !== (int)$delta || $prior['movement_type'] !== $type->value) {
+                        throw new \\DomainException('Stock movement reference was already used for a different quantity or movement type.');
+                    }
+                    if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
                     return null;
-                }
-            }
+                }            }
             if ($after < 0) throw new \DomainException("Stock cannot go below 0. Current: {$before}, Requested: ".($delta ?? $after));
             $actualDelta=$after-$before;
             if ($delta !== null && $actualDelta !== $delta) throw new \LogicException('Stock movement delta mismatch.');
