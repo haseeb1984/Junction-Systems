@@ -2,8 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\WooCommerce;
 final class AssetEnqueuer {
-    public function register():void{add_action('wp_enqueue_scripts',[$this,'enqueue']);add_action('wp_head',[$this,'injectConfig'],1);add_action('wp_head',[$this,'inlineCriticalCss'],2);add_action('wp_enqueue_scripts',[$this,'deregisterJQuery'],999);}
-    public function deregisterJQuery():void{if(!is_admin()){wp_deregister_script('jquery');wp_deregister_script('jquery-core');wp_deregister_script('jquery-migrate');}}
+    public function register():void{add_action('wp_enqueue_scripts',[$this,'enqueue']);add_action('wp_head',[$this,'injectConfig'],1);add_action('wp_head',[$this,'inlineCriticalCss'],2);}
     public function enqueue():void{
         $v=filemtime(PKSTORE_DIR.'/assets/js/boot.mjs')?:PKSTORE_VERSION;
         wp_enqueue_script('pkstore-boot',PKSTORE_ASSETS.'/js/boot.mjs',[],strval($v),['strategy'=>'defer','in_footer'=>true]);
