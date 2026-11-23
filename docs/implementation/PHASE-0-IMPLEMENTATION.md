@@ -422,3 +422,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Review found that the normal WooCommerce `processing` status hook can run while Junction's inventory-sync hold marker is still present. The courier trigger correctly skips the held order, but without a second event the order could remain unbooked after the stock ledger succeeded.
 - The order queue now emits `pkstore_inventory_sync_hold_released` only after the inventory transaction has committed and the hold marker has been durably removed. ShippingRegistry listens for that event and schedules the normal idempotent courier booking worker.
 - This preserves the safety rule that no parcel is booked before inventory is reconciled, while ensuring COD/online orders resume fulfilment afterwards. Added source smoke guards; runtime acceptance must verify the complete hold → commit → release → courier-booking sequence.
+
+
+## Prevent overlapping stock cycles while a prior cycle is restoring
+
+- The cycle-capture lookup now treats `restoring` as an open cycle alongside `reducing` and `active`. A reopened/reprocessed order cannot silently create a later cycle while the prior cycle still has outstanding cancellation/refund returns.
+- An identical callback reuses the existing cycle; conflicting or premature new reductions fail closed until the prior cycle is fully reconciled and closed.
+- Added a source smoke guard. Runtime acceptance must exercise partial refund/restock followed by an attempted re-reduction, plus the normal fully-restored → closed → new-cycle sequence.
