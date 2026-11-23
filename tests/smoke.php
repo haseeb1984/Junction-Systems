@@ -865,6 +865,8 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
     throw new \RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
 }
 
+$footerSource = file_get_contents(dirname(__DIR__) . '/footer.php');
+$themeFunctionsSource = file_get_contents(dirname(__DIR__) . '/functions.php');
 $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatController.php');
 $aiChatUseCaseSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
 $groqBridgeSource = file_get_contents($src . '/Infrastructure/AI/GroqBridge.php');
@@ -882,7 +884,10 @@ $pralSubmissionSource = file_get_contents($src . '/Application/FBR/SubmitPralInv
 $pralExceptionSource = file_get_contents($src . '/Domain/FBR/Exception/PralApiException.php');
 $aiServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
-if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
+if (!is_string($footerSource) || !is_string($themeFunctionsSource)
+    || strpos($footerSource, "FeatureManager::getInstance()->isEnabled('ai_chat')") === false
+    || strpos($themeFunctionsSource, "FeatureManager::getInstance()->isEnabled('ai_chat')") === false
+    || !is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || !is_string($groqBridgeSource) || !is_string($promptComposerSource)
     || !is_string($licenseManagerSource) || !is_string($pralClientSource)
     || !is_string($pralParserSource) || !is_string($pralSubmissionSource)
