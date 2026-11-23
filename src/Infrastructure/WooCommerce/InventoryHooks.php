@@ -42,7 +42,12 @@ final class InventoryHooks {
         $rows=$wpdb->get_results($wpdb->prepare(
             "SELECT product_id,attempts,revision FROM {$queue} WHERE status IN ('pending','failed') AND next_attempt_at<=%s ORDER BY updated_at ASC LIMIT 100",
             current_time('mysql',true)
-        ),ARRAY_A)?:[];
+        ),ARRAY_A);
+        if ($rows === null && $wpdb->last_error !== '') {
+            error_log('[PKStore Inventory] Unable to read stock projection retry queue: '.$wpdb->last_error);
+            return;
+        }
+        $rows = $rows ?: [];
         foreach($rows as $row) {
             $productId=(int)$row['product_id'];
             // Multiple WP-Cron workers may overlap. Serialize each product projection so
@@ -68,15 +73,21 @@ final class InventoryHooks {
                 $wcProduct->set_stock_quantity($total);
                 $wcProduct->set_stock_status($total>0?'instock':'outofstock');
                 if($wcProduct->save()===false) throw new \RuntimeException('WooCommerce rejected the stock projection save.');
-                $wpdb->delete($queue,['product_id'=>$productId,'revision'=>(int)$row['revision']],['%d','%d']);
+                $deleted = $wpdb->delete($queue,['product_id'=>$productId,'revision'=>(int)$row['revision']],['%d','%d']);
+                if ($deleted === false) {
+                    error_log('[PKStore Inventory] Unable to clear completed stock projection queue row for product '.$productId.': '.$wpdb->last_error);
+                }
             } catch(\Throwable $e) {
                 $attempts=(int)$row['attempts']+1;
                 $delay=min(86400,60*(2**min(10,$attempts-1)));
-                $wpdb->update($queue,[
+                $updated = $wpdb->update($queue,[
                     'status'=>'failed','attempts'=>$attempts,
                     'next_attempt_at'=>gmdate('Y-m-d H:i:s',time()+$delay),
                     'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql',true),
                 ],['product_id'=>$productId,'revision'=>(int)$row['revision']],['%s','%d','%s','%s','%s'],['%d','%d']);
+                if ($updated === false) {
+                    error_log('[PKStore Inventory] Unable to schedule stock projection retry for product '.$productId.': '.$wpdb->last_error);
+                }
                 error_log('[PKStore Inventory] POS stock projection retry failed for product '.$productId.': '.$e->getMessage());
             } finally {
                 $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
