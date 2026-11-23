@@ -454,3 +454,6 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Corrected the GA4 cart event's malformed JavaScript value serialization, added safe product fallbacks and skip invalid zero-quantity lines.
 - GA4 API secret and Meta CAPI token are encrypted by SettingsManager. If the Consent API is not installed or consent is absent, tracking is disabled by default.
 - Added source smoke guards. Runtime acceptance still needs browser consent/withdrawal, checkout, HPOS and duplicate purchase-event tests.
+
+
+- Updated the Meta Conversions API endpoint from retired Graph API v18.0 to v27.0, the current version in Meta's official versioning documentation as of this review.
