@@ -31,7 +31,9 @@ final class POSOrder {
         $subtotal = 0;
         $lineDiscountTotal = 0;
         foreach ($items as $item) {
+            $productId = (int)($item['product_id'] ?? 0);
             $quantity = (int)($item['quantity'] ?? 0);
+            if ($productId <= 0) throw new \\InvalidArgumentException('POS item product ID must be positive.');
             $unitPrice = (int)($item['unit_price_pkr'] ?? 0);
             $lineDiscount = (int)($item['discount_pkr'] ?? 0);
             if ($quantity <= 0 || $unitPrice < 0 || $lineDiscount < 0) {
