@@ -743,7 +743,7 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || strpos($licenseManagerSource, 'getFbrProviderConfig(): array') === false
     || strpos($licenseManagerSource, "'api_tokens'") === false
     || strpos($licenseManagerSource, "'scenario_id'") === false
-    || strpos($licenseManagerSource, "strlen($sellerNtn), [7, 13]") === false
+    || strpos($licenseManagerSource, 'strlen($sellerNtn), [7, 13]') === false
     || strpos($pralClientSource, 'https://gw.fbr.gov.pk/di_data/v1/di/') === false
     || strpos($pralClientSource, 'postinvoicedata') === false
     || strpos($pralClientSource, 'validateinvoicedata') === false
