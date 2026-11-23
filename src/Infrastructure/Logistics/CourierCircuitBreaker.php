@@ -6,14 +6,12 @@ final class CourierCircuitBreaker {
     private const THRESH=5;private const COOL=300;private const PFX='pkstore_cb_';
     public function __construct(private readonly array $couriers){}
     public function hasCouriers(): bool { return $this->couriers !== []; }
-    public function bookWithFailover(ShipmentRequestDTO $s):ShipmentResultDTO{
-        $lastFailure = null;
-        $providerException = false;
-        $transientProviderFailure = false;
+    public function bookWithFailover(ShipmentRequestDTO $s): ShipmentResultDTO {
+        $lastDefinitiveFailure = null;
 
-        foreach($this->couriers as $courier){
-            $code=$courier->getCourierCode();
-            if($this->open($code)) continue;
+        foreach ($this->couriers as $courier) {
+            $code = $courier->getCourierCode();
+            if ($this->open($code)) continue;
 
             try {
                 $result = $courier->createShipment($s);
@@ -22,37 +20,44 @@ final class CourierCircuitBreaker {
                     return $result;
                 }
 
-                // Provider-level rejections are failures too. Continue to the
-                // next licensed courier rather than returning before failover.
-                $lastFailure = $result;
-                // Count only transport/server failures toward the circuit. A
-                // 4xx validation rejection (for example an unmapped city) is
-                // not evidence that the courier service itself is unhealthy.
+                $lastDefinitiveFailure = $result;
                 $message = trim($result->message);
-                $transientFailure = str_starts_with($message, 'HTTP error:')
-                    || (preg_match('/^HTTP\s+(5\d{2})$/', $message) === 1);
-                if ($transientFailure) {
-                    $transientProviderFailure = true;
+                $uncertainOutcome = str_starts_with($message, 'HTTP error:')
+                    || preg_match('/^HTTP\s+5\d{2}$/', $message) === 1;
+
+                if ($uncertainOutcome) {
+                    // A timeout or server error can happen after the courier
+                    // created the parcel but before Junction received its
+                    // tracking number. Do not fail over or auto-retry: either
+                    // could create a duplicate physical shipment.
                     $this->fail($code);
-                    if ($this->fails($code) >= self::THRESH) {
-                        $this->openCircuit($code);
-                    }
+                    if ($this->fails($code) >= self::THRESH) $this->openCircuit($code);
+                    return ShipmentResultDTO::failure(
+                        $code,
+                        $s->internalOrderId,
+                        'Booking outcome unknown after provider transport/server failure. Manual provider reconciliation is required.',
+                        $result->rawResponse
+                    );
                 }
-            } catch(\Throwable) {
-                $providerException = true;
+            } catch (\Throwable $error) {
                 $this->fail($code);
-                if($this->fails($code)>=self::THRESH) $this->openCircuit($code);
+                if ($this->fails($code) >= self::THRESH) $this->openCircuit($code);
+
+                // An unexpected exception may have occurred after the provider
+                // accepted the booking. Fail closed instead of trying another
+                // courier with the same order.
+                return ShipmentResultDTO::failure(
+                    $code,
+                    $s->internalOrderId,
+                    'Booking outcome unknown after provider exception. Manual provider reconciliation is required.'
+                );
             }
         }
 
-        // A transport/provider exception or a fully open circuit is retryable.
-        // If every provider returned a definitive rejection, return that failure
-        // for operator correction instead of scheduling an endless retry loop.
-        if ($providerException || $transientProviderFailure || $lastFailure === null) {
-            return $this->optimistic($s);
-        }
-
-        return $lastFailure;
+        // If no provider was attempted because all circuits are open, a delayed
+        // retry is safe. If every attempted provider returned a definitive
+        // rejection, return that rejection for operator correction.
+        return $lastDefinitiveFailure ?? $this->optimistic($s);
     }
     private function optimistic(ShipmentRequestDTO $s):ShipmentResultDTO{
         $orderId = (int) $s->internalOrderId;
