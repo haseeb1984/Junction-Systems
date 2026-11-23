@@ -12,13 +12,17 @@ final class POSOrder {
         public readonly int $totalPkr, public readonly string $paymentMethod,
         public readonly ?array $paymentSplit, public readonly string $customerPhone,
         public readonly string $customerName, public readonly bool $receiptSent,
-        private SyncStatus $syncStatus, public readonly ?int $wcOrderId,
+        private SyncStatus $syncStatus, private ?int $wcOrderId,
         public readonly DateTimeImmutable $createdAt,
     ) {}
     public function getItems(): array { return $this->items; }
     public function setItems(array $items): void { $this->items = $items; }
+    public function getWcOrderId(): ?int { return $this->wcOrderId; }
     public function getSyncStatus(): SyncStatus { return $this->syncStatus; }
-    public function markSynced(?int $wcOrderId = null): void { $this->syncStatus = SyncStatus::Synced; }
+    public function markSynced(?int $wcOrderId = null): void {
+        $this->syncStatus = SyncStatus::Synced;
+        if ($wcOrderId !== null) $this->wcOrderId = $wcOrderId;
+    }
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
     public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): self {
         $subtotal = array_sum(array_map(fn($i) => $i['unit_price_pkr'] * $i['quantity'], $items));
