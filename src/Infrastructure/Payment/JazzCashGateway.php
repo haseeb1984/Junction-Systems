@@ -92,7 +92,8 @@ class JazzCashGateway extends \WC_Payment_Gateway {
 
     private function processPaymentLocked(int $order_id): array {
         $order = wc_get_order($order_id);
-        if (!$order || $order->is_paid()) {
+        if (!$order || $order->is_paid()
+            || in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
             wc_add_notice('This order cannot be paid through JazzCash.', 'error');
             return ['result' => 'fail'];
         }
