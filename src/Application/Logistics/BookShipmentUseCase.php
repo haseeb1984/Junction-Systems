@@ -108,6 +108,12 @@ final class BookShipmentUseCase {
                 || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review') return;
 
             if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
+            if ($order->get_payment_method() === 'cod'
+                && !$this->isDigitalOnlyOrder($order)
+                && ($order->get_meta('_pkstore_cod_otp_review_required', true) === 'yes'
+                    || $order->get_meta('_pkstore_cod_otp_verified', true) !== 'yes')) {
+                return;
+            }
 
             $existingTracking = (string) $order->get_meta('_tracking_courier', true);
             if ($existingTracking !== '' && !str_starts_with($existingTracking, 'PENDING-')) return;
@@ -134,9 +140,12 @@ final class BookShipmentUseCase {
     }
 
     private function isDigitalOnlyOrder(\WC_Order $order): bool {
-        foreach ($order->get_items() as $item) {
+        $items = $order->get_items();
+        if (!$items) return false;
+        foreach ($items as $item) {
             $product = $item->get_product();
-            if ($product instanceof \WC_Product && !$product->is_virtual() && !$product->is_downloadable()) {
+            if (!($product instanceof \WC_Product)) return false;
+            if (!$product->is_virtual() && !$product->is_downloadable()) {
                 return false;
             }
         }
