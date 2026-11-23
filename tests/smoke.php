@@ -750,7 +750,7 @@ if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($orderQueueRetrySource, "do_action('pkstore_inventory_sync_hold_released', \$orderId)") === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
-    || strpos($orderQueueRetrySource, 'update_status($previousStatus') === false
+    || strpos($orderQueueRetrySource, '$freshOrder->update_status(') === false
     || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null)') === false
     || strpos($orderQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
     || strpos($orderQueueRetrySource, "'needs_review' : 'pending'") === false
