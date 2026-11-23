@@ -108,7 +108,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
      * Restore the WooCommerce order's prior fulfilment status only after its
      * shared Junction stock ledger event has committed successfully.
      */
-    private function bindInventorySyncHoldCycle(\WC_Order $order, string $cycleUuid): void {
+    public function bindInventorySyncHoldCycle(\WC_Order $order, string $cycleUuid): void {
         if (!preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
             throw new \InvalidArgumentException('WooCommerce inventory hold cycle identity is invalid.');
         }
