@@ -59,8 +59,15 @@ final class WpStockRepository implements StockRepositoryInterface {
     public function getMovements(int $productId, int $limit=20): array { return $this->db->get_results($this->db->prepare("SELECT * FROM {$this->tm()} WHERE product_id=%d ORDER BY created_at DESC LIMIT %d",$productId,$limit),ARRAY_A)?:[]; }
     public function getLocationStock(int $locationId): array { return $this->db->get_results($this->db->prepare("SELECT s.*,p.name,p.sku,p.barcode,p.reorder_point FROM {$this->ts()} s INNER JOIN {$this->db->prefix}pkstore_inventory_products p ON s.product_id=p.id WHERE s.location_id=%d ORDER BY p.name",$locationId),ARRAY_A)?:[]; }
     public function getTotalStock(int $productId): int {
+        $locationsTable = $this->db->prefix . 'pkstore_inventory_locations';
+        // WooCommerce receives combined sellable stock across active locations.
+        // Stock retained in a deactivated location remains in the Junction
+        // ledger but must not be advertised online or allocated to new sales.
         $total = $this->db->get_var($this->db->prepare(
-            "SELECT COALESCE(SUM(quantity),0) FROM {$this->ts()} WHERE product_id=%d",
+            "SELECT COALESCE(SUM(s.quantity),0)
+             FROM {$this->ts()} s
+             INNER JOIN {$locationsTable} l ON l.id=s.location_id AND l.is_active=1
+             WHERE s.product_id=%d",
             $productId
         ));
         if ($this->db->last_error !== '' || !is_numeric($total)) {
