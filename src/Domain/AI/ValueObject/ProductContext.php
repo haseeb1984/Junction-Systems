@@ -22,9 +22,14 @@ final readonly class ProductContext {
     ) {}
 
     public function toMinifiedArray(): array {
-        $description = function_exists('mb_substr')
-            ? mb_substr($this->shortDescription, 0, 200)
-            : substr($this->shortDescription, 0, 200);
+        if (function_exists('mb_substr')) {
+            $description = mb_substr($this->shortDescription, 0, 200);
+        } elseif (function_exists('iconv_substr')) {
+            $description = iconv_substr($this->shortDescription, 0, 200, 'UTF-8');
+            if ($description === false) $description = substr($this->shortDescription, 0, 200);
+        } else {
+            $description = substr($this->shortDescription, 0, 200);
+        }
 
         $data = [
             'id' => $this->productId,
