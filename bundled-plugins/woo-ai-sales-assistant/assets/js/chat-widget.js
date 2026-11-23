@@ -190,7 +190,7 @@ function appendTyping(){
 function removeTyping(el){ if(el&&el.parentNode) el.parentNode.removeChild(el); }
 
 function fmt(text){
-  var s=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  var s=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');
   s=s.replace(/\n/g,'<br>');
   s=s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#34D399;text-decoration:underline">$1</a>');
   return s;
