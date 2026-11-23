@@ -27,7 +27,24 @@ final class SubmitPralInvoiceUseCase {
         }
 
         $expectedItemCount = count($items);
-        $validation = $this->client->validateInvoice($payload);
+        try {
+            $validation = $this->client->validateInvoice($payload);
+        } catch (PralApiException $error) {
+            if ($error->httpStatus === 401 || $error->httpStatus === 403) {
+                return [
+                    'status' => 'unauthorized',
+                    'invoice_number' => '',
+                    'errors' => [['code' => (string) $error->httpStatus, 'message' => $error->getMessage(), 'item' => '']],
+                    'retry_safe' => false,
+                ];
+            }
+            return [
+                'status' => 'unavailable',
+                'invoice_number' => '',
+                'errors' => [['code' => (string) ($error->httpStatus ?? ''), 'message' => $error->getMessage(), 'item' => '']],
+                'retry_safe' => true,
+            ];
+        }
         $validationResult = $this->parser->parse($validation, $expectedItemCount, false);
 
         if ($validationResult['status'] !== 'valid') {
@@ -50,11 +67,11 @@ final class SubmitPralInvoiceUseCase {
                     'retry_safe' => false,
                 ];
             }
-            if ($error->httpStatus === 401) {
+            if ($error->httpStatus === 401 || $error->httpStatus === 403) {
                 return [
                     'status' => 'unauthorized',
                     'invoice_number' => '',
-                    'errors' => [['code' => '401', 'message' => $error->getMessage(), 'item' => '']],
+                    'errors' => [['code' => (string) $error->httpStatus, 'message' => $error->getMessage(), 'item' => '']],
                     'retry_safe' => false,
                 ];
             }
