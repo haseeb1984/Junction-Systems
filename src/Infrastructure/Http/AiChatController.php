@@ -5,6 +5,7 @@ namespace PkStore\Infrastructure\Http;
 
 use PkStore\Application\AI\HandleAiChatUseCase;
 use PkStore\Container\ServiceContainer;
+use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\AI\Exception\{AiProviderException, PromptInjectionException};
 
 final class AiChatController {
@@ -42,6 +43,9 @@ final class AiChatController {
     }
 
     public function nonce(\WP_REST_Request $r): bool {
+        if (!FeatureManager::getInstance()->isEnabled('ai_chat')) {
+            return false;
+        }
         return (bool) wp_verify_nonce($r->get_param('_nonce'), 'pkstore_ai_chat');
     }
 
