@@ -12,27 +12,27 @@ final class GenerateBarcodeUseCase {
         $barcode = strtoupper(preg_replace('/[^A-Z0-9]/', '', $product->sku));
         if (strlen($barcode) < 6) $barcode = str_pad($barcode, 8, '0', STR_PAD_LEFT);
         $barcode = 'PKS' . substr($barcode, 0, 9);
-        // Probe deterministic alternatives instead of assuming one suffix is unique.
-        // The repository currently has no database-level unique constraint for non-empty barcodes.
+        // Probe the base value and deterministic alternatives. The repository
+        // reserves each barcode under a MySQL advisory lock; retry a candidate
+        // if another request claimed it between this lookup and the update.
         $base = $barcode;
-        $existing = $this->productRepo->findByBarcode($barcode);
-        if ($existing && $existing->id !== $productId) {
-            $barcode = '';
-            for ($attempt = 1; $attempt <= 999; $attempt++) {
-                $candidate = substr($base, 0, 9) . sprintf('%03d', $attempt);
-                $conflict = $this->productRepo->findByBarcode($candidate);
-                if (!$conflict || $conflict->id === $productId) {
-                    $barcode = $candidate;
-                    break;
-                }
-            }
-            if ($barcode === '') {
-                throw new \RuntimeException('Unable to generate a unique inventory barcode.');
+        for ($attempt = 0; $attempt <= 999; $attempt++) {
+            $candidate = $attempt === 0
+                ? $base
+                : substr($base, 0, 9) . sprintf('%03d', $attempt);
+            $conflict = $this->productRepo->findByBarcode($candidate);
+            if ($conflict && $conflict->id !== $productId) continue;
+
+            $product->assignBarcode($candidate);
+            try {
+                $this->productRepo->update($product);
+                return $candidate;
+            } catch (\DomainException $error) {
+                // The barcode reservation lock detected a concurrent winner.
+                continue;
             }
         }
-        $product->assignBarcode($barcode);
-        $this->productRepo->update($product);
-        return $barcode;
+        throw new \RuntimeException('Unable to generate a unique inventory barcode.');
     }
     public function generateForAll(): int {
         $products = $this->productRepo->findAll(1000, 0);
