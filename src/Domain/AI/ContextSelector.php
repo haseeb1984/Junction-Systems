@@ -21,7 +21,7 @@ final class ContextSelector {
     ];
 
     public function extract(string $message): array {
-        $clean = strtolower(preg_replace('/[^\p{L}\p{N}\s._-]/u', ' ', $message) ?? '');
+        $clean = strtolower(preg_replace('/[^\p{L}\p{N}\s.,_-]/u', ' ', $message) ?? '');
         $tokens = preg_split('/\s+/', trim($clean), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $keywords = [];
 
