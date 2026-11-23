@@ -1036,6 +1036,10 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($groqBridgeSource, '$status === 429') === false
     || strpos($groqBridgeSource, '$status === 401 || $status === 403') === false
     || strpos($groqBridgeSource, '$status >= 500') === false
+    || strpos($groqBridgeSource, 'curl_multi_exec(') === false
+    || strpos($groqBridgeSource, 'curl_multi_select(') === false
+    || strpos($groqBridgeSource, 'Retry-After:') === false
+    || strpos($groqBridgeSource, 'CURLOPT_WRITEFUNCTION') === false
     || strpos($groqBridgeSource, 'hash(\'sha256\', $key)') === false
     || strpos($licenseManagerSource, 'getGroqProviderConfig(): array') === false
     || strpos($licenseManagerSource, 'refreshProviderConfigData($data)') === false
