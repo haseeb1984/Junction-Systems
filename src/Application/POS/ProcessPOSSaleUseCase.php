@@ -13,9 +13,6 @@ final class ProcessPOSSaleUseCase {
         private readonly LoggerInterface $log,
     ) {}
     public function execute(int $sessionId,int $locationId,array $items,string $paymentMethod,string $customerPhone='',string $customerName='Walk-in',int $discountPkr=0,?array $paymentSplit=null,?string $orderRef=null): POSOrder {
-        $session=$this->sessionRepo->findById($sessionId);
-        if(!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
-        if($session->locationId!==$locationId) throw new \DomainException('POS sale location does not match its session location.');
         $enriched=[];
         foreach($items as $item) {
             $product=$this->productRepo->findById((int)($item['product_id']??0));
