@@ -79,3 +79,11 @@ The source implementation now has cycle-aware capture, sale queue identity, per-
 - After the sale worker commits the ledger, it restores the previous status only if the order is still on hold; a newer operator/terminal status is never overwritten. The hold metadata is cleared only after the status/metadata save succeeds.
 - The synchronous hook uses the same release path, so a transient failure recovered in the same request does not leave an unnecessary hold.
 - Source smoke guards were added. Runtime acceptance must verify WooCommerce status hooks, stock restoration side effects, gateway/COD order states, and duplicate status notifications on supported WooCommerce/HPOS versions.
+
+
+### Post-reconciliation fulfilment trigger and compatibility
+
+- When an order was put on hold because its Junction ledger sale could not be committed, the sale worker restores its prior status and clears the hold marker only after the ledger is durable. It then emits `pkstore_inventory_sync_hold_released`; ShippingRegistry schedules courier booking after the marker is gone. The ordinary processing-status hook may have run earlier while the hold marker was still set, so this dedicated event is required.
+- WooCommerce's aggregate sellable stock sums active locations only, matching the locations used by online sale allocation. Inactive-location stock remains in the Junction ledger and is excluded from online availability until reactivation.
+- The theme now requires WooCommerce 9.1+ for the per-line restore hook. On older versions, mapped Junction products cannot be purchased and checkout is blocked for carts containing them.
+- Courier booking is held until inventory reconciliation completes. Ambiguous provider outcomes or local tracking-persistence failures move the order to `needs_review`; no automatic failover/retry is allowed until an operator reconciles the provider portal.
