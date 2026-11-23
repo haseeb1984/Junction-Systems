@@ -151,6 +151,9 @@ final class CaptureWooCommerceStockCycleUseCase {
                     if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear recovered cycle return capture marker.');
                     return;
                 }
+                if ($kind === 'cancellation' && $quantity !== $reducedQuantity - $alreadyReturned) {
+                    throw new \RuntimeException('WooCommerce cancellation restock does not match the remaining stock cycle quantity.');
+                }
                 if (!in_array($cycle['state'], ['reducing', 'active', 'restoring'], true)) {
                     throw new \RuntimeException('WooCommerce stock cycle is not eligible for return capture.');
                 }
