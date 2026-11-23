@@ -365,11 +365,15 @@ const POS = {
             this.clearCart();
             this.toast(`✓ Sale ${r.order_ref} — PKR ${total.toLocaleString()}`);
         } catch(e) {
-            // Offline: queue locally in IndexedDB
-            const offlineRef = stableOrderRef;
-            await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
-            this.clearCart();
-            this.toast(`⚡ Offline — sale queued (${offlineRef})`);
+            // Queue only transport/offline failures. Validation and stock errors must remain visible.
+            if (!navigator.onLine || e instanceof TypeError) {
+                const offlineRef = stableOrderRef;
+                await DB.put('queue', {...payload, ref:offlineRef, total, offline:true});
+                this.clearCart();
+                this.toast(`⚡ Offline — sale queued (${offlineRef})`);
+            } else {
+                this.toast(`Sale not completed: ${e.message}`);
+            }
         }
         btn.disabled = false; this.updateTotals();
     },
