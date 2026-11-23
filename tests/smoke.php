@@ -1576,6 +1576,7 @@ if (!is_string($jazzCashSource)
 $commissionUseCaseSource = file_get_contents($src . '/Application/Affiliate/RecordCommissionUseCase.php');
 $processPayoutSource = file_get_contents($src . '/Application/Affiliate/ProcessPayoutUseCase.php');
 $commissionRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpCommissionRepository.php');
+$affiliateRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpAffiliateRepository.php');
 if (!is_string($commissionUseCaseSource) || !is_string($processPayoutSource) || !is_string($commissionRepositorySource)
     || strpos($commissionUseCaseSource, "START TRANSACTION") === false
     || strpos($commissionUseCaseSource, "ROLLBACK") === false
@@ -1589,7 +1590,6 @@ if (!is_string($commissionUseCaseSource) || !is_string($processPayoutSource) || 
     throw new \RuntimeException('Affiliate commissions must be transactional/idempotent and unverified automated payouts must remain disabled.');
 }
 
-$affiliateRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpAffiliateRepository.php');
 $payoutRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpPayoutRepository.php');
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
 $affiliateModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/affiliate.mjs');
