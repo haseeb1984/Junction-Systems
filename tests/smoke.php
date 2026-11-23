@@ -1061,6 +1061,9 @@ $pralSubmissionSource = file_get_contents($src . '/Application/FBR/SubmitPralInv
 $pralExceptionSource = file_get_contents($src . '/Domain/FBR/Exception/PralApiException.php');
 $aiServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
+$setupWizardSource = file_get_contents($src . '/Settings/SetupWizard.php');
+$assetEnqueuerSource = file_get_contents($src . '/Infrastructure/WooCommerce/AssetEnqueuer.php');
+$apiClientSource = file_get_contents(dirname(__DIR__) . '/assets/js/lib/api-client.mjs');
 if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($footerSource, "FeatureManager::getInstance()->isEnabled('ai_chat')") === false
     || strpos($themeFunctionsSource, "FeatureManager::getInstance()->isEnabled('ai_chat')") === false
@@ -1069,7 +1072,8 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || !is_string($licenseManagerSource) || !is_string($pralClientSource)
     || !is_string($pralParserSource) || !is_string($pralSubmissionSource)
     || !is_string($pralExceptionSource) || !is_string($aiServicesSource)
-    || !is_string($aiChatModuleSource) || !is_string($wcProductRepositorySource)
+    || !is_string($aiChatModuleSource) || !is_string($setupWizardSource)
+    || !is_string($assetEnqueuerSource) || !is_string($apiClientSource) || !is_string($wcProductRepositorySource)
     || !is_string($productContextServiceSource) || !is_string($contextSelectorSource)
     || !is_string($productContextSource) || !is_string($chatRepositorySource)
     || !is_string($handleAiChatSource)
@@ -1131,7 +1135,9 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($promptComposerSource, 'PK Store') !== false
     || strpos($promptComposerSource, "function_exists('mb_substr')") === false
     || strpos($groqBridgeSource, 'https://api.groq.com/openai/v1/chat/completions') === false
-    || strpos($groqBridgeSource, 'getGroqProviderConfig()') === false
+    || strpos($groqBridgeSource, 'https://api.groq.com/openai/v1/chat/completions') === false
+    || strpos($groqBridgeSource, "GROQ_API_KEY") === false
+    || strpos($groqBridgeSource, "'openai/gpt-oss-20b'") === false
     || strpos($groqBridgeSource, '$status === 429') === false
     || strpos($groqBridgeSource, '$status === 401 || $status === 403') === false
     || strpos($groqBridgeSource, '$status >= 500') === false
@@ -1139,15 +1145,18 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($groqBridgeSource, 'curl_multi_select(') === false
     || strpos($groqBridgeSource, 'Retry-After:') === false
     || strpos($groqBridgeSource, 'CURLOPT_WRITEFUNCTION') === false
-    || strpos($groqBridgeSource, 'hash(\'sha256\', $key)') === false
-    || strpos($licenseManagerSource, 'getGroqProviderConfig(): array') === false
-    || strpos($licenseManagerSource, 'refreshProviderConfigData($data)') === false
-    || strpos($licenseManagerSource, "'pkstore_groq_config_refreshed_at'") === false
-    || strpos($licenseManagerSource, '($now - $lastRefresh) < 300') === false
-    || strpos($licenseManagerSource, '($now - $lastRefresh) <= 86400') === false
-    || strpos($licenseManagerSource, "'groq_api_keys'") === false
-    || strpos($licenseManagerSource, 'array_slice(array_values(array_unique($keys)), 0, min($limit, 100))') === false
-    || strpos($aiServicesSource, 'new GroqBridge(new WpLogger(),new LicenseManager())') === false
+    || strpos($groqBridgeSource, "hash('sha256', $key)") === false
+    || strpos($settingsManagerSource, "'ai'=>['GROQ_API_KEY'=>true]") === false
+    || strpos($settingsManagerSource, "'GROQ_API_KEY','GEMINI_API_KEY'") === false
+    || strpos($settingsManagerSource, 'AES-256-GCM') === false
+    || strpos($setupWizardSource, 'console.groq.com/keys') === false
+    || strpos($setupWizardSource, 'GROQ_API_KEY') === false
+    || strpos($aiServicesSource, 'new GroqBridge(new WpLogger(),$s)') === false
+    || strpos($aiChatControllerSource, "FeatureManager::getInstance()->isEnabled('ai_chat')") === false
+    || strpos($assetEnqueuerSource, "get('STORE_WHATSAPP')") === false
+    || strpos($apiClientSource, "whatsapp:m.dataset.whatsapp||''") === false
+    || strpos($aiChatModuleSource, "function handoff(list,question)") === false
+    || strpos($aiChatModuleSource, "https://wa.me/") === false
     || strpos($aiChatUseCaseSource, '$this->ai->getModelName()') === false
     || strpos($aiChatUseCaseSource, 'gemini-1.5-flash') !== false
     || strpos($aiChatUseCaseSource, "function_exists('mb_substr')") === false
