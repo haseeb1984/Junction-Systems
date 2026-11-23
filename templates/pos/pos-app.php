@@ -212,7 +212,7 @@ const DB = {
 
 const POS = {
     cart: [], products: [], sessionId: null, locationId: 1,
-    paymentMethod: 'cash', isOnline: navigator.onLine, scannerStream: null,
+    paymentMethod: 'cash', isOnline: navigator.onLine, scannerStream: null, isFlushingQueue: false,
 
     async init() {
         await DB.open();
@@ -459,18 +459,28 @@ const POS = {
     },
 
     async flushOfflineQueue() {
-        const queue = await DB.getAll('queue');
-        if (!queue.length) return;
-        this.toast(`Syncing ${queue.length} offline sale(s)...`);
-        for (const item of queue) {
-            try {
-                const {ref, offline, ...payload} = item;
-                await this.api('/pos/sale','POST',payload);
-                await DB.delete('queue', ref);
-            } catch(e) { /* leave in queue, retry next time */ }
+        // Startup recovery and the browser "online" event can fire together.
+        // Keep one replay worker per POS tab; server-side order refs remain the
+        // final idempotency guard if a request outcome is ambiguous.
+        if (this.isFlushingQueue || !navigator.onLine) return;
+        this.isFlushingQueue = true;
+        try {
+            const queue = await DB.getAll('queue');
+            if (!queue.length) return;
+            this.toast(`Syncing ${queue.length} offline sale(s)...`);
+            for (const item of queue) {
+                try {
+                    const {ref, offline, ...payload} = item;
+                    await this.api('/pos/sale','POST',payload);
+                    await DB.delete('queue', ref);
+                } catch(e) { /* retain failed sales for a later online retry */ }
+            }
+            const remaining = await DB.getAll('queue');
+            if (!remaining.length) this.toast('✓ All offline sales synced!');
+            else this.toast(`${remaining.length} offline sale(s) still need attention.`);
+        } finally {
+            this.isFlushingQueue = false;
         }
-        const remaining = await DB.getAll('queue');
-        if (!remaining.length) this.toast('✓ All offline sales synced!');
     },
 
     toast(msg, duration=3000) {
