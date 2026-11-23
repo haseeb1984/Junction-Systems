@@ -1333,6 +1333,9 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($courierRetrySource, 'Courier booking is still pending; no provider has confirmed a shipment yet.') === false
     || strpos($courierRetrySource, 'isDigitalOnlyOrder($order)') === false
     || strpos($courierRetrySource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($courierRetrySource, 'pkstore_courier_execute_') === false
+    || strpos($courierRetrySource, 'private function executeLocked(ShipmentRequestDTO $s): ShipmentResultDTO') === false
+    || strpos($courierRetrySource, 'Courier booking execution lock release could not be confirmed.') === false
     || strpos($courierRetrySource, 'SELECT RELEASE_LOCK(%s)') === false
     || strpos($shippingRegistryLifecycleSource, "as_schedule_single_action(time()+10,'pkstore_retry_courier_booking',[\$orderId],'pkstore-logistics',true)") === false
     || strpos($courierCircuitBreakerSource, 'wp_schedule_single_event') === false
