@@ -346,7 +346,7 @@ if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($facebookPixelSource, 'graph.facebook.com/v18.0/') !== false
     || strpos($facebookPixelSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($facebookPixelSource, "SELECT RELEASE_LOCK(%s)") === false
-    || strpos($ga4AnalyticsSource, "public function captureConsent(\\WC_Order \\$order") === false
+    || strpos($ga4AnalyticsSource, 'public function captureConsent(\\\\WC_Order $order') === false
     || strpos($facebookPixelSource, "public function captureConsent(\\WC_Order \\$order") === false
     || strpos($facebookPixelSource, "get_post_meta(") !== false
     || strpos($settingsManagerSource, "'google_analytics'=>['GA4_MEASUREMENT_ID'=>false,'GA4_API_SECRET'=>true") === false
