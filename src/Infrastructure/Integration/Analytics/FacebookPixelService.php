@@ -152,7 +152,7 @@ final class FacebookPixelService {
                 'event_time' => time(),
                 'event_id' => $eventId,
                 'action_source' => 'website',
-                'event_source_url' => home_url('/'),
+                'event_source_url' => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/'),
                 'user_data' => $userData,
                 'custom_data' => [
                     'currency' => 'PKR',
