@@ -414,6 +414,7 @@ final class SyncWooCommerceStockUseCase {
             if ($event['status'] !== 'processed') {
                 $updated = $wpdb->update($eventsTable, [
                     'status' => 'processed',
+                    'processed_at' => $now,
                     'claimed_at' => null,
                     'claim_token' => null,
                     'last_error' => '',
@@ -1216,6 +1217,7 @@ final class SyncWooCommerceStockUseCase {
             }
             $updated = $wpdb->update($eventsTable, [
                 'status' => 'processed',
+                'processed_at' => $now,
                 'claimed_at' => null,
                 'claim_token' => null,
                 'last_error' => '',
