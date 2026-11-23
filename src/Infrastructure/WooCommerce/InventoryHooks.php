@@ -9,12 +9,14 @@ final class InventoryHooks {
         add_action('woocommerce_payment_complete',           [$this, 'onSale']);
         add_action('woocommerce_order_status_completed',     [$this, 'onSale']);
         add_action('woocommerce_order_status_processing',    [$this, 'onSale']);
-        // Scheduled full sync every hour
         if (!wp_next_scheduled('pkstore_inventory_hourly_sync'))
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
         add_action('pkstore_inventory_hourly_sync', [$this, 'hourlySyncAll']);
     }
     public function onSale(int $orderId): void {
+        $order = wc_get_order($orderId);
+        // POS sales already adjust their physical location before being mirrored online.
+        if ($order && $order->get_meta('_pkstore_pos_order_ref')) return;
         try {
             $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId);
         } catch (\Throwable $e) {
