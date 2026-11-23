@@ -31,12 +31,12 @@ final class SecurityHardener {
         ];
     }
 
-    public function loginFail(string $username): void {
+    public function loginFail(string $username): bool {
         global $wpdb;
         $keys = $this->loginKeys($username);
         if (!$wpdb instanceof \wpdb) {
             set_transient($keys['ip'], 5, 15 * MINUTE_IN_SECONDS);
-            return;
+            return true;
         }
 
         $locks = $keys['locks'];
@@ -51,7 +51,7 @@ final class SecurityHardener {
                     set_transient($keys['ip'], 5, 15 * MINUTE_IN_SECONDS);
                     set_transient($keys['user'], 10, 15 * MINUTE_IN_SECONDS);
                     set_transient($keys['pair'], 5, 15 * MINUTE_IN_SECONDS);
-                    return;
+                    return true;
                 }
                 $acquired[] = $lockName;
             }
@@ -63,9 +63,12 @@ final class SecurityHardener {
                     set_transient($keys['user'], 10, 15 * MINUTE_IN_SECONDS);
                     set_transient($keys['pair'], 5, 15 * MINUTE_IN_SECONDS);
                     error_log('[PK Store] Login failure counter persistence failed; temporary lockout applied.');
-                    return;
+                    return true;
                 }
             }
+            return (int) get_transient($keys['ip']) >= 5
+                || (int) get_transient($keys['user']) >= 10
+                || (int) get_transient($keys['pair']) >= 5;
         } finally {
             foreach (array_reverse($acquired) as $lockName) {
                 $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
@@ -91,7 +94,9 @@ final class SecurityHardener {
         }
         // Count failed authentication outcomes inside this filter so parallel
         // attempts are serialized before another request can pass the limit.
-        $this->loginFail($username);
+        if ($this->loginFail($username)) {
+            return new \WP_Error('too_many', 'Too many failed attempts. Try again in 15 minutes.');
+        }
         return $user;
     }
 
