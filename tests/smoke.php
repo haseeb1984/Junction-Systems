@@ -636,6 +636,7 @@ $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpS
 if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order): void') === false
     || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
+    || strpos($orderQueueRetrySource, "do_action('pkstore_inventory_sync_hold_released', \$orderId)") === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($orderQueueRetrySource, 'update_status($previousStatus') === false
     || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order)') === false
@@ -1186,6 +1187,7 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($shippingRegistrySource, "_pkstore_courier_booking_state") === false
     || strpos($shippingRegistrySource, "'needs_review'") === false
+    || strpos($shippingRegistrySource, "add_action('pkstore_inventory_sync_hold_released', [\\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
