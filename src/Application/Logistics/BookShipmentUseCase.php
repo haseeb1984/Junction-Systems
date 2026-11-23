@@ -9,6 +9,32 @@ final class BookShipmentUseCase {
     public function __construct(private readonly CourierCircuitBreaker $cb, private readonly OrderMetaRepository $meta, private readonly LoggerInterface $log) {}
     public function execute(ShipmentRequestDTO $s): ShipmentResultDTO {
         $orderId = (int) $s->internalOrderId;
+        if ($orderId < 1) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'Invalid WooCommerce order reference for courier booking.');
+        }
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'Courier booking lock is unavailable; retry after database recovery.');
+        }
+        $lockName = 'pkstore_courier_execute_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'Another courier booking attempt is already running for this order.');
+        }
+        try {
+            return $this->executeLocked($s);
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                $this->log->critical('Courier booking execution lock release could not be confirmed.', [
+                    'order_id' => $orderId,
+                ]);
+            }
+        }
+    }
+
+    private function executeLocked(ShipmentRequestDTO $s): ShipmentResultDTO {
+        $orderId = (int) $s->internalOrderId;
         $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
         if (!($order instanceof \WC_Order)) {
             return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'WooCommerce order could not be verified before courier booking.');
