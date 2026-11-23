@@ -611,14 +611,15 @@ $wcLifecycleSource = file_get_contents($src . '/Application/Inventory/SyncWooCom
 if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($wcLifecycleSource, "SELECT RELEASE_LOCK(%s)") === false
-    || strpos($wcLifecycleSource, "['cancelled', 'failed', 'pending']") === false
+    || strpos($wcLifecycleSource, "get_meta('_reduced_stock', true)") === false
     || strpos($wcLifecycleSource, "get_meta('_restock_refunded_items', true)") === false
-    || strpos($wcLifecycleSource, 'Always book the original sale quantity') === false
+    || strpos($wcLifecycleSource, 'actual WooCommerce reduction') === false
     || strpos($wcLifecycleSource, 'return false;') === false
     || strpos($wcLifecycleSource, 'return $this->withOrderLock($orderId') === false
     || strpos($wcLifecycleSource, 'return $callback();') === false
     || strpos($wcLifecycleSource, "'processed_at' => \$now") === false
-    || strpos($wcLifecycleSource, "MovementType::OnlineSale))") === false) {
+    || strpos($wcLifecycleSource, "MovementType::OnlineSale") === false
+    || strpos($wcLifecycleSource, 'An earlier WooCommerce stock-cycle sale must be processed first.') === false) {
     throw new \RuntimeException('WooCommerce sale/return ordering and net-restock safeguards must remain intact.');
 }
 
