@@ -76,7 +76,7 @@ return static function(ServiceContainer $c):void{
     $c->singleton(\PkStore\Application\Inventory\TransferStockUseCase::class, fn()=>new \PkStore\Application\Inventory\TransferStockUseCase($c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\LocationRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),new WpLogger()));
 
     // POS use cases
-    $c->singleton(\PkStore\Application\POS\ProcessPOSSaleUseCase::class, fn()=>new \PkStore\Application\POS\ProcessPOSSaleUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\POS\Repository\POSSessionRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\POS\ProcessPOSSaleUseCase::class, fn()=>new \PkStore\Application\POS\ProcessPOSSaleUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\POS\Repository\POSSessionRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class),new WpLogger()));
     $c->singleton(\PkStore\Application\POS\SyncPOSQueueUseCase::class, fn()=>new \PkStore\Application\POS\SyncPOSQueueUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),new WpLogger()));
 
     // Analytics
