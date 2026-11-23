@@ -11,8 +11,9 @@ final class QuickBooksService {
     public function __construct(private readonly SettingsManager $s, private readonly LoggerInterface $log) {}
 
     private function getToken(): ?string {
-        $cached=get_transient('pkstore_qb_token');
-        if ($cached) return $cached;
+        $cached = $this->s->get('QUICKBOOKS_ACCESS_TOKEN');
+        $expiresAt = (int) $this->s->get('QUICKBOOKS_ACCESS_TOKEN_EXPIRES', '0');
+        if ($cached && $expiresAt > time() + 60) return $cached;
         $refreshToken=$this->s->get('QUICKBOOKS_REFRESH_TOKEN');
         $clientId=$this->s->get('QUICKBOOKS_CLIENT_ID');
         $clientSecret=$this->s->get('QUICKBOOKS_CLIENT_SECRET');
@@ -29,8 +30,14 @@ final class QuickBooksService {
                 return null;
             }
         }
-        set_transient('pkstore_qb_token',$b['access_token'],(int)($b['expires_in']??3600)-60);
-        return $b['access_token'];
+        $accessToken = (string) $b['access_token'];
+        $expiresIn = max(60, (int) ($b['expires_in'] ?? 3600));
+        if (!$this->s->setSecret('QUICKBOOKS_ACCESS_TOKEN', $accessToken)
+            || !$this->s->set('QUICKBOOKS_ACCESS_TOKEN_EXPIRES', (string) (time() + $expiresIn))) {
+            $this->log->critical('QuickBooks access token could not be securely persisted.');
+            return null;
+        }
+        return $accessToken;
     }
 
     private function request(string $method, string $endpoint, array $body=[]): ?array {
