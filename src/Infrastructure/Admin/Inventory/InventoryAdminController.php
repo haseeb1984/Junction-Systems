@@ -38,6 +38,9 @@ final class InventoryAdminController {
             'adjust_stock'    => $this->handleAdjustStock(),
             'generate_barcodes' => $this->handleGenerateBarcodes(),
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
+            'create_supplier' => $this->handleCreateSupplier(),
+            'create_purchase_order' => $this->handleCreatePurchaseOrder(),
+            'receive_purchase_order' => $this->handleReceivePurchaseOrder(),
             default            => null,
         };
     }
@@ -73,6 +76,29 @@ final class InventoryAdminController {
     private function handleSyncWooCommerce(): void {
         $count = $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce();
         $this->redirect('pkstore-inventory','synced',"Synced {$count} products to WooCommerce.");
+    }
+
+    private function handleCreateSupplier(): void {
+        global $wpdb; $table=$wpdb->prefix.'pkstore_inventory_suppliers';
+        $name=sanitize_text_field($_POST['supplier_name']??'');
+        if($name===''){ $this->redirect('pkstore-purchase-orders','error','Supplier name is required.'); return; }
+        $ok=$wpdb->insert($table,['name'=>$name,'contact'=>sanitize_text_field($_POST['supplier_contact']??''),'phone'=>sanitize_text_field($_POST['supplier_phone']??''),'email'=>sanitize_email($_POST['supplier_email']??''),'address'=>sanitize_textarea_field($_POST['supplier_address']??''),'is_active'=>1,'created_at'=>current_time('mysql')]);
+        $this->redirect('pkstore-purchase-orders',$ok===false?'error':'supplier_added',$ok===false?'Unable to save supplier.':'Supplier created.');
+    }
+    private function handleCreatePurchaseOrder(): void {
+        try {
+            $items=[['product_id'=>(int)($_POST['product_id']??0),'quantity'=>(int)($_POST['quantity']??0),'unit_cost_pkr'=>(int)($_POST['unit_cost_pkr']??-1)]];
+            $id=$this->c->make(\\PkStore\\Application\\Inventory\\CreatePurchaseOrderUseCase::class)->execute((int)($_POST['supplier_id']??0),(int)($_POST['location_id']??0),$items,sanitize_textarea_field($_POST['notes']??''));
+            $this->redirect('pkstore-purchase-orders','po_created','Purchase order #'.$id.' created.');
+        } catch(\\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
+    }
+    private function handleReceivePurchaseOrder(): void {
+        try {
+            $quantities=$_POST['receive_qty']??[]; $items=[];
+            if(is_array($quantities)) foreach($quantities as $itemId=>$qty) if((int)$qty>0) $items[]=['item_id'=>(int)$itemId,'quantity'=>(int)$qty];
+            $this->c->make(\\PkStore\\Application\\Inventory\\ReceivePurchaseOrderUseCase::class)->execute((int)($_POST['purchase_order_id']??0),$items,sanitize_text_field($_POST['receipt_reference']??''));
+            $this->redirect('pkstore-purchase-orders','received','Purchase order receipt saved.');
+        } catch(\\Throwable $e){ $this->redirect('pkstore-purchase-orders','error',$e->getMessage()); }
     }
 
     private function redirect(string $page, string $status, string $msg): void {
@@ -122,6 +148,13 @@ final class InventoryAdminController {
              ORDER BY po.created_at DESC LIMIT 100",
             ARRAY_A
         ) ?: [];
+        $suppliers=$wpdb->get_results("SELECT id,name FROM {$wpdb->prefix}pkstore_inventory_suppliers WHERE is_active=1 ORDER BY name",ARRAY_A)?:[];
+        $locations=$this->c->make(LocationRepositoryInterface::class)->findAll();
+        $products=$this->c->make(InventoryProductRepositoryInterface::class)->findAll(500,0);
+        $poItems=[];
+        foreach($pos as $po) $poItems[(int)$po['id']]=$wpdb->get_results($wpdb->prepare("SELECT id AS item_id,product_id,quantity_ordered,quantity_received,unit_cost_pkr FROM {$wpdb->prefix}pkstore_purchase_order_items WHERE po_id=%d ORDER BY id",(int)$po['id']),ARRAY_A)?:[];
+        $msg=sanitize_text_field($_GET['msg']??'');
+        $status=sanitize_key($_GET['status']??'');
         include PKSTORE_DIR.'/templates/admin/inventory/purchase-orders.php';
     }
 }
