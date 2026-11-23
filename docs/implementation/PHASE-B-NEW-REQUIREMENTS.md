@@ -8,6 +8,7 @@
 - Groq keys are carried inside the encrypted license cache, limited to the centrally supplied count, rotated across requests, and skipped during rate-limit, invalid-key, network, and provider-outage cooldowns.
 - Provider configuration refreshes every five minutes while online. A cached Groq pool is used during a central-service outage for no more than 24 hours; after that AI fails closed.
 - Dukaan AI now uses the centrally selected provider model. It treats store/product data as untrusted facts, never invents product/stock/price/order details, and cannot cancel orders, approve refunds/returns, promise compensation, or claim a support ticket was created. Those requests require human support.
+- AI product discovery now searches the full published WooCommerce catalogue (including SKU and variation attributes), supports hard budget limits in English/Roman Urdu, returns exact variant SKU/link/price/stock data, and offers same-category available alternatives when the requested item is out of stock. Exact stock quantities are included only when the store owner enables WooCommerce's stock-quantity display setting. Chat history is isolated per browser session and retains the latest 20 messages in chronological order.
 - Customer-facing stock remains controlled by WooCommerce's stock display setting; the default is in-stock/out-of-stock rather than exact quantities. Combined stock across POS locations remains the online-store sellable quantity.
 
 ## External platform integration required
