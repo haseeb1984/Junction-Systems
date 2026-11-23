@@ -831,6 +831,10 @@ $aiChatControllerSource = file_get_contents($src . '/Infrastructure/Http/AiChatC
 $aiChatUseCaseSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
 $groqBridgeSource = file_get_contents($src . '/Infrastructure/AI/GroqBridge.php');
 $promptComposerSource = file_get_contents($src . '/Domain/AI/PromptComposer.php');
+$wcProductRepositorySource = file_get_contents($src . '/Infrastructure/AI/WcProductRepository.php');
+$productContextServiceSource = file_get_contents($src . '/Application/AI/ProductContextService.php');
+$contextSelectorSource = file_get_contents($src . '/Domain/AI/ContextSelector.php');
+$productContextSource = file_get_contents($src . '/Domain/AI/ValueObject/ProductContext.php');
 $licenseManagerSource = file_get_contents($src . '/License/LicenseManager.php');
 $pralClientSource = file_get_contents($src . '/Infrastructure/FBR/PralClient.php');
 $pralParserSource = file_get_contents($src . '/Infrastructure/FBR/PralInvoiceResponseParser.php');
@@ -843,7 +847,26 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || !is_string($licenseManagerSource) || !is_string($pralClientSource)
     || !is_string($pralParserSource) || !is_string($pralSubmissionSource)
     || !is_string($pralExceptionSource) || !is_string($aiServicesSource)
-    || !is_string($aiChatModuleSource)
+    || !is_string($aiChatModuleSource) || !is_string($wcProductRepositorySource)
+    || !is_string($productContextServiceSource) || !is_string($contextSelectorSource)
+    || !is_string($productContextSource)
+    || strpos($wcProductRepositorySource, "p.post_type IN ('product','product_variation')") === false
+    || strpos($wcProductRepositorySource, "LEFT(attr.meta_key,11)='_attribute_'") === false
+    || strpos($wcProductRepositorySource, 'wc_product_meta_lookup') === false
+    || strpos($wcProductRepositorySource, 'lookup.min_price <= %f') === false
+    || strpos($wcProductRepositorySource, 'get_variation_attributes()') === false
+    || strpos($wcProductRepositorySource, 'get_permalink()') === false
+    || strpos($wcProductRepositorySource, 'woocommerce_stock_format') === false
+    || strpos($wcProductRepositorySource, 'pk_store_return_policy') === false
+    || strpos($wcProductRepositorySource, 'All major cities in Pakistan') !== false
+    || strpos($wcProductRepositorySource, '2-5 business days') !== false
+    || strpos($wcProductRepositorySource, 'stockQty    = $isDigital ? 999') !== false
+    || strpos($productContextServiceSource, 'findByKeywords($keywords, self::MAX, $budget)') === false
+    || strpos($productContextServiceSource, 'findPopular(self::MAX, $budget)') === false
+    || strpos($contextSelectorSource, 'extractBudget(') === false
+    || strpos($contextSelectorSource, 'extractSku(') === false
+    || strpos($productContextSource, "'url' => $this->productUrl") === false
+    || strpos($productContextSource, "if ($this->stockQuantity !== null)") === false
     || strpos($pralParserSource, "statusCode") === false
     || strpos($pralParserSource, "invoiceStatuses") === false
     || strpos($pralParserSource, '$expectedItemCount') === false
