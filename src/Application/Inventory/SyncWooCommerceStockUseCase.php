@@ -14,7 +14,7 @@ final class SyncWooCommerceStockUseCase {
     ) {}
     public function onWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
-        if (!($order instanceof \\WC_Order)) return;
+        if (!($order instanceof \WC_Order)) return;
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) return;
         // Aggregate repeated lines for the same mapped product before applying stock once.
@@ -36,7 +36,7 @@ final class SyncWooCommerceStockUseCase {
                 // Persist per-product completion so repeated status/payment hooks cannot deduct twice.
                 $order->update_meta_data($marker, 1);
                 $order->save();
-            } catch (\\DomainException $e) {
+            } catch (\DomainException $e) {
                 $this->log->error('WC stock sync failed.', ['order_id'=>$orderId,'product_id'=>$productId,'error'=>$e->getMessage()]);
             }
         }
