@@ -660,7 +660,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
-    || strpos($returnQueueSource, 'next_attempt_at=DATE_ADD') === false
+    || strpos($returnQueueSource, "next_attempt_at=IF(%s='needs_review',%s,DATE_ADD") === false
     || strpos($returnQueueSource, 'Cancellation return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'Refund return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'if (!$applied)') === false
