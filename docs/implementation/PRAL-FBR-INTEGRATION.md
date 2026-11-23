@@ -98,3 +98,6 @@ The API transport and per-install config reader are implemented. Automatic invoi
 - required QR-code encoded content. The technical specification mandates a 25x25 (version 2.0) QR code at 1 inch and the FBR Digital Invoicing System logo, but does not define the QR payload in its text.
 
 Until those values are configured and validated against PRAL sandbox scenarios, the integration must remain in setup/needs-review state and must not submit production invoices.
+
+
+The client also provides a validate-then-submit use case and response parser. It checks the header result and every item result; a top-level status of `00` alone is not enough. If a submit call times out, receives HTTP 500, returns unreadable JSON, or includes an invoice number with an invalid item result, the outcome is marked `unknown` and must not be submitted again until it is reconciled in IRIS. A validation-only outage is safe to retry because no invoice was submitted.
