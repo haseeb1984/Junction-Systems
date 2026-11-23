@@ -15,9 +15,9 @@ $rows=$wpdb->get_results("SELECT p.*,a.name AS affiliate_name,a.email FROM {$t} 
   $accountKey='AFFILIATE_PAYOUT_ACCOUNT_'.(int)$r['id'];
   $paymentAccount='';
   if($storedAccount==='__encrypted__') {
-    $paymentAccount=\\PkStore\\Settings\\SettingsManager::getInstance()->get($accountKey,'');
+    $paymentAccount=\PkStore\Settings\SettingsManager::getInstance()->get($accountKey,'');
   } elseif($storedAccount!=='') {
-    $settings=\\PkStore\\Settings\\SettingsManager::getInstance();
+    $settings=\PkStore\Settings\SettingsManager::getInstance();
     $encrypted=$settings->setSecret($accountKey,$storedAccount)||hash_equals($storedAccount,$settings->get($accountKey,''));
     $updated=$encrypted?$wpdb->update($t,['payment_account'=>'__encrypted__'],['id'=>(int)$r['id']]):false;
     $paymentAccount=$updated===1?$storedAccount:'••••'.substr($storedAccount,-4);
