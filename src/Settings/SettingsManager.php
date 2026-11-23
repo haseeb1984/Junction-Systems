@@ -79,6 +79,8 @@ final class SettingsManager{
         'ai'=>['GEMINI_API_KEY'=>true],
         'quickbooks'=>['QUICKBOOKS_CLIENT_ID'=>false,'QUICKBOOKS_CLIENT_SECRET'=>true,'QUICKBOOKS_REFRESH_TOKEN'=>true,'QUICKBOOKS_REALM_ID'=>false,'QUICKBOOKS_SANDBOX'=>false],
         'daraz'=>['DARAZ_APP_KEY'=>false,'DARAZ_APP_SECRET'=>true,'DARAZ_ACCESS_TOKEN'=>true,'DARAZ_REFRESH_TOKEN'=>true],
+        'postex'=>['POSTEX_TOKEN'=>true,'POSTEX_STORE_ID'=>false,'POSTEX_SANDBOX'=>false],
+        'rider'=>['RIDER_API_KEY'=>true],
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
@@ -91,6 +93,7 @@ final class SettingsManager{
             'GEMINI_API_KEY',
             'QUICKBOOKS_CLIENT_SECRET','QUICKBOOKS_REFRESH_TOKEN',
             'DARAZ_APP_SECRET','DARAZ_ACCESS_TOKEN','DARAZ_REFRESH_TOKEN',
+            'POSTEX_TOKEN','RIDER_API_KEY',
         ];
         return in_array($key,$keys,true);
     }
