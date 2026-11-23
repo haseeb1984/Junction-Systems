@@ -7,17 +7,57 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_inventory_products'; }
     public function save(InventoryProduct $p): int {
-        $now = current_time('mysql');
-        $inserted = $this->db->insert($this->t(), ['wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,'created_at'=>$now,'updated_at'=>$now]);
-        if ($inserted === false || (int) $this->db->insert_id < 1) {
-            throw new \RuntimeException('Unable to save inventory product.');
-        }
-        return (int) $this->db->insert_id;
+        return $this->withBarcodeLock($p->getBarcode(), 0, function () use ($p): int {
+            $now = current_time('mysql');
+            $inserted = $this->db->insert($this->t(), [
+                'wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),
+                'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,
+                'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,
+                'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,
+                'created_at'=>$now,'updated_at'=>$now
+            ]);
+            if ($inserted === false) {
+                if (stripos((string) $this->db->last_error, 'Duplicate entry') !== false) {
+                    throw new \DomainException('An inventory product with this SKU or WooCommerce mapping already exists.');
+                }
+                throw new \RuntimeException('Unable to save inventory product.');
+            }
+            if ((int) $this->db->insert_id < 1) {
+                throw new \RuntimeException('Unable to save inventory product.');
+            }
+            return (int) $this->db->insert_id;
+        });
     }
     public function update(InventoryProduct $p): void {
-        $updated = $this->db->update($this->t(), ['barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,'reorder_point'=>$p->reorderPoint,'updated_at'=>current_time('mysql')], ['id'=>$p->id]);
-        if ($updated === false) {
-            throw new \RuntimeException('Unable to update inventory product.');
+        $this->withBarcodeLock($p->getBarcode(), $p->id, function () use ($p): void {
+            $updated = $this->db->update($this->t(), [
+                'barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,
+                'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,
+                'reorder_point'=>$p->reorderPoint,'updated_at'=>current_time('mysql')
+            ], ['id'=>$p->id]);
+            if ($updated === false) {
+                throw new \RuntimeException('Unable to update inventory product.');
+            }
+        });
+    }
+    private function withBarcodeLock(string $barcode, int $exceptProductId, callable $callback): mixed {
+        if ($barcode === '') return $callback();
+        $lockName = 'pkstore_inv_barcode_' . substr(hash('sha256', $barcode), 0, 32);
+        $locked = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
+        if ($this->db->last_error !== '' || (int) $locked !== 1) {
+            throw new \RuntimeException('Unable to reserve this inventory barcode; retry the operation.');
+        }
+        try {
+            $existing = $this->findByBarcode($barcode);
+            if ($existing && $existing->id !== $exceptProductId) {
+                throw new \DomainException('Barcode already exists.');
+            }
+            return $callback();
+        } finally {
+            $released = $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($this->db->last_error !== '' || (int) $released !== 1) {
+                error_log('[PK Store] Inventory barcode reservation lock release could not be confirmed.');
+            }
         }
     }
     public function findById(int $id): ?InventoryProduct {
