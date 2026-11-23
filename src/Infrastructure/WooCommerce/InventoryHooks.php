@@ -33,7 +33,7 @@ final class InventoryHooks {
         $queue=$wpdb->prefix.'pkstore_stock_projection_queue';
         $stock=$wpdb->prefix.'pkstore_inventory_stock';
         $rows=$wpdb->get_results($wpdb->prepare(
-            "SELECT product_id,attempts FROM {$queue} WHERE status IN ('pending','failed') AND next_attempt_at<=%s ORDER BY updated_at ASC LIMIT 100",
+            "SELECT product_id,attempts,revision FROM {$queue} WHERE status IN ('pending','failed') AND next_attempt_at<=%s ORDER BY updated_at ASC LIMIT 100",
             current_time('mysql')
         ),ARRAY_A)?:[];
         foreach($rows as $row) {
@@ -50,7 +50,7 @@ final class InventoryHooks {
                 $wcProduct->set_stock_quantity($total);
                 $wcProduct->set_stock_status($total>0?'instock':'outofstock');
                 if($wcProduct->save()===false) throw new \RuntimeException('WooCommerce rejected the stock projection save.');
-                $wpdb->delete($queue,['product_id'=>$productId],['%d']);
+                $wpdb->delete($queue,['product_id'=>$productId,'revision'=>(int)$row['revision']],['%d','%d']);
             } catch(\Throwable $e) {
                 $attempts=(int)$row['attempts']+1;
                 $delay=min(86400,60*(2**min(10,$attempts-1)));
