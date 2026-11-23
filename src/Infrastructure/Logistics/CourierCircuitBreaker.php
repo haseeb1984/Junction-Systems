@@ -40,6 +40,17 @@ final class CourierCircuitBreaker {
                     );
                 }
             } catch (\Throwable $error) {
+                // Missing credentials are known preflight failures: no request
+                // was sent, so another enabled courier can safely be tried.
+                if (str_starts_with($error->getMessage(), 'Setting [')) {
+                    $lastDefinitiveFailure = ShipmentResultDTO::failure(
+                        $code,
+                        $s->internalOrderId,
+                        'Courier configuration is incomplete. Check the store integration settings.'
+                    );
+                    continue;
+                }
+
                 $this->fail($code);
                 if ($this->fails($code) >= self::THRESH) $this->openCircuit($code);
 
