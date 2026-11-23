@@ -22,7 +22,12 @@ final class QuickBooksService {
         $b=json_decode(wp_remote_retrieve_body($r),true);
         if (empty($b['access_token'])) return null;
         // Save new refresh token
-        $this->s->set('QUICKBOOKS_REFRESH_TOKEN',$b['refresh_token']??$refreshToken);
+        if (isset($b['refresh_token']) && $b['refresh_token'] !== '') {
+            if (!$this->s->setSecret('QUICKBOOKS_REFRESH_TOKEN', (string) $b['refresh_token'])) {
+                $this->log->critical('QuickBooks refresh token rotation could not be encrypted and persisted.');
+                return null;
+            }
+        }
         set_transient('pkstore_qb_token',$b['access_token'],(int)($b['expires_in']??3600)-60);
         return $b['access_token'];
     }
