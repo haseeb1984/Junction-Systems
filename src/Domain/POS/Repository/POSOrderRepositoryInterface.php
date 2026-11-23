@@ -10,4 +10,6 @@ interface POSOrderRepositoryInterface {
     public function findPending(): array;
     public function findBySession(int $sessionId): array;
     public function saveItems(int $orderId, array $items): void;
+    /** Persists an order and every line atomically. */
+    public function saveWithItems(POSOrder $order, array $items): int;
 }
