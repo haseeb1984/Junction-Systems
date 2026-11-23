@@ -28,13 +28,15 @@ final class ProcessPOSSaleUseCase {
         $order   = POSOrder::create($sessionId, $locationId, $enriched, $paymentMethod, $customerPhone, $customerName, $discountPkr, $paymentSplit);
         $orderId = $this->orderRepo->save($order);
         $this->orderRepo->saveItems($orderId, $enriched);
-        // Deduct stock from physical location
+        // Aggregate duplicate product lines so one POS order produces one idempotent
+        // stock movement per product/location/reference.
+        $stockDeductions = [];
         foreach ($enriched as $item) {
-            try {
-                $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
-            } catch (\DomainException $e) {
-                $this->log->warning('POS stock deduction failed — sold below zero.', ['product'=>$item['sku'],'error'=>$e->getMessage()]);
-            }
+            $productId = (int)$item['product_id'];
+            $stockDeductions[$productId] = ($stockDeductions[$productId] ?? 0) + (int)$item['quantity'];
+        }
+        foreach ($stockDeductions as $productId => $quantity) {
+            $this->adjustStock->execute((int)$productId, $locationId, -$quantity, MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef);
         }
         // Update session totals
         $session->recordSale($order->totalPkr, $paymentMethod, $paymentSplit);
