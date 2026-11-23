@@ -203,7 +203,7 @@ final class InventoryAdminController {
                     $this->redirect('pkstore-inventory', 'error', 'This WooCommerce product is already mapped to Junction inventory.');
                     return;
                 }
-            } catch (\\Throwable $mappingError) {
+            } catch (\Throwable $mappingError) {
                 $this->redirect('pkstore-inventory', 'error', 'WooCommerce product mapping is ambiguous and needs review.');
                 return;
             }
