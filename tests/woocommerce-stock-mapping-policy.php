@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/Application/Inventory/WooCommerceStockMappingPolicy.php';
+use PkStore\Application\Inventory\WooCommerceStockMappingPolicy;
 
 final class FakeWooProduct {
     public function __construct(
@@ -25,8 +26,6 @@ function wc_get_product(int $id): mixed {
 function assertStockMapping(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
 }
-
-use PkStore\Application\Inventory\WooCommerceStockMappingPolicy;
 
 // A parent-managed variation must be mapped to the parent product.
 $parentManagedVariation = new FakeWooProduct('variation', 202, 100, false);
