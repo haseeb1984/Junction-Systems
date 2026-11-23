@@ -303,6 +303,12 @@ final class WcProductRepository implements ProductRepositoryInterface {
 
         $rawQuantity = $product->get_stock_quantity();
         $quantity = is_numeric($rawQuantity) && (int) $rawQuantity >= 0 ? (int) $rawQuantity : null;
+        // A variation inheriting parent-managed stock does not have a
+        // variation-specific quantity; never present the shared parent count
+        // as the exact count for an individual size/colour.
+        if ($product->is_type('variation') && $product->get_manage_stock() === 'parent') {
+            $quantity = null;
+        }
         if (!$this->stockQuantityVisible() || $quantity === null) {
             $quantity = null;
         } elseif (get_option('woocommerce_stock_format', '') === 'low_amount'
