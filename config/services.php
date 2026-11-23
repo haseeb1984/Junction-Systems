@@ -8,6 +8,7 @@ use PkStore\Infrastructure\Payment\{JazzCashGateway,EasyPaisaGateway};
 use PkStore\Infrastructure\Verification\{WpOtpRepository,TwilioSmsProvider,LocalSmsProvider};
 use PkStore\Infrastructure\AI\{GroqBridge,WcProductRepository,WpChatRepository};
 use PkStore\Infrastructure\FBR\PralClient;
+use PkStore\Infrastructure\FBR\PralInvoiceResponseParser;
 use PkStore\Infrastructure\Logistics\{TcsCourier,LeopardsCourier,TraxCourier,CityMappingService,RateCalculator,CourierCircuitBreaker,LogisticsLogger};
 use PkStore\Infrastructure\WooCommerce\OrderMetaRepository;
 use PkStore\Infrastructure\Admin\DashboardService;
@@ -18,6 +19,7 @@ use PkStore\Domain\Verification\{SmsProviderInterface,Repository\OtpRepositoryIn
 use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface,AffiliateProductRepositoryInterface,CommissionRepositoryInterface,PayoutRepositoryInterface};
 use PkStore\Application\Verification\{SendCodOtpUseCase,VerifyCodOtpUseCase};
 use PkStore\Application\AI\{HandleAiChatUseCase,ProductContextService};
+use PkStore\Application\FBR\SubmitPralInvoiceUseCase;
 use PkStore\Application\Logistics\BookShipmentUseCase;
 use PkStore\Application\Affiliate\{RegisterAffiliateUseCase,TrackAffiliateClickUseCase,RecordCommissionUseCase,ProcessPayoutUseCase,SubmitAffiliateProductUseCase,TrackAffiliateProductClickUseCase};
 use PkStore\Settings\SetupWizard;
@@ -33,6 +35,8 @@ return static function(ServiceContainer $c):void{
     $c->singleton(VerifyCodOtpUseCase::class,fn()=>new VerifyCodOtpUseCase($c->make(OtpRepositoryInterface::class),new WpLogger()));
     $c->singleton(AiProviderInterface::class,fn()=>new GroqBridge(new WpLogger(),new LicenseManager()));
 $c->singleton(PralClient::class,fn()=>new PralClient(new LicenseManager()));
+    $c->singleton(PralInvoiceResponseParser::class,fn()=>new PralInvoiceResponseParser());
+    $c->singleton(SubmitPralInvoiceUseCase::class,fn()=>new SubmitPralInvoiceUseCase($c->make(PralClient::class),$c->make(PralInvoiceResponseParser::class)));
     $c->singleton(ProductRepositoryInterface::class,function(){global $wpdb;return new WcProductRepository($wpdb);});
     $c->singleton(ChatRepositoryInterface::class,function(){global $wpdb;return new WpChatRepository($wpdb);});
     $c->singleton(PromptInjectionDetector::class,fn()=>new PromptInjectionDetector());
