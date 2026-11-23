@@ -14,7 +14,15 @@ final class SyncPOSQueueUseCase {
         $pending = $this->orderRepo->findPending();
         $results = ['synced'=>0, 'failed'=>0, 'errors'=>[]];
         foreach ($pending as $order) {
+            $lockKey = 'pkstore_pos_sync_lock_' . md5($order->orderRef);
+            $lockAcquired = false;
             try {
+                if (function_exists('get_option') && function_exists('delete_option')) {
+                    $existingLock = (int)get_option($lockKey, 0);
+                    if ($existingLock > 0 && $existingLock < (time() - 300)) delete_option($lockKey);
+                    $lockAcquired = add_option($lockKey, time(), '', false);
+                    if (!$lockAcquired) throw new \\RuntimeException('This POS order is already being synchronized; retry shortly.');
+                }
                 if (!function_exists('wc_create_order') || !function_exists('wc_get_orders')) {
                     throw new \RuntimeException('WooCommerce order APIs are unavailable.');
                 }
@@ -79,6 +87,8 @@ final class SyncPOSQueueUseCase {
                 $results['failed']++;
                 $results['errors'][] = "Order {$order->orderRef}: {$e->getMessage()}";
                 $this->log->error('POS WooCommerce sync failed.', ['order_ref'=>$order->orderRef,'error'=>$e->getMessage()]);
+            } finally {
+                if ($lockAcquired) delete_option($lockKey);
             }
         }
         return $results;
