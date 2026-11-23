@@ -55,9 +55,10 @@ final class POSController {
         $customerName = sanitize_text_field($req->get_param('customer_name')??'Walk-in');
         $discount     = (int)($req->get_param('discount_pkr')??0);
         $split        = $req->get_param('payment_split');
+        $orderRef     = sanitize_text_field($req->get_param('order_ref')??$req->get_param('idempotency_key')??'');
         if (empty($items)) return new \WP_REST_Response(['success'=>false,'message'=>'No items in sale.'],422);
         try {
-            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split);
+            $order = $this->c->make(ProcessPOSSaleUseCase::class)->execute($sessionId,$locationId,$items,$method,$customerPhone,$customerName,$discount,$split,$orderRef!==''?$orderRef:null);
             return new \WP_REST_Response(['success'=>true,'order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'message'=>'Sale processed.'],201);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
