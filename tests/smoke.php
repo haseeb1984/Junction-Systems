@@ -707,6 +707,9 @@ if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order, ?string $expectedCycleUuid = null): void') === false
     || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $heldCycleUuid)') === false
     || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $reloadedCycleUuid)') === false
+    || strpos($orderQueueRetrySource, 'private function bindInventorySyncHoldCycle(\\WC_Order $order, string $cycleUuid): void') === false
+    || strpos($orderQueueRetrySource, '$this->bindInventorySyncHoldCycle($order, $cycleUuid)') === false
+    || strpos($orderQueueRetrySource, 'Unable to bind WooCommerce inventory hold to its recovered stock cycle.') === false
     || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($orderQueueRetrySource, "do_action('pkstore_inventory_sync_hold_released', \$orderId)") === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
