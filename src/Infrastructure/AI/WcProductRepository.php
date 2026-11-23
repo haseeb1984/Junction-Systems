@@ -67,7 +67,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
               AND p.post_password=''
               {$priceFilter}
               AND {$where}
-            ORDER BY (p.post_type='product_variation') DESC,
+            ORDER BY (p.post_type='product_variation') DESC, (lookup.stock_status='instock') DESC,
               CAST(COALESCE((SELECT sales.meta_value FROM {$postmeta} sales WHERE sales.post_id=parent.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
             LIMIT %d";
@@ -221,18 +221,21 @@ final class WcProductRepository implements ProductRepositoryInterface {
                 if ($product->is_type('variable') && $expandVariables) {
                     if (isset($matchedVariationParents[(int) $product->get_id()])) continue;
                     $children = $product->get_children();
-                    $added = 0;
+                    $variationContexts = [];
                     foreach ($children as $variationId) {
                         $variation = wc_get_product((int) $variationId);
                         if (!($variation instanceof \WC_Product_Variation) || !$variation->is_visible()) continue;
                         if ($inStockOnly && !$variation->is_in_stock()) continue;
                         $context = $this->mapToContext($variation);
                         if ($maxPrice !== null && $this->effectivePrice($context) > $maxPrice) continue;
+                        $variationContexts[] = $context;
+                    }
+                    usort($variationContexts, fn(ProductContext $a, ProductContext $b): int => $this->effectivePrice($a) <=> $this->effectivePrice($b));
+                    foreach (array_slice($variationContexts, 0, 3) as $context) {
                         if (isset($seen[$context->productId])) continue;
                         $seen[$context->productId] = true;
                         $contexts[] = $context;
-                        $added++;
-                        if ($added >= 3 || count($contexts) >= $limit) break;
+                        if (count($contexts) >= $limit) break;
                     }
                     if (count($contexts) >= $limit) break;
                     continue;
