@@ -302,6 +302,7 @@ if (strpos($bootstrapSource, "wp_has_consent('statistics')") === false
 }
 
 
+$settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
 $quickBooksSource = file_get_contents($src . '/Infrastructure/Integration/Accounting/QuickBooksService.php');
 if (!is_string($quickBooksSource)
     || strpos($quickBooksSource, "setSecret('QUICKBOOKS_ACCESS_TOKEN'") === false
