@@ -346,8 +346,8 @@ if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($facebookPixelSource, 'graph.facebook.com/v18.0/') !== false
     || strpos($facebookPixelSource, "SELECT GET_LOCK(%s, %d)") === false
     || strpos($facebookPixelSource, "SELECT RELEASE_LOCK(%s)") === false
-    || strpos($ga4AnalyticsSource, "public function captureConsent(\\WC_Order $order") === false
-    || strpos($facebookPixelSource, "public function captureConsent(\\WC_Order $order") === false
+    || strpos($ga4AnalyticsSource, "public function captureConsent(\\WC_Order \\$order") === false
+    || strpos($facebookPixelSource, "public function captureConsent(\\WC_Order \\$order") === false
     || strpos($facebookPixelSource, "get_post_meta(") !== false
     || strpos($settingsManagerSource, "'google_analytics'=>['GA4_MEASUREMENT_ID'=>false,'GA4_API_SECRET'=>true") === false
     || strpos($settingsManagerSource, "'facebook_pixel'=>['FACEBOOK_PIXEL_ID'=>false,'FACEBOOK_CAPI_TOKEN'=>true") === false) {
@@ -453,8 +453,8 @@ if (!is_string($barcodeLabelSource)
 }
 
 if (!is_string($inventoryHttpSource)
-    || strpos($inventoryHttpSource, 'Prices and reorder point must be non-negative whole numbers.') === false
-    || strpos($inventoryHttpSource, 'Linked WooCommerce product does not exist.') === false
+    || strpos($inventoryHttpSource, 'Product fields must contain valid values and whole-number PKR amounts.') === false
+    || strpos($inventoryHttpSource, 'The selected WooCommerce product does not exist.') === false
     || strpos($inventoryHttpSource, '$wcProductId > 0 ? $wcProductId : null') === false) {
     throw new \RuntimeException('Inventory product creation must validate monetary values and WooCommerce product mappings.');
 }
