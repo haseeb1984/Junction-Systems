@@ -1426,6 +1426,15 @@ if (!is_string($stockCycleHooksSource)
     throw new \RuntimeException('WooCommerce must persist actual stock reductions before asynchronous sale processing.');
 }
 
+$stockCycleReturnQueueSource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
+if (!is_string($stockCycleReturnQueueSource)
+    || strpos($stockCycleReturnQueueSource, 'resolveCycleUuidForReturn($order)') === false
+    || strpos($stockCycleReturnQueueSource, 'Unable to persist recovered WooCommerce return-cycle identity.') === false
+    || strpos($stockCycleReturnQueueSource, 'onWooCommerceOrderItemRestored($item, $quantity, 0, $order, $cycleUuid)') === false
+    || strpos($stockCycleReturnQueueSource, '$job[\\'cycle_uuid\\'] !== null ? (string) $job[\\'cycle_uuid\\'] : null') === false) {
+    throw new \RuntimeException('Durable WooCommerce returns must recover missing cycle identity and never fall back to legacy order-level accounting.');
+}
+
 $stockSaleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'malformed actual stock-reduction quantity') === false
@@ -1437,6 +1446,8 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, '_pkstore_inventory_allocations') === false
     || strpos($stockSaleSource, 'applyAllocatedOnlineReturn(') === false
     || strpos($stockSaleSource, 'applyWooCommerceSaleCycle(') === false
+    || strpos($stockSaleSource, 'Cycle-aware WooCommerce cancellation return cannot use legacy order-level accounting without its cycle UUID.') === false
+    || strpos($stockSaleSource, 'Cycle-aware WooCommerce refund return cannot use legacy order-level accounting without its cycle UUID.') === false
     || strpos($stockSaleSource, 'snapshot capture is incomplete and must be reviewed before ledger ingestion.') === false
     || strpos($stockSaleSource, 'Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.') === false
     || strpos($stockSaleSource, 'wc_stock_cycle') === false
