@@ -31,7 +31,7 @@ final class TransferStockUseCase {
                     $wcProduct->set_stock_status($total>0?'instock':'outofstock');
                     $wcProduct->save();
                 }
-            } catch (\\Throwable $e) {
+            } catch (\Throwable $e) {
                 $this->log->error('Stock transfer committed but WooCommerce aggregate stock projection failed.',['product_id'=>$productId,'reference_id'=>$referenceId,'error'=>$e->getMessage()]);
             }
         }
