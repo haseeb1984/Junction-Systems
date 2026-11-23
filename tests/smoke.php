@@ -498,6 +498,7 @@ if (!is_string($adminInventorySource)
     || strpos($adminInventorySource, 'wc_get_product($wcProductId)') === false
     || strpos($adminInventorySource, "isEnabled('barcode_labels')") === false
     || strpos($adminInventorySource, 'findByWcProductId($wcProductId)') === false
+    || strpos($adminInventorySource, 'WooCommerceStockMappingPolicy::errorFor($wcProduct)') === false
     || strpos($adminInventorySource, 'findByBarcode($barcode)') === false
     || strpos($adminInventorySource, 'Product was created but automatic barcode generation failed') === false
     || strpos($adminInventorySource, 'Admin product creation failed') === false) {
@@ -508,6 +509,7 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, "[\$this,'createProduct']") === false
     || strpos($inventoryHttpSource, 'public function createProduct(') === false
     || strpos($inventoryHttpSource, 'findByWcProductId($wcProductId)') === false
+    || strpos($inventoryHttpSource, 'WooCommerceStockMappingPolicy::errorFor($wcProduct)') === false
     || strpos($inventoryHttpSource, "isEnabled('barcode_labels')") === false
     || strpos($inventoryHttpSource, 'Inventory product created.') === false) {
     throw new \RuntimeException('REST inventory product creation must have a real callback, validate duplicate mappings and respect barcode entitlement.');
