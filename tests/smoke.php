@@ -1212,6 +1212,8 @@ $stockRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpS
 if (!is_string($stockRepositorySource)
     || strpos($stockRepositorySource, 'Unable to verify stock movement idempotency reference.') === false
     || strpos($stockRepositorySource, 'Unable to read aggregate inventory stock.') === false
+    || strpos($stockRepositorySource, 'INNER JOIN {$locationsTable} l ON l.id=s.location_id AND l.is_active=1') === false
+    || strpos($stockRepositorySource, 'Stock retained in a deactivated location remains in the Junction') === false
     || strpos($stockRepositorySource, 'if ($this->db->last_error !== \'\')') === false) {
     throw new \RuntimeException('A failed movement-reference query must not be treated as an unseen stock movement.');
 }
