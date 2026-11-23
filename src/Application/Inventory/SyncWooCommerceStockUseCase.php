@@ -713,7 +713,7 @@ final class SyncWooCommerceStockUseCase {
 
     private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null): bool {
         if ($cycleUuid === null && $order instanceof \WC_Order
-            && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+            && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) !== '') {
             throw new \RuntimeException('Cycle-aware WooCommerce cancellation return cannot use legacy order-level accounting without its cycle UUID.');
         }
         if (!($order instanceof \WC_Order) || !is_object($item)
@@ -833,7 +833,7 @@ final class SyncWooCommerceStockUseCase {
 
     private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null, ?string $cycleUuid = null): bool {
         if ($cycleUuid === null && $order instanceof \WC_Order
-            && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) === '1') {
+            && (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) !== '') {
             throw new \RuntimeException('Cycle-aware WooCommerce refund return cannot use legacy order-level accounting without its cycle UUID.');
         }
         if (!($order instanceof \WC_Order) || $wcProductId < 1 || ($newStock - $oldStock) < 1) {
