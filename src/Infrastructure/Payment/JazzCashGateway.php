@@ -326,12 +326,51 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             exit;
         }
         $orderId = absint($billReference);
-        $order = wc_get_order($orderId);
-        if (!$order) {
-            status_header(404);
+        global $wpdb;
+        if ($orderId < 1 || !($wpdb instanceof \wpdb)) {
+            status_header(503);
             exit;
         }
 
+        // Serialize callback settlement with checkout initiation and every other
+        // callback/reconciliation path for this order. Duplicate provider posts
+        // must not concurrently fire WooCommerce payment-complete side effects.
+        $lockName = 'pkstore_payment_order_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) {
+            status_header(503);
+            exit;
+        }
+
+        $result = ['status' => 503, 'body' => 'RETRY'];
+        try {
+            $result = $this->processCallbackPayload($payload, $orderId);
+        } catch (\Throwable $error) {
+            $this->log->error('JazzCash callback could not safely reconcile the order.', [
+                'order_id' => $orderId,
+                'error_class' => get_class($error),
+            ]);
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                $this->log->critical('JazzCash callback payment lock release could not be confirmed.', [
+                    'order_id' => $orderId,
+                    'gateway' => 'jazzcash',
+                ]);
+            }
+        }
+
+        status_header((int) $result['status']);
+        echo (string) $result['body'];
+        exit;
+    }
+
+    /** @return array{status:int,body:string} */
+    private function processCallbackPayload(array $payload, int $orderId): array {
+        $order = wc_get_order($orderId);
+        if (!$order instanceof \WC_Order) return ['status' => 404, 'body' => 'ORDER_NOT_FOUND'];
+
+        $billReference = (string) ($payload['pp_BillReference'] ?? '');
         $txnRef = (string) ($payload['pp_TxnRefNo'] ?? '');
         $amount = (string) ($payload['pp_Amount'] ?? '');
         $currency = (string) ($payload['pp_TxnCurrency'] ?? '');
@@ -349,27 +388,26 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             || !hash_equals($expectedMerchant, $merchant)
             || !hash_equals($expectedDateTime, $txnDateTime)
             || $currency !== 'PKR'
-            || (string) $billReference !== (string) $orderId
+            || $billReference !== (string) $orderId
             || $responseCode === '') {
             $order->add_order_note('JazzCash callback rejected: transaction details did not match the initiated payment.');
-            status_header(400);
-            exit;
+            return ['status' => 400, 'body' => 'TRANSACTION_MISMATCH'];
         }
 
-        if ($order->is_paid()) {
-            status_header(200);
-            echo 'OK';
-            exit;
-        }
+        if ($order->is_paid()) return ['status' => 200, 'body' => 'OK'];
 
         if (in_array($order->get_status(), ['cancelled', 'refunded'], true)) {
             $order->add_order_note('JazzCash callback received for an order that is already cancelled or refunded; manual reconciliation is required.');
-            status_header(409);
-            exit;
+            return ['status' => 409, 'body' => 'MANUAL_RECONCILIATION_REQUIRED'];
         }
 
         if ($responseCode === '000') {
             $retrievalReference = sanitize_text_field((string) ($payload['pp_RetrievalReferenceNo'] ?? $payload['pp_RetreivalReferenceNo'] ?? ''));
+            $order->update_meta_data('_pkstore_jazzcash_state', 'confirmed');
+            if ($retrievalReference !== '') {
+                $order->update_meta_data('_pkstore_jazzcash_retrieval_reference', $retrievalReference);
+            }
+            $order->save();
             $order->payment_complete($txnRef);
             $order->add_order_note('JazzCash payment confirmed by callback.' . ($retrievalReference !== '' ? ' Retrieval reference: ' . $retrievalReference : ''));
         } elseif ($responseCode === '157') {
@@ -382,9 +420,6 @@ class JazzCashGateway extends \WC_Payment_Gateway {
             $order->update_status('failed', 'JazzCash payment failed: ' . $message);
         }
 
-        status_header(200);
-        echo 'OK';
-        exit;
+        return ['status' => 200, 'body' => 'OK'];
     }
-}
 
