@@ -7,7 +7,7 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_inventory_products'; }
     public function save(InventoryProduct $p): int {
-        return $this->withWooCommerceMappingLock($p->wcProductId, function () use ($p): int {
+        return $this->withProductIdentityLock(function () use ($p): int {
             if ($p->wcProductId !== null && $p->wcProductId > 0) {
                 try {
                     $existingMapping = $this->findByWcProductId($p->wcProductId);
@@ -21,31 +21,38 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
                     throw new \DomainException('This WooCommerce product is already mapped to Junction inventory.');
                 }
             }
+            if ($p->getBarcode() !== '' && $this->findByBarcode($p->getBarcode())) {
+                throw new \DomainException('Barcode already exists.');
+            }
 
-            return $this->withBarcodeLock($p->getBarcode(), 0, function () use ($p): int {
-                $now = current_time('mysql');
-                $inserted = $this->db->insert($this->t(), [
-                    'wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),
-                    'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,
-                    'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,
-                    'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,
-                    'created_at'=>$now,'updated_at'=>$now
-                ]);
-                if ($inserted === false) {
-                    if (stripos((string) $this->db->last_error, 'Duplicate entry') !== false) {
-                        throw new \DomainException('An inventory product with this SKU or WooCommerce mapping already exists.');
-                    }
-                    throw new \RuntimeException('Unable to save inventory product.');
+            $now = current_time('mysql');
+            $inserted = $this->db->insert($this->t(), [
+                'wc_product_id'=>$p->wcProductId,'sku'=>$p->sku,'barcode'=>$p->getBarcode(),
+                'barcode_type'=>$p->barcodeType,'name'=>$p->name,'category'=>$p->category,
+                'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,
+                'reorder_point'=>$p->reorderPoint,'unit'=>$p->unit,'is_active'=>1,
+                'created_at'=>$now,'updated_at'=>$now
+            ]);
+            if ($inserted === false) {
+                if (stripos((string) $this->db->last_error, 'Duplicate entry') !== false) {
+                    throw new \DomainException('An inventory product with this SKU or WooCommerce mapping already exists.');
                 }
-                if ((int) $this->db->insert_id < 1) {
-                    throw new \RuntimeException('Unable to save inventory product.');
-                }
-                return (int) $this->db->insert_id;
-            });
+                throw new \RuntimeException('Unable to save inventory product.');
+            }
+            if ((int) $this->db->insert_id < 1) {
+                throw new \RuntimeException('Unable to save inventory product.');
+            }
+            return (int) $this->db->insert_id;
         });
     }
     public function update(InventoryProduct $p): void {
-        $this->withBarcodeLock($p->getBarcode(), $p->id, function () use ($p): void {
+        $this->withProductIdentityLock(function () use ($p): void {
+            if ($p->getBarcode() !== '') {
+                $existing = $this->findByBarcode($p->getBarcode());
+                if ($existing && $existing->id !== $p->id) {
+                    throw new \DomainException('Barcode already exists.');
+                }
+            }
             $updated = $this->db->update($this->t(), [
                 'barcode'=>$p->getBarcode(),'name'=>$p->name,'category'=>$p->category,
                 'cost_price_pkr'=>$p->costPricePkr,'sale_price_pkr'=>$p->salePricePkr,
@@ -56,40 +63,22 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
             }
         });
     }
-    private function withWooCommerceMappingLock(?int $wcProductId, callable $callback): mixed {
-        if ($wcProductId === null || $wcProductId < 1) return $callback();
-        $lockName = 'pkstore_inv_wc_map_' . $wcProductId;
+    /**
+     * Product creation and identity changes are infrequent; one short-lived
+     * lock avoids nested MySQL named locks on older supported MySQL versions.
+     */
+    private function withProductIdentityLock(callable $callback): mixed {
+        $lockName = 'pkstore_inv_product_identity';
         $locked = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
         if ($this->db->last_error !== '' || (int) $locked !== 1) {
-            throw new \RuntimeException('Unable to reserve this WooCommerce product mapping; retry the operation.');
+            throw new \RuntimeException('Unable to reserve inventory product identity; retry the operation.');
         }
         try {
             return $callback();
         } finally {
             $released = $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
             if ($this->db->last_error !== '' || (int) $released !== 1) {
-                error_log('[PK Store] WooCommerce inventory mapping lock release could not be confirmed.');
-            }
-        }
-    }
-
-    private function withBarcodeLock(string $barcode, int $exceptProductId, callable $callback): mixed {
-        if ($barcode === '') return $callback();
-        $lockName = 'pkstore_inv_barcode_' . substr(hash('sha256', $barcode), 0, 32);
-        $locked = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 5));
-        if ($this->db->last_error !== '' || (int) $locked !== 1) {
-            throw new \RuntimeException('Unable to reserve this inventory barcode; retry the operation.');
-        }
-        try {
-            $existing = $this->findByBarcode($barcode);
-            if ($existing && $existing->id !== $exceptProductId) {
-                throw new \DomainException('Barcode already exists.');
-            }
-            return $callback();
-        } finally {
-            $released = $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
-            if ($this->db->last_error !== '' || (int) $released !== 1) {
-                error_log('[PK Store] Inventory barcode reservation lock release could not be confirmed.');
+                error_log('[PK Store] Inventory product identity lock release could not be confirmed.');
             }
         }
     }
