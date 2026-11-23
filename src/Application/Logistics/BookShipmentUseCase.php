@@ -8,8 +8,23 @@ use Psr\Log\LoggerInterface;
 final class BookShipmentUseCase {
     public function __construct(private readonly CourierCircuitBreaker $cb, private readonly OrderMetaRepository $meta, private readonly LoggerInterface $log) {}
     public function execute(ShipmentRequestDTO $s): ShipmentResultDTO {
-        $result = $this->cb->bookWithFailover($s);
         $orderId = (int) $s->internalOrderId;
+        try {
+            $result = $this->cb->bookWithFailover($s);
+        } catch (\Throwable $error) {
+            // An unexpected dispatcher failure may have happened after a
+            // provider accepted the parcel. Convert it to a retained review
+            // state rather than allowing Action Scheduler to blindly replay.
+            $this->log->critical('Courier booking dispatcher failed with an unverified provider outcome.', [
+                'order_id' => $orderId,
+                'error_class' => get_class($error),
+            ]);
+            $result = ShipmentResultDTO::failure(
+                'unknown',
+                $s->internalOrderId,
+                'Booking outcome unknown after dispatcher exception. Manual provider reconciliation is required.'
+            );
+        }
         $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
 
         if ($result->success && !str_starts_with($result->trackingNumber, 'PENDING-')) {
