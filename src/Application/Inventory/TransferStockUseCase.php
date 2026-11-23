@@ -21,14 +21,18 @@ final class TransferStockUseCase {
         $referenceId=trim($referenceId);
         if($referenceId==='' || strlen($referenceId)>64) throw new \InvalidArgumentException('A stable transfer reference_id of 1-64 characters is required.');
         $this->stockRepo->transferStock($productId,$fromLocationId,$toLocationId,$quantity,$referenceId,$note,get_current_user_id());
-        if ($product->wcProductId) {
-            $wcProduct=wc_get_product($product->wcProductId);
-            if ($wcProduct) {
-                $total=$this->stockRepo->getTotalStock($productId);
-                $wcProduct->set_manage_stock(true);
-                $wcProduct->set_stock_quantity($total);
-                $wcProduct->set_stock_status($total>0?'instock':'outofstock');
-                $wcProduct->save();
+        if ($product->wcProductId && function_exists('wc_get_product')) {
+            try {
+                $wcProduct=wc_get_product($product->wcProductId);
+                if ($wcProduct) {
+                    $total=$this->stockRepo->getTotalStock($productId);
+                    $wcProduct->set_manage_stock(true);
+                    $wcProduct->set_stock_quantity($total);
+                    $wcProduct->set_stock_status($total>0?'instock':'outofstock');
+                    $wcProduct->save();
+                }
+            } catch (\\Throwable $e) {
+                $this->log->error('Stock transfer committed but WooCommerce aggregate stock projection failed.',['product_id'=>$productId,'reference_id'=>$referenceId,'error'=>$e->getMessage()]);
             }
         }
         $this->log->info('Inventory stock transferred.',['product_id'=>$productId,'from_location_id'=>$fromLocationId,'to_location_id'=>$toLocationId,'quantity'=>$quantity,'reference_id'=>$referenceId]);
