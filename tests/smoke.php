@@ -68,6 +68,44 @@ if ($pralUnknown['status'] !== 'unknown') {
 }
 
 
+$contextSelector = new \PkStore\Domain\AI\ContextSelector();
+if ($contextSelector->extractBudget('wireless headphones under PKR 5,000') !== 5000.0
+    || $contextSelector->extractBudget('smart watch 5k') !== 5000.0
+    || $contextSelector->extractBudget('shoes 5000 ke andar') !== 5000.0) {
+    throw new \RuntimeException('AI product search must understand English and Roman Urdu hard budgets.');
+}
+$variantKeywords = $contextSelector->extract('black shoes size 42 under 5,000');
+if (!in_array('black', $variantKeywords, true) || !in_array('42', $variantKeywords, true)) {
+    throw new \RuntimeException('AI product search must retain colour and numeric size attributes.');
+}
+if ($contextSelector->extractSku('Please find SKU ABC-1234') !== 'ABC-1234') {
+    throw new \RuntimeException('AI product search must recognize exact SKU lookups.');
+}
+
+$productContext = new \PkStore\Domain\AI\ValueObject\ProductContext(
+    sku: 'SHOE-42-BLK',
+    name: 'Sample Shoe',
+    price: '5000.00',
+    salePrice: '4500.00',
+    stockStatus: 'in_stock',
+    stockQuantity: null,
+    shortDescription: 'Sample description',
+    categoryNames: 'Footwear',
+    attributes: ['Colour' => 'Black', 'Size' => '42'],
+    isFeatured: false,
+    brand: null,
+    productId: 123,
+    productUrl: 'https://shop.example/product/sample-shoe/?attribute_pa_size=42',
+    currency: 'PKR',
+    isVariation: true
+);
+$productContextData = $productContext->toMinifiedArray();
+if (!isset($productContextData['url'], $productContextData['sku'], $productContextData['attributes'])
+    || isset($productContextData['quantity'])) {
+    throw new \RuntimeException('AI product context must include the direct variant link and omit unapproved exact stock quantity.');
+}
+
+
 $fakePralClient = new class extends \PkStore\Infrastructure\FBR\PralClient {
     public array $validationResponse = [];
     public array $postResponse = [];
