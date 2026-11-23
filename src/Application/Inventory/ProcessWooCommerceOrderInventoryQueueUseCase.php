@@ -108,6 +108,28 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
      * Restore the WooCommerce order's prior fulfilment status only after its
      * shared Junction stock ledger event has committed successfully.
      */
+    private function bindInventorySyncHoldCycle(\WC_Order $order, string $cycleUuid): void {
+        if (!preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid)) {
+            throw new \InvalidArgumentException('WooCommerce inventory hold cycle identity is invalid.');
+        }
+        $orderId = (int) $order->get_id();
+        $freshOrder = $orderId > 0 ? wc_get_order($orderId) : null;
+        if (!($freshOrder instanceof \WC_Order)
+            || $freshOrder->get_meta('_pkstore_wc_inventory_sync_hold', true) !== 'yes') {
+            return;
+        }
+        $heldCycleUuid = (string) $freshOrder->get_meta('_pkstore_wc_inventory_sync_cycle_uuid', true);
+        if ($heldCycleUuid !== '' && !hash_equals($cycleUuid, $heldCycleUuid)) {
+            throw new \RuntimeException('WooCommerce inventory hold belongs to a different stock cycle.');
+        }
+        if ($heldCycleUuid === '') {
+            $freshOrder->update_meta_data('_pkstore_wc_inventory_sync_cycle_uuid', $cycleUuid);
+            if ((int) $freshOrder->save() !== $orderId) {
+                throw new \RuntimeException('Unable to bind WooCommerce inventory hold to its recovered stock cycle.');
+            }
+        }
+    }
+
     public function releaseInventorySyncHold(\WC_Order $order, ?string $expectedCycleUuid = null): void {
         if ($expectedCycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $expectedCycleUuid)) {
             throw new \InvalidArgumentException('WooCommerce inventory hold cycle identity is invalid.');
@@ -208,6 +230,9 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
                     }
                 } elseif ($cycleUuid !== self::LEGACY_CYCLE_UUID) {
                     $this->ensureActiveCycleMeta($order, $orderId, $cycleUuid);
+                }
+                if ($cycleUuid !== self::LEGACY_CYCLE_UUID) {
+                    $this->bindInventorySyncHoldCycle($order, $cycleUuid);
                 }
                 $this->syncInventory->onWooCommerceSale($orderId, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
                 $this->releaseInventorySyncHold($order, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null);
