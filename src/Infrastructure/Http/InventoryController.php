@@ -189,6 +189,8 @@ final class InventoryController {
                     'barcode_generated' => $barcodeGenerated,
                 ],
             ], 201);
+        } catch (\DomainException $error) {
+            return new \WP_REST_Response(['success' => false, 'message' => $error->getMessage()], 409);
         } catch (\Throwable $error) {
             error_log('[PKStore Inventory] REST product creation failed ('.get_class($error).').');
             return new \WP_REST_Response(['success' => false, 'message' => 'Inventory product could not be created. Check the product mapping and try again.'], 500);
