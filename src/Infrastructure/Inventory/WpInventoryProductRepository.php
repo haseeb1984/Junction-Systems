@@ -56,15 +56,43 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
         return $this->h($rows[0] ?? null);
     }
     public function findAll(int $limit=50, int $offset=0, string $search=''): array {
-        if ($search !== '') { $like='%'.$this->db->esc_like($search).'%'; $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE is_active=1 AND (name LIKE %s OR sku LIKE %s OR barcode LIKE %s) LIMIT %d OFFSET %d",$like,$like,$like,$limit,$offset),ARRAY_A)?:[]; }
-        else { $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE is_active=1 ORDER BY name LIMIT %d OFFSET %d",$limit,$offset),ARRAY_A)?:[]; }
-        return array_map(fn($r)=>$this->h($r),$rows);
+        $limit = max(1, min(1000, $limit));
+        $offset = max(0, $offset);
+        if ($search !== '') {
+            $like = '%' . $this->db->esc_like($search) . '%';
+            $query = $this->db->prepare(
+                "SELECT * FROM {$this->t()} WHERE is_active=1 AND (name LIKE %s OR sku LIKE %s OR barcode LIKE %s) ORDER BY name LIMIT %d OFFSET %d",
+                $like, $like, $like, $limit, $offset
+            );
+        } else {
+            $query = $this->db->prepare(
+                "SELECT * FROM {$this->t()} WHERE is_active=1 ORDER BY name LIMIT %d OFFSET %d",
+                $limit, $offset
+            );
+        }
+        $rows = $this->db->get_results($query, ARRAY_A);
+        if ($rows === null && $this->db->last_error !== '') {
+            throw new \\RuntimeException('Unable to list inventory products.');
+        }
+        return array_map(fn($r) => $this->h($r), $rows ?: []);
     }
     public function findBelowReorderPoint(): array {
-        $rows=$this->db->get_results("SELECT p.*,SUM(s.quantity) as total_stock FROM {$this->t()} p LEFT JOIN {$this->db->prefix}pkstore_inventory_stock s ON p.id=s.product_id WHERE p.is_active=1 GROUP BY p.id HAVING total_stock<=p.reorder_point ORDER BY total_stock ASC",ARRAY_A)?:[];
-        return array_map(fn($r)=>$this->h($r),$rows);
+        $rows = $this->db->get_results(
+            "SELECT p.*,SUM(s.quantity) as total_stock FROM {$this->t()} p LEFT JOIN {$this->db->prefix}pkstore_inventory_stock s ON p.id=s.product_id WHERE p.is_active=1 GROUP BY p.id HAVING total_stock<=p.reorder_point ORDER BY total_stock ASC",
+            ARRAY_A
+        );
+        if ($rows === null && $this->db->last_error !== '') {
+            throw new \\RuntimeException('Unable to list inventory products below reorder point.');
+        }
+        return array_map(fn($r) => $this->h($r), $rows ?: []);
     }
-    public function countAll(): int { return (int)$this->db->get_var("SELECT COUNT(*) FROM {$this->t()} WHERE is_active=1"); }
+    public function countAll(): int {
+        $count = $this->db->get_var("SELECT COUNT(*) FROM {$this->t()} WHERE is_active=1");
+        if ($count === null && $this->db->last_error !== '') {
+            throw new \\RuntimeException('Unable to count inventory products.');
+        }
+        return (int) $count;
+    }
     private function h(?array $r): ?InventoryProduct {
         if (!$r) return null;
         return new InventoryProduct((int)$r['id'],$r['wc_product_id']?(int)$r['wc_product_id']:null,$r['sku'],$r['barcode'],$r['barcode_type'],$r['name'],$r['category'],(int)$r['cost_price_pkr'],(int)$r['sale_price_pkr'],(int)$r['reorder_point'],$r['unit'],(bool)$r['is_active'],new \DateTimeImmutable($r['created_at']));
