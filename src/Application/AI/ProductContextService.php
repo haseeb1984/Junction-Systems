@@ -26,7 +26,13 @@ final class ProductContextService {
 
         if ($sku !== null) {
             $product = $this->repo->findBySku($sku, $budget);
-            return $product ? $this->includeAvailableAlternatives([$product], $message, $budget) : [];
+            if ($product) return $this->includeAvailableAlternatives([$product], $message, $budget);
+
+            // A parent SKU for a variable product is not an exact variant.
+            // Expand verified child variations and return their own SKUs,
+            // attributes, prices, stock status and direct variant links.
+            $variants = $this->repo->findByKeywords([$sku], self::MAX, $budget);
+            return $this->includeAvailableAlternatives($variants, $message, $budget);
         }
 
         $keywords = $this->selector->extract($message);
