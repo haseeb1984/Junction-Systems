@@ -125,74 +125,136 @@ final class GroqBridge implements AiProviderInterface {
         $config = $this->configuration();
         $keys = $this->orderedKeys($config['keys']);
 
-        if (!function_exists('curl_init')) {
+        if (!function_exists('curl_init') || !function_exists('curl_multi_init')) {
             $response = $this->chat($request);
             yield $response->content;
             return;
         }
 
+        $payload = wp_json_encode([
+            'model' => $config['model'],
+            'messages' => array_map(static fn($message) => $message->toArray(), $request->messages),
+            'max_tokens' => $request->maxTokens,
+            'temperature' => $request->temperature,
+            'stream' => true,
+        ]);
+
         foreach ($keys as $key) {
             if ($this->isCoolingDown($key)) continue;
 
-            $buffer = '';
+            $pending = '';
+            $chunks = [];
+            $retryAfter = 300;
+            $providerError = '';
+            $yielded = false;
+            $multi = curl_multi_init();
             $curl = curl_init(self::API);
+
+            $processLine = static function (string $line) use (&$chunks, &$providerError): void {
+                $line = trim($line);
+                if (!str_starts_with($line, 'data:')) return;
+                $data = trim(substr($line, 5));
+                if ($data === '' || $data === '[DONE]') return;
+
+                $decoded = json_decode($data, true);
+                if (!is_array($decoded)) return;
+                if (isset($decoded['error'])) {
+                    $providerError = 'Groq returned a streaming provider error.';
+                    return;
+                }
+
+                $delta = $decoded['choices'][0]['delta']['content'] ?? '';
+                if (is_string($delta) && $delta !== '') $chunks[] = $delta;
+            };
+
             curl_setopt_array($curl, [
                 CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => wp_json_encode([
-                    'model' => $config['model'],
-                    'messages' => array_map(static fn($message) => $message->toArray(), $request->messages),
-                    'max_tokens' => $request->maxTokens,
-                    'temperature' => $request->temperature,
-                    'stream' => true,
-                ]),
+                CURLOPT_POSTFIELDS => $payload,
                 CURLOPT_HTTPHEADER => [
                     'Content-Type: application/json',
                     'Authorization: Bearer ' . $key,
+                    'Accept: text/event-stream',
                 ],
-                CURLOPT_TIMEOUT => 30,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 45,
+                CURLOPT_NOSIGNAL => true,
                 CURLOPT_RETURNTRANSFER => false,
-                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$buffer): int {
-                    $buffer .= $chunk;
-                    return strlen($chunk);
+                CURLOPT_HEADERFUNCTION => static function ($handle, string $header) use (&$retryAfter): int {
+                    if (stripos($header, 'Retry-After:') === 0) {
+                        $value = trim(substr($header, strlen('Retry-After:')));
+                        if (is_numeric($value)) $retryAfter = max(30, min((int) $value, 3600));
+                    }
+                    return strlen($header);
+                },
+                CURLOPT_WRITEFUNCTION => static function ($handle, string $data) use (&$pending, &$chunks, $processLine): int {
+                    $pending .= $data;
+                    while (($newline = strpos($pending, "\n")) !== false) {
+                        $line = substr($pending, 0, $newline);
+                        $pending = substr($pending, $newline + 1);
+                        $processLine($line);
+                    }
+                    return strlen($data);
                 },
             ]);
 
-            curl_exec($curl);
+            curl_multi_add_handle($multi, $curl);
+            $running = 0;
+            do {
+                do {
+                    $multiStatus = curl_multi_exec($multi, $running);
+                } while ($multiStatus === CURLM_CALL_MULTI_PERFORM);
+
+                while ($chunks) {
+                    $yielded = true;
+                    yield array_shift($chunks);
+                }
+
+                if ($running > 0) {
+                    $selected = curl_multi_select($multi, 1.0);
+                    if ($selected === -1) usleep(100000);
+                }
+            } while ($running > 0 && $multiStatus === CURLM_OK);
+
+            if ($pending !== '') $processLine($pending);
+
+            while ($chunks) {
+                $yielded = true;
+                yield array_shift($chunks);
+            }
+
             $error = curl_error($curl);
             $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_multi_remove_handle($multi, $curl);
+            curl_multi_close($multi);
             curl_close($curl);
 
-            if ($error !== '') {
+            if ($error !== '' || $multiStatus !== CURLM_OK) {
+                if ($yielded) {
+                    throw new AiProviderException('Groq stream was interrupted after response data began. Please retry the chat message.');
+                }
                 $this->coolDown($key, self::NETWORK_COOLDOWN);
                 continue;
             }
             if ($status === 429) {
-                $this->coolDown($key, 300);
+                if ($yielded) throw new AiProviderException('Groq rate-limited an active stream. Please retry the chat message.');
+                $this->coolDown($key, $retryAfter);
                 continue;
             }
             if ($status === 401 || $status === 403) {
+                if ($yielded) throw new AiProviderException('Groq rejected an active stream. Please retry the chat message.');
                 $this->coolDown($key, self::INVALID_KEY_COOLDOWN);
                 continue;
             }
             if ($status >= 500) {
+                if ($yielded) throw new AiProviderException('Groq became unavailable during an active stream. Please retry the chat message.');
                 $this->coolDown($key, self::SERVER_COOLDOWN);
                 continue;
             }
             if ($status < 200 || $status >= 300) {
                 throw new AiProviderException('Groq rejected the streaming request (HTTP ' . $status . ').');
             }
-
-            $yielded = false;
-            foreach (explode("\n", $buffer) as $line) {
-                if (!str_starts_with($line, 'data: ')) continue;
-                $data = trim(substr($line, 6));
-                if ($data === '[DONE]') break;
-                $chunk = json_decode($data, true);
-                $delta = $chunk['choices'][0]['delta']['content'] ?? '';
-                if (is_string($delta) && $delta !== '') {
-                    $yielded = true;
-                    yield $delta;
-                }
+            if ($providerError !== '') {
+                throw new AiProviderException($providerError);
             }
             if (!$yielded) {
                 throw new AiProviderException('Groq returned an empty streaming response.');
