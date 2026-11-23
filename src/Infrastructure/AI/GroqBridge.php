@@ -182,7 +182,9 @@ final class GroqBridge implements AiProviderInterface {
                 CURLOPT_HEADERFUNCTION => static function ($handle, string $header) use (&$retryAfter): int {
                     if (stripos($header, 'Retry-After:') === 0) {
                         $value = trim(substr($header, strlen('Retry-After:')));
-                        if (is_numeric($value)) $retryAfter = max(30, min((int) $value, 3600));
+                        $retryAt = is_numeric($value) ? null : strtotime($value);
+                        $seconds = is_numeric($value) ? (int) $value : ($retryAt !== false && $retryAt !== null ? $retryAt - time() : 300);
+                        $retryAfter = max(30, min($seconds, 3600));
                     }
                     return strlen($header);
                 },
@@ -303,7 +305,8 @@ final class GroqBridge implements AiProviderInterface {
 
     private function retryAfter(array $response): int {
         $header = wp_remote_retrieve_header($response, 'retry-after');
-        $seconds = is_numeric($header) ? (int) $header : 300;
+        $retryAt = is_numeric($header) ? null : strtotime((string) $header);
+        $seconds = is_numeric($header) ? (int) $header : ($retryAt !== false && $retryAt !== null ? $retryAt - time() : 300);
         return max(30, min($seconds, 3600));
     }
 }
