@@ -11,6 +11,6 @@ final class AssetEnqueuer {
         wp_enqueue_style('pkstore-shop',PKSTORE_ASSETS.'/css/shop.css',[],strval($cv));
         if(is_checkout()){$cv2=filemtime(PKSTORE_DIR.'/assets/css/checkout.css')?:PKSTORE_VERSION;wp_enqueue_style('pkstore-checkout',PKSTORE_ASSETS.'/css/checkout.css',[],strval($cv2));}
     }
-    public function injectConfig():void{printf('<meta name="pkstore-config" data-nonce="%s" data-cod-nonce="%s" data-chat-nonce="%s" data-rest-url="%s">',esc_attr(wp_create_nonce('pkstore_nonce')),esc_attr(wp_create_nonce('pkstore_cod_otp')),esc_attr(wp_create_nonce('pkstore_ai_chat')),esc_url(rest_url('pkstore/v1')));}
+    public function injectConfig():void{$whatsapp=\\PkStore\\Settings\\SettingsManager::getInstance()->get('STORE_WHATSAPP');printf('<meta name="pkstore-config" data-nonce="%s" data-cod-nonce="%s" data-chat-nonce="%s" data-rest-url="%s" data-whatsapp="%s">',esc_attr(wp_create_nonce('pkstore_nonce')),esc_attr(wp_create_nonce('pkstore_cod_otp')),esc_attr(wp_create_nonce('pkstore_ai_chat')),esc_url(rest_url('pkstore/v1')),esc_attr(preg_replace('/\\D+/', '', $whatsapp)));}
     public function inlineCriticalCss():void{$p=PKSTORE_DIR.'/assets/css/critical.css';if(!file_exists($p)||filesize($p)>14000)return;$css=file_get_contents($p);if($css===false)return;echo '<style id="pkstore-critical">'.$css.'</style>';}
 }
