@@ -875,7 +875,6 @@ $contextSelectorSource = file_get_contents($src . '/Domain/AI/ContextSelector.ph
 $productContextSource = file_get_contents($src . '/Domain/AI/ValueObject/ProductContext.php');
 $chatRepositorySource = file_get_contents($src . '/Infrastructure/AI/WpChatRepository.php');
 $handleAiChatSource = file_get_contents($src . '/Application/AI/HandleAiChatUseCase.php');
-$aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
 $licenseManagerSource = file_get_contents($src . '/License/LicenseManager.php');
 $pralClientSource = file_get_contents($src . '/Infrastructure/FBR/PralClient.php');
 $pralParserSource = file_get_contents($src . '/Infrastructure/FBR/PralInvoiceResponseParser.php');
