@@ -1372,6 +1372,8 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
+    || strpos($stockCycleCaptureSource, 'event identity conflicts with its previously captured payload') === false
+    || strpos($stockCycleCaptureSource, 'SELECT id,status,event_kind,quantity,cumulative_quantity,cycle_uuid,wc_order_id,wc_order_item_id') === false
     || strpos($stockCycleCaptureSource, "'wc_product_id' => $wcProductId") === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
     || strpos($stockCycleCaptureSource, "WHERE wc_order_id=%d AND state='restoring'") === false
