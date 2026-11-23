@@ -869,7 +869,11 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
     || strpos($whatsAppServiceSource, 'v26.0') === false
     || strpos($whatsAppServiceSource, "'phone' => \$cleanPhone") !== false
     || strpos($setupWizardSource, "'whatsapp'  => 'WhatsApp Business API'") === false
-    || strpos($settingsManagerSource, "'whatsapp'=>['WHATSAPP_TOKEN'=>true") === false) {
+    || strpos($settingsManagerSource, "'whatsapp'=>['WHATSAPP_TOKEN'=>true") === false
+    || strpos($settingsManagerSource, "'quickbooks'=>['QUICKBOOKS_CLIENT_ID'=>false,'QUICKBOOKS_CLIENT_SECRET'=>true") === false
+    || strpos($settingsManagerSource, "'daraz'=>['DARAZ_APP_KEY'=>false,'DARAZ_APP_SECRET'=>true") === false
+    || strpos($settingsManagerSource, "'QUICKBOOKS_CLIENT_SECRET','QUICKBOOKS_REFRESH_TOKEN'") === false
+    || strpos($settingsManagerSource, "'DARAZ_APP_SECRET','DARAZ_ACCESS_TOKEN','DARAZ_REFRESH_TOKEN'") === false) {
     throw new \RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
 }
 
