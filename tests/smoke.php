@@ -607,6 +607,19 @@ if (!is_string($migrationRunnerSource)
 }
 
 
+$inventoryMappingMigrationSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+if (!is_string($inventoryMappingMigrationSource)
+    || strpos($inventoryMappingMigrationSource, 'GROUP BY wc_product_id HAVING COUNT(*) > 1') === false
+    || strpos($inventoryMappingMigrationSource, 'Duplicate WooCommerce inventory product mappings must be reconciled before this upgrade.') === false
+    || strpos($inventoryMappingMigrationSource, 'UPDATE {$table} SET wc_product_id=NULL WHERE wc_product_id=0') === false
+    || strpos($inventoryMappingMigrationSource, 'ADD UNIQUE INDEX idx_wc_product (wc_product_id)') === false
+    || strpos($migrationRunnerSource, "'2.0.14' => [InventoryInstaller::class, 'installInventoryProductMappingConstraint']") === false
+    || strpos($migrationRunnerSource, "verifyUniqueIndex(") === false
+    || strpos($migrationRunnerSource, "['wc_product_id']") === false) {
+    throw new \RuntimeException('WooCommerce inventory product mappings must be audited before enforcing database uniqueness.');
+}
+
+
 $wcLifecycleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($wcLifecycleSource)
     || strpos($wcLifecycleSource, "SELECT GET_LOCK(%s, %d)") === false
