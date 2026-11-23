@@ -415,3 +415,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - WooCommerce's aggregate sellable stock now sums only active Junction inventory locations. Online sale allocation already uses active locations; this aligns the published WooCommerce quantity with the exact locations from which the cycle-aware worker can fulfil an order.
 - Stock in a deactivated location remains in Junction's location ledger for audit/recovery, but is no longer advertised as online sellable stock until that location is reactivated.
 - Added a source smoke guard. Runtime acceptance should verify that deactivating/reactivating a stocked location updates the WooCommerce aggregate without mutating the underlying location ledger.
+
+
+## Courier trigger after inventory-sync hold release
+
+- Review found that the normal WooCommerce `processing` status hook can run while Junction's inventory-sync hold marker is still present. The courier trigger correctly skips the held order, but without a second event the order could remain unbooked after the stock ledger succeeded.
+- The order queue now emits `pkstore_inventory_sync_hold_released` only after the inventory transaction has committed and the hold marker has been durably removed. ShippingRegistry listens for that event and schedules the normal idempotent courier booking worker.
+- This preserves the safety rule that no parcel is booked before inventory is reconciled, while ensuring COD/online orders resume fulfilment afterwards. Added source smoke guards; runtime acceptance must verify the complete hold → commit → release → courier-booking sequence.
