@@ -28,7 +28,17 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
         $movementTable=$this->db->prefix.'pkstore_inventory_movements';
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS checkout transaction: '.$this->db->last_error);
         try {
+            $existingId=$this->existingSaleId($o,$items);
+            if($existingId!==null) {
+                if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish POS retry check: '.$this->db->last_error);
+                return $existingId;
+            }
             $session=$this->db->get_row($this->db->prepare("SELECT id,location_id,status FROM {$sessionTable} WHERE id=%d FOR UPDATE",$o->sessionId),ARRAY_A);
+            $existingId=$this->existingSaleId($o,$items);
+            if($existingId!==null) {
+                if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish concurrent POS retry check: '.$this->db->last_error);
+                return $existingId;
+            }
             if(!$session || $session['status']!=='open') throw new \RuntimeException('POS session is closed or does not exist.');
             if((int)$session['location_id']!==$o->locationId) throw new \DomainException('POS sale location does not match its session location.');
             $amounts=['cash'=>0,'card'=>0,'jazzcash'=>0,'easypaisa'=>0];
@@ -83,6 +93,34 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             $this->db->query('ROLLBACK');
             throw $e;
         }
+    }
+    private function existingSaleId(POSOrder $o,array $items): ?int {
+        $existing=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE order_ref=%s",$o->orderRef),ARRAY_A);
+        if(!$existing) return null;
+        $same=(int)$existing['session_id']===$o->sessionId
+            && (int)$existing['location_id']===$o->locationId
+            && (int)$existing['subtotal_pkr']===$o->subtotalPkr
+            && (int)$existing['discount_pkr']===$o->discountPkr
+            && (int)$existing['total_pkr']===$o->totalPkr
+            && $existing['payment_method']===$o->paymentMethod
+            && $existing['customer_phone']===$o->customerPhone
+            && $existing['customer_name']===$o->customerName;
+        $storedSplit=$existing['payment_split']?json_decode($existing['payment_split'],true):null;
+        $expectedSplit=$o->paymentSplit;
+        if(is_array($storedSplit)) ksort($storedSplit);
+        if(is_array($expectedSplit)) ksort($expectedSplit);
+        $same=$same && $storedSplit===$expectedSplit;
+        $storedItems=$this->loadItems((int)$existing['id']);
+        $expectedItems=array_map(fn($item)=>[
+            'product_id'=>(int)$item['product_id'],'sku'=>(string)$item['sku'],'name'=>(string)$item['name'],
+            'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)$item['unit_price_pkr'],'discount_pkr'=>(int)($item['discount_pkr']??0)
+        ],$items);
+        $storedItems=array_map(fn($item)=>[
+            'product_id'=>(int)$item['product_id'],'sku'=>(string)$item['sku'],'name'=>(string)$item['name'],
+            'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)$item['unit_price_pkr'],'discount_pkr'=>(int)($item['discount_pkr']??0)
+        ],$storedItems);
+        if(!$same || $storedItems!==$expectedItems) throw new \DomainException('POS order reference was already used for a different sale payload.');
+        return (int)$existing['id'];
     }
     public function update(POSOrder $o): void {
         $data=['sync_status'=>$o->getSyncStatus()->value,'wc_order_id'=>$o->getWcOrderId()];
