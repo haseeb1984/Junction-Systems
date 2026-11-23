@@ -31,6 +31,22 @@
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
+<section class="card" style="padding:16px;margin:16px 0;">
+<h2>Transfer Stock Between Locations</h2>
+<form method="POST" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+<?php wp_nonce_field('pkstore_inventory_action'); ?>
+<input type="hidden" name="pkstore_inventory_action" value="transfer_stock">
+<input type="hidden" name="reference_id" value="<?=esc_attr(wp_generate_uuid4())?>">
+<label>Product<br><select name="product_id" required><option value="">Select product</option><?php foreach($products as $product): ?><option value="<?=(int)$product->id?>"><?=esc_html($product->name.' ('.$product->sku.')')?></option><?php endforeach; ?></select></label>
+<label>From location<br><select name="from_location_id" required><option value="">Select source</option><?php foreach($locations as $location): ?><option value="<?=(int)$location->id?>"><?=esc_html($location->name)?></option><?php endforeach; ?></select></label>
+<label>To location<br><select name="to_location_id" required><option value="">Select destination</option><?php foreach($locations as $location): ?><option value="<?=(int)$location->id?>"><?=esc_html($location->name)?></option><?php endforeach; ?></select></label>
+<label>Quantity<br><input type="number" name="quantity" min="1" step="1" required style="width:100px;"></label>
+<label>Note<br><input type="text" name="note" maxlength="255" style="width:180px;"></label>
+<button class="button button-primary" type="submit">Transfer Stock</button>
+</form>
+<p class="description">Transfers are atomic and require stock to be available at the source location. The reference is retained for safe duplicate submissions.</p>
+</section>
+
 <!-- Product Table -->
 <div>
 <table class="wp-list-table widefat fixed striped">
