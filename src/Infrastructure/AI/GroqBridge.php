@@ -5,7 +5,7 @@ namespace PkStore\Infrastructure\AI;
 use PkStore\Domain\AI\AiProviderInterface;
 use PkStore\Domain\AI\Exception\AiProviderException;
 use PkStore\Domain\AI\ValueObject\{ChatRequest, ChatResponse};
-use PkStore\License\LicenseManager;
+use PkStore\Settings\SettingsManager;
 use Psr\Log\LoggerInterface;
 
 /**
