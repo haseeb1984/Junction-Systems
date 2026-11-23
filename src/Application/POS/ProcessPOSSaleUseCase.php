@@ -41,7 +41,7 @@ final class ProcessPOSSaleUseCase {
         $this->sessionRepo->recordSaleAtomic($sessionId, $order->totalPkr, $paymentMethod, $paymentSplit);
         $this->log->info('POS sale processed.', ['order_ref'=>$order->orderRef,'total'=>$order->totalPkr,'method'=>$paymentMethod]);
         $savedOrder = $this->orderRepo->findById($orderId);
-        if (!$savedOrder) throw new \\RuntimeException('POS order was saved but could not be reloaded.');
+        if (!$savedOrder) throw new \RuntimeException('POS order was saved but could not be reloaded.');
         return $savedOrder;
     }
 }
