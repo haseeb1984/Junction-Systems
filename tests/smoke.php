@@ -538,6 +538,13 @@ if (strpos($returnSource, 'onWooCommerceRefundItemRestocked(') === false
 }
 
 
+$themeHeaderSource = file_get_contents(dirname(__DIR__) . '/style.css');
+if (!is_string($themeHeaderSource)
+    || strpos($themeHeaderSource, 'WC requires at least: 9.1') === false
+    || strpos($themeHeaderSource, 'WC tested up to:      9.0') !== false) {
+    throw new \\RuntimeException('Theme compatibility metadata must require the WooCommerce version that provides the stock-restoration lifecycle hook.');
+}
+
 $migrationRunnerSource = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
 if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, '$isExistingInstall = self::hasExistingTables();') === false
@@ -1310,6 +1317,10 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, 'markReturnPending(') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_cycle_return_capture_failed_') === false
     || strpos($stockCycleHooksSource, 'holdOrderForInventorySync(') === false
+    || strpos($stockCycleHooksSource, "version_compare(WC_VERSION, '9.1', '<')") === false
+    || strpos($stockCycleHooksSource, 'blockPurchasesOnUnsupportedWooCommerce') === false
+    || strpos($stockCycleHooksSource, 'blockCheckoutOnUnsupportedWooCommerce') === false
+    || strpos($stockCycleHooksSource, 'hasJunctionInventoryMapping') === false
     || strpos($stockCycleHooksSource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($stockCycleHooksSource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
