@@ -28,13 +28,13 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
         $movementTable=$this->db->prefix.'pkstore_inventory_movements';
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start POS checkout transaction: '.$this->db->last_error);
         try {
-            $existingId=$this->existingSaleId($o,$items);
+            $existingId=$this->existingSaleId($o,$items,false);
             if($existingId!==null) {
                 if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish POS retry check: '.$this->db->last_error);
                 return $existingId;
             }
             $session=$this->db->get_row($this->db->prepare("SELECT id,location_id,status FROM {$sessionTable} WHERE id=%d FOR UPDATE",$o->sessionId),ARRAY_A);
-            $existingId=$this->existingSaleId($o,$items);
+            $existingId=$this->existingSaleId($o,$items,true);
             if($existingId!==null) {
                 if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish concurrent POS retry check: '.$this->db->last_error);
                 return $existingId;
@@ -94,8 +94,9 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             throw $e;
         }
     }
-    private function existingSaleId(POSOrder $o,array $items): ?int {
-        $existing=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE order_ref=%s",$o->orderRef),ARRAY_A);
+    private function existingSaleId(POSOrder $o,array $items,bool $lock=false): ?int {
+        $sql="SELECT * FROM {$this->t()} WHERE order_ref=%s".($lock?' FOR UPDATE':'');
+        $existing=$this->db->get_row($this->db->prepare($sql,$o->orderRef),ARRAY_A);
         if(!$existing) return null;
         $same=(int)$existing['session_id']===$o->sessionId
             && (int)$existing['location_id']===$o->locationId
