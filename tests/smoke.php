@@ -1400,6 +1400,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, 'cycleUuidForReturn($order)') === false
     || strpos($stockCycleHooksSource, 'private function cycleUuidForReturn(\\WC_Order $order): ?string') === false
     || strpos($stockCycleHooksSource, 'resolveCycleUuidForReturn($order)') === false
+    || strpos($stockCycleHooksSource, "$snapshotVersion !== '1'") === false
     || strpos($stockCycleHooksSource, "'capturing'") === false
     || strpos($stockCycleHooksSource, 'Unable to mark WooCommerce stock-reduction snapshot as pending.') === false
     || strpos($stockCycleHooksSource, 'Unable to restore WooCommerce stock-reduction snapshot state.') === false
@@ -1448,6 +1449,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'applyWooCommerceSaleCycle(') === false
     || strpos($stockSaleSource, 'Cycle-aware WooCommerce cancellation return cannot use legacy order-level accounting without its cycle UUID.') === false
     || strpos($stockSaleSource, 'Cycle-aware WooCommerce refund return cannot use legacy order-level accounting without its cycle UUID.') === false
+    || strpos($stockSaleSource, "get_meta('_pkstore_wc_reduction_snapshot_version', true) !== ''") === false
     || strpos($stockSaleSource, 'snapshot capture is incomplete and must be reviewed before ledger ingestion.') === false
     || strpos($stockSaleSource, 'Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.') === false
     || strpos($stockSaleSource, 'wc_stock_cycle') === false
