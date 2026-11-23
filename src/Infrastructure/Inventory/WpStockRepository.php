@@ -51,7 +51,7 @@ final class WpStockRepository implements StockRepositoryInterface {
             if ($existingRows) {
                 $expected = [
                     $fromLocationId => ['delta'=>-$quantity,'type'=>'transfer_out'],
-                    $toLocationId => ['delta'=>$quantity,'type'=>'transfer'],
+                    $toLocationId => ['delta'=>$quantity,'type'=>'transfer_in'],
                 ];
                 $valid = count($existingRows) === 2;
                 foreach ($existingRows as $entry) {
