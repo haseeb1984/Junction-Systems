@@ -563,7 +563,8 @@ if (!is_string($migrationRunnerSource)
     || strpos($migrationRunnerSource, "FRESH_INSTALL_OPTION = 'pkstore_db_fresh_install_in_progress'") === false
     || strpos($migrationRunnerSource, 'get_option(self::FRESH_INSTALL_OPTION, \'\') === \'yes\'') === false
     || strpos($migrationRunnerSource, 'Unable to persist fresh-install migration state.') === false
-    || strpos($migrationRunnerSource, 'delete_option(self::FRESH_INSTALL_OPTION)') === false
+    || strpos($migrationRunnerSource, "update_option(self::FRESH_INSTALL_OPTION, 'complete', false)") === false
+    || strpos($migrationRunnerSource, 'Unable to finalize fresh-install migration state.') === false
     || strpos($migrationRunnerSource, '$isExistingInstall = $freshInstallInProgress ? false : self::hasExistingTables();') === false
     || strpos($migrationRunnerSource, 'self::verifyRequiredTables($version)') === false
     || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false
