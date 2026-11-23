@@ -497,7 +497,10 @@ if (!is_string($adminInventorySource)
     || strpos($adminInventorySource, 'FILTER_VALIDATE_INT') === false
     || strpos($adminInventorySource, 'wc_get_product($wcProductId)') === false
     || strpos($adminInventorySource, "isEnabled('barcode_labels')") === false
-    || strpos($adminInventorySource, 'findByWcProductId($wcProductId)') === false) {
+    || strpos($adminInventorySource, 'findByWcProductId($wcProductId)') === false
+    || strpos($adminInventorySource, 'findByBarcode($barcode)') === false
+    || strpos($adminInventorySource, 'Product was created but automatic barcode generation failed') === false
+    || strpos($adminInventorySource, 'Admin product creation failed') === false) {
     throw new \RuntimeException('Admin product creation must validate integer prices and WooCommerce mappings and respect barcode entitlement.');
 }
 if (!is_string($inventoryHttpSource)
