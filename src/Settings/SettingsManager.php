@@ -81,6 +81,8 @@ final class SettingsManager{
         'daraz'=>['DARAZ_APP_KEY'=>false,'DARAZ_APP_SECRET'=>true,'DARAZ_ACCESS_TOKEN'=>true,'DARAZ_REFRESH_TOKEN'=>true],
         'postex'=>['POSTEX_TOKEN'=>true,'POSTEX_STORE_ID'=>false,'POSTEX_SANDBOX'=>false],
         'rider'=>['RIDER_API_KEY'=>true],
+        'mailchimp'=>['MAILCHIMP_API_KEY'=>true,'MAILCHIMP_LIST_ID'=>false,'MAILCHIMP_STORE_ID'=>false],
+        'klaviyo'=>['KLAVIYO_PRIVATE_KEY'=>true,'KLAVIYO_LIST_ID'=>false],
         'general'=>['DEFAULT_PAYMENT_GATEWAY'=>false,'DEFAULT_COURIER'=>false,'DEFAULT_SMS_PROVIDER'=>false,'STORE_HELPLINE'=>false,'STORE_WHATSAPP'=>false],
         default=>[],
     };}
@@ -94,6 +96,7 @@ final class SettingsManager{
             'QUICKBOOKS_CLIENT_SECRET','QUICKBOOKS_REFRESH_TOKEN',
             'DARAZ_APP_SECRET','DARAZ_ACCESS_TOKEN','DARAZ_REFRESH_TOKEN',
             'POSTEX_TOKEN','RIDER_API_KEY',
+            'MAILCHIMP_API_KEY','KLAVIYO_PRIVATE_KEY',
         ];
         return in_array($key,$keys,true);
     }
