@@ -536,6 +536,14 @@ if (!is_string($inventoryProductRepositorySource)
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
 }
 
+
+$barcodeUseCaseSource = file_get_contents($src . '/Application/Inventory/GenerateBarcodeUseCase.php');
+if (!is_string($barcodeUseCaseSource)
+    || strpos($barcodeUseCaseSource, 'for ($attempt = 1; $attempt <= 999; $attempt++)') === false
+    || strpos($barcodeUseCaseSource, 'Unable to generate a unique inventory barcode.') === false) {
+    throw new \RuntimeException('Automatic barcode generation must probe alternatives and fail closed when collisions cannot be resolved.');
+}
+
 $returnSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 $returnHooks = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
 if (!is_string($returnSource)
