@@ -1380,6 +1380,8 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'WooCommerce refund cannot be assigned safely after a prior cancellation stock cycle.') === false
     || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
+    || strpos($stockCycleCaptureSource, 'public function resolveCycleUuidForReturn(\\WC_Order $order): string') === false
+    || strpos($stockCycleCaptureSource, 'prior closed cycles require manual reconciliation') === false
     || !is_string($stockCycleHooksSource)
     || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_active_cycle_uuid') === false
@@ -1395,6 +1397,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
     || strpos($stockCycleHooksSource, 'bindInventorySyncHoldCycle($order, $cycleUuid)') === false
     || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order, $cycleUuid)') === false
+    || strpos($stockCycleHooksSource, 'cycleUuidForReturn($order)') === false
+    || strpos($stockCycleHooksSource, 'private function cycleUuidForReturn(\\WC_Order $order): ?string') === false
+    || strpos($stockCycleHooksSource, 'resolveCycleUuidForReturn($order)') === false
     || strpos($stockCycleHooksSource, "'capturing'") === false
     || strpos($stockCycleHooksSource, 'Unable to mark WooCommerce stock-reduction snapshot as pending.') === false
     || strpos($stockCycleHooksSource, 'Unable to restore WooCommerce stock-reduction snapshot state.') === false
