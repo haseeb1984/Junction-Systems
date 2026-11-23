@@ -496,7 +496,8 @@ if (!is_string($inventoryHttpSource)
 if (!is_string($adminInventorySource)
     || strpos($adminInventorySource, 'FILTER_VALIDATE_INT') === false
     || strpos($adminInventorySource, 'wc_get_product($wcProductId)') === false
-    || strpos($adminInventorySource, "isEnabled('barcode_labels')") === false) {
+    || strpos($adminInventorySource, "isEnabled('barcode_labels')") === false
+    || strpos($adminInventorySource, 'findByWcProductId($wcProductId)') === false) {
     throw new \RuntimeException('Admin product creation must validate integer prices and WooCommerce mappings and respect barcode entitlement.');
 }
 if (!is_string($inventoryHttpSource)
