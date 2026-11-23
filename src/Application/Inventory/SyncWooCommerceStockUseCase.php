@@ -14,28 +14,40 @@ final class SyncWooCommerceStockUseCase {
     ) {}
     public function onWooCommerceSale(int $orderId): void {
         $order = wc_get_order($orderId);
-        if (!($order instanceof \WC_Order)) return;
+        if (!($order instanceof \\WC_Order)) return;
         $onlineLocation = $this->locationRepo->findOnline();
         if (!$onlineLocation) return;
+        // Aggregate repeated lines for the same mapped product before applying stock once.
+        $quantities = [];
         foreach ($order->get_items() as $item) {
             $wcProductId = (int)$item->get_product_id();
-            $quantity    = (int)$item->get_quantity();
-            $product     = $this->productRepo->findByWcProductId($wcProductId);
-            if (!$product) continue;
+            $product = $this->productRepo->findByWcProductId($wcProductId);
+            if (!$product) {
+                $this->log->warning('WooCommerce product has no inventory mapping.', ['order_id'=>$orderId,'wc_product_id'=>$wcProductId]);
+                continue;
+            }
+            $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int)$item->get_quantity();
+        }
+        foreach ($quantities as $productId => $quantity) {
+            $marker = '_pkstore_inventory_synced_product_' . (int)$productId;
+            if ($order->get_meta($marker)) continue;
             try {
-                $this->adjustStock->execute($product->id, $onlineLocation->id, -$quantity, MovementType::OnlineSale, "WooCommerce order #{$orderId}", 'wc_order', (string)$orderId);
-            } catch (\DomainException $e) {
-                $this->log->error('WC stock sync failed.', ['product_id'=>$product->id,'error'=>$e->getMessage()]);
+                $this->adjustStock->execute((int)$productId, $onlineLocation->id, -$quantity, MovementType::OnlineSale, "WooCommerce order #{$orderId}", 'wc_order', (string)$orderId);
+                // Persist per-product completion so repeated status/payment hooks cannot deduct twice.
+                $order->update_meta_data($marker, 1);
+                $order->save();
+            } catch (\\DomainException $e) {
+                $this->log->error('WC stock sync failed.', ['order_id'=>$orderId,'product_id'=>$productId,'error'=>$e->getMessage()]);
             }
         }
     }
     public function syncAllToWooCommerce(): int {
         $products = $this->productRepo->findAll(500, 0);
-        $synced   = 0;
+        $synced = 0;
         foreach ($products as $product) {
             if (!$product->wcProductId) continue;
             $totalStock = $this->stockRepo->getTotalStock($product->id);
-            $wcProduct  = wc_get_product($product->wcProductId);
+            $wcProduct = wc_get_product($product->wcProductId);
             if (!$wcProduct) continue;
             $wcProduct->set_manage_stock(true);
             $wcProduct->set_stock_quantity($totalStock);
