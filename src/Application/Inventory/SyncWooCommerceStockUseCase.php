@@ -42,19 +42,23 @@ final class SyncWooCommerceStockUseCase {
         }
     }
     public function syncAllToWooCommerce(): int {
-        $products = $this->productRepo->findAll(500, 0);
+        $total = $this->productRepo->countAll();
         $synced = 0;
-        foreach ($products as $product) {
-            if (!$product->wcProductId) continue;
-            $totalStock = $this->stockRepo->getTotalStock($product->id);
-            $wcProduct = wc_get_product($product->wcProductId);
-            if (!$wcProduct) continue;
-            $wcProduct->set_manage_stock(true);
-            $wcProduct->set_stock_quantity($totalStock);
-            $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-            $wcProduct->save();
-            $synced++;
+        for ($offset = 0; $offset < $total; $offset += 500) {
+            foreach ($this->productRepo->findAll(500, $offset) as $product) {
+                if (!$product->wcProductId) continue;
+                $totalStock = $this->stockRepo->getTotalStock($product->id);
+                $wcProduct = wc_get_product($product->wcProductId);
+                if (!$wcProduct) continue;
+                $wcProduct->set_manage_stock(true);
+                $wcProduct->set_stock_quantity($totalStock);
+                $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
+                $wcProduct->save();
+                $synced++;
+            }
         }
+        return $synced;
+    }
         return $synced;
     }
 }
