@@ -1188,6 +1188,10 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource)
     || strpos($codOtpControllerSource, 'woocommerce_checkout_create_order') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_order_processed') === false
     || strpos($codOtpControllerSource, 'bindConsumedAttemptToOrder(') === false
+    || strpos($codOtpControllerSource, 'holdCodOrderForOtpReview(') === false
+    || strpos($codOtpControllerSource, "_pkstore_cod_otp_review_required") === false
+    || strpos($codOtpControllerSource, "update_status('on-hold'") === false
+    || strpos($codOtpControllerSource, 'The final COD order billing phone differs from the verified phone.') === false
     || strpos($codOtpControllerSource, 'consumeVerifiedAttempt(') === false
     || strpos($codOtpControllerSource, 'is_virtual()') === false
     || strpos($codOtpControllerSource, 'is_downloadable()') !== false
@@ -1195,6 +1199,8 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource)
     || strpos($codOtpControllerSource, "update_meta_data('_pkstore_cod_otp_verified', 'yes')") === false
     || strpos($otpRepositorySource, 'consumed_at IS NULL') === false
     || strpos($otpRepositorySource, 'consumed_order_id=%s') === false
+    || strpos($otpRepositorySource, '(consumed_order_id IS NULL OR consumed_order_id=%s)') === false
+    || strpos($otpRepositorySource, 'return (string) $boundOrderId === $orderId;') === false
     || strpos($otpRepositorySource, "new \\DateTimeImmutable())->format('Y-m-d H:i:s')") === false
     || strpos($otpRepositorySource, 'expires_at>%s') === false
     || strpos($otpRepositorySource, 'expires_at>NOW()') !== false
