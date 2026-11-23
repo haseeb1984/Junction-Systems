@@ -22,6 +22,26 @@ final class WpPOSSessionRepository implements POSSessionRepositoryInterface {
             'closed_at'=>$s->getClosedAt()?$s->getClosedAt()->format('Y-m-d H:i:s'):null,
         ],['id'=>$s->id]);
     }
+    public function recordSaleAtomic(int $sessionId, int $total, string $paymentMethod, ?array $paymentSplit = null): void {
+        if ($total < 0) throw new \\InvalidArgumentException('Sale total cannot be negative.');
+        $amounts = ['cash'=>0,'card'=>0,'jazzcash'=>0,'easypaisa'=>0];
+        if ($paymentSplit !== null) {
+            foreach ($paymentSplit as $method=>$amount) {
+                if (!array_key_exists((string)$method,$amounts) || (int)$amount < 0) throw new \\InvalidArgumentException('Invalid split payment entry.');
+                $amounts[$method] += (int)$amount;
+            }
+            if (array_sum($amounts) !== $total) throw new \\InvalidArgumentException('Split payment amounts must equal the sale total.');
+        } else {
+            if (!array_key_exists($paymentMethod,$amounts)) throw new \\InvalidArgumentException('Unsupported POS payment method.');
+            $amounts[$paymentMethod] = $total;
+        }
+        $sql = $this->db->prepare("UPDATE {$this->t()} SET total_sales_pkr=total_sales_pkr+%d,total_cash_pkr=total_cash_pkr+%d,total_card_pkr=total_card_pkr+%d,total_jazzcash=total_jazzcash+%d,total_easypaisa=total_easypaisa+%d WHERE id=%d AND status='open'",
+            $total,$amounts['cash'],$amounts['card'],$amounts['jazzcash'],$amounts['easypaisa'],$sessionId
+        );
+        $changed = $this->db->query($sql);
+        if ($changed === false) throw new \\RuntimeException('Unable to record POS session sale: '.$this->db->last_error);
+        if ($changed !== 1) throw new \\RuntimeException('POS session is closed or does not exist.');
+    }
     public function findById(int $id): ?POSSession {
         $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
         return $r?$this->h($r):null;
