@@ -1279,7 +1279,7 @@ if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'wc_get_orders($orderQuery)') === false
     || strpos($shippingWebhookSource, 'OrderUtil::custom_orders_table_usage_is_enabled()') === false
     || strpos($shippingWebhookSource, "'meta_query'] = [[") === false
-    || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . $cc") === false
+    || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . \$cc") === false
     || strpos($shippingWebhookSource, "'meta_value'] = \$tn") === false
     || strpos($shippingWebhookSource, "'status'=>'invalid_signature'],401") === false
     || strpos($shippingWebhookSource, "'status'=>'missing_tracking_number'],422") === false
@@ -1345,8 +1345,8 @@ if (!is_string($shippingRegistrySource) || !is_string($servicesSource) || !is_st
     || strpos($shippingRegistrySource, "_pkstore_cod_otp_verified") === false
     || strpos($shippingRegistrySource, 'if (!$items) return false;') === false
     || strpos($shippingRegistrySource, "'needs_review'") === false
-    || strpos($shippingRegistrySource, "add_action('pkstore_inventory_sync_hold_released', [\\$this, 'autoBookShipment'], 10, 1)") === false
-    || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\\$this, 'autoBookShipment'], 10, 1)") === false
+    || strpos($shippingRegistrySource, "add_action('pkstore_inventory_sync_hold_released', [\$this, 'autoBookShipment'], 10, 1)") === false
+    || strpos($shippingRegistrySource, "add_action('woocommerce_order_status_processing', [\$this, 'autoBookShipment'], 10, 1)") === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_tcs\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_leopards\'))') === false
     || strpos($servicesSource, 'if($features->isEnabled(\'courier_trax\'))') === false
