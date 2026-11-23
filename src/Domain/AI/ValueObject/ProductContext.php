@@ -6,8 +6,8 @@ final readonly class ProductContext {
     public function __construct(
         public readonly string $sku,
         public readonly string $name,
-        public readonly int $pricePkr,
-        public readonly ?int $salePricePkr,
+        public readonly string $price,
+        public readonly ?string $salePrice,
         public readonly string $stockStatus,
         public readonly ?int $stockQuantity,
         public readonly string $shortDescription,
@@ -30,19 +30,19 @@ final readonly class ProductContext {
             'id' => $this->productId,
             'sku' => $this->sku,
             'name' => $this->name,
-            'px' => $this->pricePkr,
+            'price' => $this->price,
             'currency' => $this->currency,
             'stock' => $this->stockStatus,
             'url' => $this->productUrl,
-            'cat' => $this->categoryNames,
-            'desc' => $description,
+            'category' => $this->categoryNames,
+            'description' => $description,
         ];
 
-        if ($this->salePricePkr !== null) $data['sale'] = $this->salePricePkr;
-        if ($this->stockQuantity !== null) $data['qty'] = $this->stockQuantity;
-        if (!empty($this->attributes)) $data['attrs'] = $this->attributes;
+        if ($this->salePrice !== null) $data['sale_price'] = $this->salePrice;
+        if ($this->stockQuantity !== null) $data['quantity'] = $this->stockQuantity;
+        if (!empty($this->attributes)) $data['attributes'] = $this->attributes;
         if ($this->brand !== null) $data['brand'] = $this->brand;
-        if ($this->isVariation) $data['variation'] = true;
+        if ($this->isVariation) $data['is_variation'] = true;
 
         return $data;
     }
