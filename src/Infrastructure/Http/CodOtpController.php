@@ -48,6 +48,7 @@ final class CodOtpController {
         add_action('woocommerce_after_checkout_validation', [$this, 'validateCheckout'], 100, 2);
         add_action('woocommerce_checkout_create_order', [$this, 'attachProofToOrder'], 100, 2);
         add_action('woocommerce_checkout_order_processed', [$this, 'bindProofToOrder'], 100, 3);
+        add_action('woocommerce_order_status_processing', [$this, 'enforceCodOtpFulfilmentHold'], 1, 1);
     }
 
     public function verifyNonce(\WP_REST_Request $request): bool {
@@ -287,6 +288,22 @@ final class CodOtpController {
         }
 
         $this->clearSessionProof();
+    }
+
+    public function enforceCodOtpFulfilmentHold(int $orderId): void {
+        $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
+        if (!($order instanceof \WC_Order)
+            || $order->get_payment_method() !== 'cod'
+            || $this->isDigitalOnlyOrder($order)) {
+            return;
+        }
+        if ($order->get_meta('_pkstore_cod_otp_review_required', true) === 'yes'
+            || $order->get_meta('_pkstore_cod_otp_verified', true) !== 'yes') {
+            $this->holdCodOrderForOtpReview(
+                $order,
+                'COD order did not have a valid server-verified phone proof before processing.'
+            );
+        }
     }
 
     private function holdCodOrderForOtpReview(\WC_Order $order, string $reason): void {
