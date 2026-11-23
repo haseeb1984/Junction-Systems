@@ -81,7 +81,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
                 // after checkout cannot permanently leave WooCommerce stock stale.
                 $queueTable=$this->db->prefix.'pkstore_stock_projection_queue';
                 $queued=$this->db->query($this->db->prepare(
-                    "INSERT INTO {$queueTable} (product_id,status,attempts,next_attempt_at,last_error,updated_at) VALUES (%d,'pending',0,%s,NULL,%s) ON DUPLICATE KEY UPDATE status='pending',attempts=0,next_attempt_at=VALUES(next_attempt_at),last_error=NULL,updated_at=VALUES(updated_at)",
+                    "INSERT INTO {$queueTable} (product_id,status,attempts,next_attempt_at,last_error,updated_at) VALUES (%d,'pending',0,%s,NULL,%s) ON DUPLICATE KEY UPDATE status='pending',attempts=0,revision=revision+1,next_attempt_at=VALUES(next_attempt_at),last_error=NULL,updated_at=VALUES(updated_at)",
                     (int)$productId,current_time('mysql'),current_time('mysql')
                 ));
                 if($queued===false) throw new \RuntimeException('Unable to queue WooCommerce stock projection: '.$this->db->last_error);
