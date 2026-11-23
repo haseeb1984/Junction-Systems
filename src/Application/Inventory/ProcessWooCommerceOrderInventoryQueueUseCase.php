@@ -148,6 +148,14 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
         if ((int) $freshOrder->save() !== $orderId) {
             throw new \RuntimeException('Unable to clear the completed WooCommerce inventory hold marker.');
         }
+
+        // The processing-status hook may have fired while the hold marker was
+        // still present, causing Junction's courier trigger to correctly skip
+        // booking. Re-dispatch a dedicated event only after the ledger commit
+        // and hold-marker removal are both durable.
+        if ($freshOrder->get_status() === 'processing') {
+            do_action('pkstore_inventory_sync_hold_released', $orderId);
+        }
     }
 
     public function execute(int $limit = 20): array {
