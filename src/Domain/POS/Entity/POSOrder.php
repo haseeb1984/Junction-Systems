@@ -24,7 +24,7 @@ final class POSOrder {
         if ($wcOrderId !== null) $this->wcOrderId = $wcOrderId;
     }
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
-    public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): self {
+    public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $orderRef = null): self {
         if ($discountPkr < 0) throw new \InvalidArgumentException('Order discount cannot be negative.');
         $subtotal = 0;
         $lineDiscountTotal = 0;
@@ -58,7 +58,8 @@ final class POSOrder {
             }
             if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
         }
-        $ref = 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
+        $ref = $orderRef !== null && $orderRef !== '' ? trim($orderRef) : 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
+        if (!preg_match('/^[A-Za-z0-9_-]{6,30}$/', $ref)) throw new \\InvalidArgumentException('POS order reference must be 6-30 letters, numbers, hyphens or underscores.');
         $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
         $order->items = $items;
         return $order;
