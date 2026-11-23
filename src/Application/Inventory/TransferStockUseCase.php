@@ -12,12 +12,12 @@ final class TransferStockUseCase {
     ) {}
     /** Returns the stable transfer reference; callers should retain it for safe retries. */
     public function execute(int $productId,int $fromLocationId,int $toLocationId,int $quantity,string $note='',?string $referenceId=null): string {
-        if ($fromLocationId === $toLocationId) throw new \\InvalidArgumentException('Source and destination locations must differ.');
+        if ($fromLocationId === $toLocationId) throw new \InvalidArgumentException('Source and destination locations must differ.');
         $product=$this->productRepo->findById($productId);
-        if (!$product) throw new \\RuntimeException('Inventory product not found.');
+        if (!$product) throw new \RuntimeException('Inventory product not found.');
         $from=$this->locationRepo->findById($fromLocationId);
         $to=$this->locationRepo->findById($toLocationId);
-        if (!$from || !$from->isActive || !$to || !$to->isActive) throw new \\RuntimeException('Both transfer locations must exist and be active.');
+        if (!$from || !$from->isActive || !$to || !$to->isActive) throw new \RuntimeException('Both transfer locations must exist and be active.');
         $referenceId=$referenceId ?: 'TRF-'.strtoupper(bin2hex(random_bytes(12)));
         $this->stockRepo->transferStock($productId,$fromLocationId,$toLocationId,$quantity,$referenceId,$note,get_current_user_id());
         if ($product->wcProductId) {
