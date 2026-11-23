@@ -1143,7 +1143,7 @@ if (!is_string($courierCircuitBreakerSource)
     || strpos($courierCircuitBreakerSource, 'Booking outcome unknown after provider exception.') === false
     || strpos($courierCircuitBreakerSource, 'Manual provider reconciliation is required.') === false
     || strpos($courierCircuitBreakerSource, 'return $lastDefinitiveFailure ?? $this->optimistic($s);') === false
-    || strpos($courierCircuitBreakerSource, 'as_schedule_single_action(time()+300,\'pkstore_retry_courier_booking\',[$orderId]') === false
+    || strpos($courierCircuitBreakerSource, 'as_schedule_single_action(time()+300,\'pkstore_retry_courier_booking\',[$orderId],\'pkstore-logistics\',true)') === false
     || strpos($courierCircuitBreakerSource, "as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>") !== false
     || strpos($courierCircuitBreakerSource, "str_starts_with(\$error->getMessage(), 'Setting [')") === false
     || strpos($courierCircuitBreakerSource, 'Courier configuration is incomplete. Check the store integration settings.') === false
