@@ -28,10 +28,48 @@ final class TrackingController {
     public function nonce(\WP_REST_Request $r):bool {
         return (bool) wp_verify_nonce($r->get_param('_nonce'), 'pkstore_nonce');
     }
+    private function rateLimited(string $orderKey): bool {
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) return true;
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ipHash = substr(hash_hmac('sha256', $ip, wp_salt('auth')), 0, 32);
+        $orderHash = substr(hash('sha256', $orderKey), 0, 32);
+        $ipKey = 'pkstore_tracking_ip_' . $ipHash;
+        $orderKeyName = 'pkstore_tracking_order_' . $orderHash;
+        $lockNames = ['pkstore_tracking_ip_' . $ipHash, 'pkstore_tracking_key_' . $orderHash];
+        sort($lockNames, SORT_STRING);
+        $acquired = [];
+        try {
+            foreach ($lockNames as $lockName) {
+                $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 1));
+                if ($wpdb->last_error !== '' || (int) $locked !== 1) return true;
+                $acquired[] = $lockName;
+            }
+            $ipCount = (int) get_transient($ipKey);
+            $orderCount = (int) get_transient($orderKeyName);
+            if ($ipCount >= 100 || $orderCount >= 20) return true;
+            if (!set_transient($ipKey, $ipCount + 1, HOUR_IN_SECONDS)
+                || !set_transient($orderKeyName, $orderCount + 1, HOUR_IN_SECONDS)) {
+                return true;
+            }
+            return false;
+        } finally {
+            foreach (array_reverse($acquired) as $lockName) {
+                $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+                if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                    error_log('[PK Store] Customer tracking rate-limit lock release could not be confirmed.');
+                }
+            }
+        }
+    }
+
     public function handle(\WP_REST_Request $r):\WP_REST_Response{
         $orderKey = trim((string) $r->get_param('order_key'));
         if ($orderKey === '' || strlen($orderKey) > 100) {
             return new \WP_REST_Response(['success'=>false,'code'=>'invalid_order_key','message'=>'Enter the order key from your confirmation email.'],422);
+        }
+        if ($this->rateLimited($orderKey)) {
+            return new \WP_REST_Response(['success'=>false,'code'=>'rate_limited','message'=>'Too many tracking requests. Please wait before trying again.'],429);
         }
         if (!function_exists('wc_get_order_id_by_order_key') || !function_exists('wc_get_order')) {
             return new \WP_REST_Response(['success'=>false,'code'=>'unavailable','message'=>'Order tracking is temporarily unavailable.'],503);
