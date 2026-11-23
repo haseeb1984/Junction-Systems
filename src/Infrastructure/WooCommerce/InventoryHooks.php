@@ -207,11 +207,12 @@ final class InventoryHooks {
 
     private function cycleUuidForReturn(\WC_Order $order): ?string {
         $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
-        if ($cycleUuid !== '') return $cycleUuid;
         if ((string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) !== '1') {
-            return null; // pre-cycle legacy order
+            return $cycleUuid !== '' ? $cycleUuid : null; // pre-cycle legacy order
         }
 
+        // For cycle-aware orders, verify the marker against durable cycle
+        // storage instead of trusting possibly stale order metadata.
         try {
             $cycleUuid = $this->c->make(\PkStore\Application\Inventory\CaptureWooCommerceStockCycleUseCase::class)
                 ->resolveCycleUuidForReturn($order);
