@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Http;
-use PkStore\Application\Inventory\{AdjustStockUseCase, GenerateBarcodeUseCase};
+use PkStore\Application\Inventory\{AdjustStockUseCase, GenerateBarcodeUseCase, WooCommerceStockMappingPolicy};
 use PkStore\Container\ServiceContainer;
 use PkStore\Core\Feature\FeatureManager;
 use PkStore\Domain\Inventory\Entity\MovementType;
@@ -142,8 +142,14 @@ final class InventoryController {
             || $salePrice < 0 || $costPrice < 0 || $reorderPoint < 0 || $wcProductId < 0) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Product fields must contain valid values and whole-number PKR amounts.'], 422);
         }
-        if ($wcProductId > 0 && (!function_exists('wc_get_product') || !wc_get_product($wcProductId))) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'The selected WooCommerce product does not exist.'], 422);
+        if ($wcProductId > 0) {
+            if (!function_exists('wc_get_product') || !($wcProduct = wc_get_product($wcProductId))) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'The selected WooCommerce product does not exist.'], 422);
+            }
+            $mappingError = WooCommerceStockMappingPolicy::errorFor($wcProduct);
+            if ($mappingError !== null) {
+                return new \WP_REST_Response(['success' => false, 'message' => $mappingError], 422);
+            }
         }
 
         try {
