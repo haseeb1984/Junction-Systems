@@ -1145,7 +1145,9 @@ if (!is_string($courierCircuitBreakerSource)
     || strpos($courierCircuitBreakerSource, 'return $lastDefinitiveFailure ?? $this->optimistic($s);') === false
     || strpos($courierCircuitBreakerSource, 'as_schedule_single_action(time()+300,\'pkstore_retry_courier_booking\',[$orderId]') === false
     || strpos($courierCircuitBreakerSource, "as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',['order_id'=>") !== false
-    || strpos($courierCircuitBreakerSource, 'return $lastFailure;') === false
+    || strpos($courierCircuitBreakerSource, "str_starts_with(\$error->getMessage(), 'Setting [')") === false
+    || strpos($courierCircuitBreakerSource, 'Courier configuration is incomplete. Check the store integration settings.') === false
+    || strpos($courierCircuitBreakerSource, 'return $lastFailure;') !== false
     || strpos($courierCircuitBreakerSource, '$this->fail($code);') === false) {
     throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
 }
