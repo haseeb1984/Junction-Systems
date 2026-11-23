@@ -1594,9 +1594,10 @@ $payoutRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/Wp
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
 $affiliateModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/affiliate.mjs');
 $affiliatePayoutTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/affiliate/payouts.php');
+$affiliateMemberTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/affiliate/affiliates.php');
 if (!is_string($affiliateRepositorySource) || !is_string($payoutRepositorySource)
     || !is_string($affiliateControllerSource) || !is_string($affiliateModuleSource)
-    || !is_string($affiliatePayoutTemplateSource)
+    || !is_string($affiliatePayoutTemplateSource) || !is_string($affiliateMemberTemplateSource)
     || strpos($affiliateRepositorySource, "'payment_account'=>'__encrypted__'") === false
     || strpos($affiliateRepositorySource, "setSecret('AFFILIATE_PAYMENT_ACCOUNT_' . \$id") === false
     || strpos($affiliateRepositorySource, "\$settings->get(\$accountKey, '')") === false
@@ -1608,7 +1609,8 @@ if (!is_string($affiliateRepositorySource) || !is_string($payoutRepositorySource
     || strpos($affiliateModuleSource, "request('affiliate/products'") === false
     || strpos($affiliateModuleSource, 'textContent=String(text)') === false
     || strpos($affiliatePayoutTemplateSource, "__encrypted__") === false
-    || strpos($affiliatePayoutTemplateSource, "SettingsManager::getInstance()->get(\$accountKey") === false) {
+    || strpos($affiliatePayoutTemplateSource, "SettingsManager::getInstance()->get(\$accountKey") === false
+    || strpos($affiliateMemberTemplateSource, "SettingsManager::getInstance()->get(\$accountKey") === false) {
     throw new \RuntimeException('Affiliate dashboard must load and payout account data must be encrypted at rest and decrypted only for authorized admin views.');
 }
 
