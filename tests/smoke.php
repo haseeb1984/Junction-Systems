@@ -779,7 +779,7 @@ $returnQueueMigrations = file_get_contents($src . '/Infrastructure/Database/Migr
 if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'claim_token=NULL') === false
     || strpos($returnQueueSource, 'claim_token=%s') === false
-    || strpos($returnQueueSource, '[\\'id\\' => $id, \\'status\\' => \\'processing\\', \\'claim_token\\' => $claimToken]') === false
+    || strpos($returnQueueSource, '[\'id\' => $id, \'status\' => \'processing\', \'claim_token\' => $claimToken]') === false
     || strpos($returnQueueSource, "'claim_token' => $claimToken") === false
     || !is_string($returnQueueSchema)
     || strpos($returnQueueSchema, 'claim_token CHAR(36) DEFAULT NULL') === false
