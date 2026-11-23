@@ -9,24 +9,11 @@ use Psr\Log\LoggerInterface;
 final class ProcessPayoutUseCase {
     public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly PayoutRepositoryInterface $payoutRepo, private readonly SettingsManager $settings, private readonly LoggerInterface $log) {}
     public function execute(int $affiliateId): void {
-        $a = $this->affiliateRepo->findById($affiliateId);
-        if ($a === null) throw new \RuntimeException("Affiliate [{$affiliateId}] not found.");
-        if (!$a->isEligibleForPayout()) throw new InsufficientBalanceException($a->getPendingPayoutPkr());
-        $amount = $a->getPendingPayoutPkr();
-        $payout = Payout::create($affiliateId, $amount, $a->paymentMethod, $a->paymentAccount);
-        $payoutId = $this->payoutRepo->save($payout);
-        $success = $a->paymentMethod === 'jazzcash' ? $this->payJazzCash($a->paymentAccount, $amount, $payoutId) : false;
-        if ($success) {
-            $a->recordPayout($amount);
-            $this->affiliateRepo->update($a);
-            $this->payoutRepo->updateStatus($payoutId, 'completed');
-            $this->log->info('Affiliate payout completed.', ['affiliate_id'=>$affiliateId,'amount'=>$amount]);
-            wp_mail($a->email, '[PK Store] Payout Sent!', sprintf("Dear %s,\n\nPKR %s has been sent to your %s account (%s).\n\nThank you!", $a->name, number_format($amount), strtoupper($a->paymentMethod), $a->paymentAccount));
-        } else {
-            $this->payoutRepo->updateStatus($payoutId, 'failed');
-            wp_mail(get_option('admin_email'), '[PK Store] Affiliate Payout FAILED', "Payout of PKR {$amount} to affiliate #{$affiliateId} ({$a->name}) failed. Process manually to {$a->paymentMethod}: {$a->paymentAccount}");
-        }
+        throw new \RuntimeException(
+            'Automated affiliate disbursement is disabled until a verified JazzCash/Easypaisa payout API contract is configured and approved.'
+        );
     }
+
     private function payJazzCash(string $mobile, int $amountPkr, int $payoutId): bool {
         $mid=$this->settings->get('JAZZCASH_MERCHANT_ID'); $pass=$this->settings->get('JAZZCASH_PASSWORD'); $ik=$this->settings->get('JAZZCASH_INTEGRITY_KEY');
         if (!$mid||!$pass||!$ik) return false;
