@@ -865,8 +865,8 @@ if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || strpos($productContextServiceSource, 'findPopular(self::MAX, $budget)') === false
     || strpos($contextSelectorSource, 'extractBudget(') === false
     || strpos($contextSelectorSource, 'extractSku(') === false
-    || strpos($productContextSource, "'url' => $this->productUrl") === false
-    || strpos($productContextSource, "if ($this->stockQuantity !== null)") === false
+    || strpos($productContextSource, "'url' => \$this->productUrl") === false
+    || strpos($productContextSource, 'if ($this->stockQuantity !== null)') === false
     || strpos($pralParserSource, "statusCode") === false
     || strpos($pralParserSource, "invoiceStatuses") === false
     || strpos($pralParserSource, '$expectedItemCount') === false
