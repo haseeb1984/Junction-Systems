@@ -168,8 +168,8 @@ final class PralClient {
         $status = (int) wp_remote_retrieve_response_code($response);
         $body = (string) wp_remote_retrieve_body($response);
 
-        if ($status === 401) {
-            throw new PralApiException('PRAL rejected this installation token (HTTP 401).', false, $status);
+        if ($status === 401 || $status === 403) {
+            throw new PralApiException('PRAL rejected this installation token (HTTP ' . $status . ').', false, $status);
         }
         if ($status >= 500) {
             throw new PralApiException(
