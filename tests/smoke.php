@@ -539,8 +539,20 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'Unable to list inventory products.') === false
     || strpos($inventoryProductRepositorySource, 'Unable to list inventory products below reorder point.') === false
     || strpos($inventoryProductRepositorySource, 'Unable to count inventory products.') === false
+    || strpos($inventoryProductRepositorySource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($inventoryProductRepositorySource, 'SELECT RELEASE_LOCK(%s)') === false
+    || strpos($inventoryProductRepositorySource, 'pkstore_inv_barcode_') === false
+    || strpos($inventoryProductRepositorySource, 'Barcode already exists.') === false
+    || strpos($inventoryProductRepositorySource, 'Duplicate entry') === false
     || strpos($inventoryProductRepositorySource, '$rows === null && $this->db->last_error !==') === false) {
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
+}
+
+
+if (!is_string($inventoryHttpSource)
+    || strpos($inventoryHttpSource, 'catch (\\DomainException $error)') === false
+    || strpos($inventoryHttpSource, '], 409)') === false) {
+    throw new \RuntimeException('Concurrent inventory identity conflicts must return HTTP 409 instead of a generic server error.');
 }
 
 
