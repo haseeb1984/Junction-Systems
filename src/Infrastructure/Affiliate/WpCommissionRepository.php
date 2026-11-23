@@ -6,7 +6,7 @@ use PkStore\Domain\Affiliate\Repository\CommissionRepositoryInterface;
 final class WpCommissionRepository implements CommissionRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_affiliate_commissions'; }
-    public function save(Commission $c): int { $this->db->insert($this->t(),['affiliate_id'=>$c->affiliateId,'order_id'=>$c->orderId,'order_total_pkr'=>$c->orderTotalPkr,'commission_pkr'=>$c->commissionPkr,'rate_percent'=>$c->ratePercent,'status'=>$c->status->value,'created_at'=>$c->createdAt->format('Y-m-d H:i:s')]); return (int)$this->db->insert_id; }
+    public function save(Commission $c): int { $result=$this->db->insert($this->t(),['affiliate_id'=>$c->affiliateId,'order_id'=>$c->orderId,'order_total_pkr'=>$c->orderTotalPkr,'commission_pkr'=>$c->commissionPkr,'rate_percent'=>$c->ratePercent,'status'=>$c->status->value,'created_at'=>$c->createdAt->format('Y-m-d H:i:s')]); $id=(int)$this->db->insert_id; if($result===false||$id<1)throw new \RuntimeException('Unable to persist affiliate commission.'); return $id; }
     public function findByOrderId(int $orderId): ?Commission { $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE order_id=%d",$orderId),ARRAY_A); return $r?$this->h($r):null; }
     public function findByAffiliate(int $affiliateId, int $limit=20): array { $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} WHERE affiliate_id=%d ORDER BY created_at DESC LIMIT %d",$affiliateId,$limit),ARRAY_A)?:[]; return array_map(fn($r)=>$this->h($r),$rows); }
     public function markApproved(int $id): void { $this->db->update($this->t(),['status'=>'approved'],['id'=>$id]); }
