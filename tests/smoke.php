@@ -542,7 +542,7 @@ $themeHeaderSource = file_get_contents(dirname(__DIR__) . '/style.css');
 if (!is_string($themeHeaderSource)
     || strpos($themeHeaderSource, 'WC requires at least: 9.1') === false
     || strpos($themeHeaderSource, 'WC tested up to:      9.0') !== false) {
-    throw new \\RuntimeException('Theme compatibility metadata must require the WooCommerce version that provides the stock-restoration lifecycle hook.');
+    throw new \RuntimeException('Theme compatibility metadata must require the WooCommerce version that provides the stock-restoration lifecycle hook.');
 }
 
 $migrationRunnerSource = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
