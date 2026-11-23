@@ -28,7 +28,14 @@ final class KlaviyoService {
 
     private function getOrCreateProfile(string $email, string $first, string $last): ?string {
         $filter = rawurlencode('equals(email,"' . sanitize_email($email) . '")');
-        $r=wp_remote_request(self::BASE . '/profiles/?filter=' . $filter',['timeout'=>15,'headers'=>['Authorization'=>'Klaviyo-API-Key '.$this->s->get('KLAVIYO_PRIVATE_KEY'),'revision'=>'2024-02-15']]);
+        $headers = [
+            'Authorization' => 'Klaviyo-API-Key ' . (string) $this->s->get('KLAVIYO_PRIVATE_KEY'),
+            'revision' => '2024-02-15',
+        ];
+        $r = wp_remote_request(
+            self::BASE . '/profiles/?filter=' . $filter,
+            ['timeout' => 15, 'headers' => $headers]
+        );
         if (is_wp_error($r)) return null;
         $b=json_decode(wp_remote_retrieve_body($r),true);
         if (!empty($b['data'][0]['id'])) return $b['data'][0]['id'];
