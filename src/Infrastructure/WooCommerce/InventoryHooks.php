@@ -9,9 +9,13 @@ final class InventoryHooks {
         add_action('woocommerce_payment_complete',           [$this, 'onSale']);
         add_action('woocommerce_order_status_completed',     [$this, 'onSale']);
         add_action('woocommerce_order_status_processing',    [$this, 'onSale']);
+        add_filter('cron_schedules', [$this, 'registerRetrySchedule']);
         if (!wp_next_scheduled('pkstore_inventory_hourly_sync'))
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
+        if (!wp_next_scheduled('pkstore_pos_stock_projection_retry'))
+            wp_schedule_event(time() + 300, 'pkstore_five_minutes', 'pkstore_pos_stock_projection_retry');
         add_action('pkstore_inventory_hourly_sync', [$this, 'hourlySyncAll']);
+        add_action('pkstore_pos_stock_projection_retry', [$this, 'retryStockProjections']);
     }
     public function onSale(int $orderId): void {
         $order = wc_get_order($orderId);
@@ -23,12 +27,15 @@ final class InventoryHooks {
             error_log('[PKStore Inventory] Stock sync failed for order '.$orderId.': '.$e->getMessage());
         }
     }
+    public function registerRetrySchedule(array $schedules): array {
+        $schedules['pkstore_five_minutes'] = ['interval' => 300, 'display' => 'Every Five Minutes'];
+        return $schedules;
+    }
     public function hourlySyncAll(): void {
-        $this->retryPOSStockProjections();
         try { $this->c->make(SyncWooCommerceStockUseCase::class)->syncAllToWooCommerce(); }
         catch (\Throwable $e) { error_log('[PKStore Inventory] Hourly sync failed: '.$e->getMessage()); }
     }
-    private function retryPOSStockProjections(): void {
+    public function retryStockProjections(): void {
         global $wpdb;
         $queue=$wpdb->prefix.'pkstore_stock_projection_queue';
         $stock=$wpdb->prefix.'pkstore_inventory_stock';
