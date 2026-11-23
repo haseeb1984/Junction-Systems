@@ -392,3 +392,19 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Added source smoke guards. Runtime acceptance must cover fresh install, existing-store backup gate, partial migration failure and recovery.
 
 - The same migration readiness gate now covers Inventory/POS admin pages and mutation forms, and the POS-to-WooCommerce background mirror worker waits for schema `2.0.13` rather than the older `2.0.0` baseline. This prevents staff UI actions or already-queued POS mirrors from touching partially migrated inventory tables while the backup gate is holding an upgrade.
+
+
+## Payment callback settlement serialization
+
+- JazzCash callback settlement now uses the same per-order advisory lock as payment initiation. The callback reloads the order while holding the lock, validates the signed provider payload against the stored transaction reference, amount, merchant, currency and transaction timestamp, and only then applies the result.
+- EasyPaisa IPN, thank-you-page verification and scheduled transaction reconciliation now use that same shared per-order lock before the authenticated status inquiry and payment-state transition. This serializes all initiation/callback/reconciliation paths across both gateways and prevents concurrent duplicate `payment_complete` side effects.
+- JazzCash now persists the confirmed callback state and provider retrieval reference before completing the order. Lock release failures are logged; lock acquisition failures return a retryable response rather than mutating payment state.
+- Added source smoke guards. Runtime acceptance still needs concurrent duplicate callback tests, callback-vs-checkout races, and database connection/lock-loss tests.
+
+## Courier booking ambiguity and duplicate-parcel protection
+
+- Courier transport timeouts, provider 5xx responses, unexpected post-submission exceptions, unreadable 2xx responses, and responses without a verifiable tracking number are now treated as ambiguous outcomes. Junction stops failover to another courier and stops automatic retries for that order, because the first provider may already have created the parcel.
+- The order is marked `needs_review` with the provider and reconciliation reason. The automatic booking trigger and retry worker refuse to resubmit while that marker remains. An operator must first reconcile the provider portal and resolve the order manually.
+- Only definitive provider rejections (such as validation/client errors) may fail over to another enabled courier. Missing provider credentials are classified as preflight failures because no request was sent, so another configured courier may still be attempted.
+- If every provider circuit is open and no request was attempted, the existing delayed retry remains safe. A synthetic `PENDING-*` tracking marker is still not treated as a confirmed shipment.
+- Added source smoke guards across the dispatcher, courier adapters, booking use case and WooCommerce trigger. Runtime sandbox acceptance must simulate provider acceptance followed by connection loss, 5xx-after-acceptance, malformed success bodies, duplicate hooks, and operator reconciliation before any production use.
