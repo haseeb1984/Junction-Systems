@@ -324,6 +324,9 @@ if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($ga4AnalyticsSource, "value:'") !== false
     || strpos($facebookPixelSource, "wp_has_consent('marketing')") === false
     || strpos($facebookPixelSource, "_pkstore_facebook_marketing_consent") === false
+    || strpos($facebookPixelSource, "_pkstore_facebook_client_user_agent") === false
+    || strpos($facebookPixelSource, "'client_user_agent']") === false
+    || strpos($facebookPixelSource, "wc_get_checkout_url()") === false
     || strpos($facebookPixelSource, "'event_id' => \$eventId") === false
     || strpos($facebookPixelSource, "eventID:'") === false
     || strpos($facebookPixelSource, 'graph.facebook.com/v27.0/') === false
