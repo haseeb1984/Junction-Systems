@@ -47,7 +47,6 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
         try {
             $po=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$purchaseOrderId),ARRAY_A);
             if(!$po) throw new \RuntimeException('Purchase order not found.');
-            if($po['status']==='cancelled' || $po['status']==='received') throw new \DomainException('This purchase order cannot receive further stock.');
             $existing=$this->db->get_row($this->db->prepare("SELECT id,po_id FROM {$this->tr()} WHERE receipt_reference=%s FOR UPDATE",$receiptReference),ARRAY_A);
             if($existing) {
                 if((int)$existing['po_id']!==$purchaseOrderId) throw new \DomainException('Receipt reference has already been used for another purchase order.');
@@ -58,6 +57,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish duplicate receipt check: '.$this->db->last_error);
                 return;
             }
+            if($po['status']==='cancelled' || $po['status']==='received') throw new \DomainException('This purchase order cannot receive further stock.');
             $receiptLines=[];
             foreach($items as $line) {
                 $itemId=(int)$line['item_id']; $qty=(int)$line['quantity'];
