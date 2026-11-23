@@ -1402,6 +1402,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, 'cycleUuidForReturn($order)') === false
     || strpos($stockCycleHooksSource, 'private function cycleUuidForReturn(\\WC_Order $order): ?string') === false
     || strpos($stockCycleHooksSource, 'resolveCycleUuidForReturn($order)') === false
+    || strpos($stockCycleHooksSource, 'if ($cycleUuid !== null && $cycleUuid !== \'\')') === false
+    || strpos($stockCycleHooksSource, 'if ($itemId !== null) {') === false
+    || strpos($stockCycleHooksSource, '$cycleUuid !== null && $cycleUuid !== \'\' ? $cycleUuid : null') === false
     || strpos($stockCycleHooksSource, "\$snapshotVersion !== '1'") === false
     || strpos($stockCycleHooksSource, "'capturing'") === false
     || strpos($stockCycleHooksSource, 'Unable to mark WooCommerce stock-reduction snapshot as pending.') === false
