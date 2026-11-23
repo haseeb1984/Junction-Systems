@@ -560,7 +560,11 @@ if (!is_string($themeHeaderSource)
 
 $migrationRunnerSource = file_get_contents($src . '/Infrastructure/Database/MigrationRunner.php');
 if (!is_string($migrationRunnerSource)
-    || strpos($migrationRunnerSource, '$isExistingInstall = self::hasExistingTables();') === false
+    || strpos($migrationRunnerSource, "FRESH_INSTALL_OPTION = 'pkstore_db_fresh_install_in_progress'") === false
+    || strpos($migrationRunnerSource, 'get_option(self::FRESH_INSTALL_OPTION, \'\') === \'yes\'') === false
+    || strpos($migrationRunnerSource, 'Unable to persist fresh-install migration state.') === false
+    || strpos($migrationRunnerSource, 'delete_option(self::FRESH_INSTALL_OPTION)') === false
+    || strpos($migrationRunnerSource, '$isExistingInstall = $freshInstallInProgress ? false : self::hasExistingTables();') === false
     || strpos($migrationRunnerSource, 'self::verifyRequiredTables($version)') === false
     || strpos($migrationRunnerSource, "version_compare(\$version, '2.0.3', '>=')") === false
     || strpos($migrationRunnerSource, 'Unable to determine whether this is an existing Junction installation.') === false
