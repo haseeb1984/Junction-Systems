@@ -1117,6 +1117,26 @@ final class SyncWooCommerceStockUseCase {
                 throw new \RuntimeException('WooCommerce stock-cycle allocation or return ledger is inconsistent.');
             }
 
+            // Verify the complete original sale allocation before writing any
+            // return movement. A missing sale row must defer the whole return,
+            // not commit earlier allocation chunks and leave a partial restoration.
+            foreach ($normalized as $allocation) {
+                $this->stockRepo->getStock($allocation['product_id'], $allocation['location_id']);
+                $saleReference = $cycleUuid . ':' . $allocation['location_id'];
+                if (!$this->stockRepo->hasMovementReference(
+                    $allocation['product_id'],
+                    $allocation['location_id'],
+                    'wc_stock_cycle',
+                    $saleReference,
+                    MovementType::OnlineSale
+                )) {
+                    if ($wpdb->query('COMMIT') === false) {
+                        throw new \RuntimeException('Unable to defer cycle return pending its sale movement.');
+                    }
+                    return false;
+                }
+            }
+
             $cursor = 0;
             foreach ($normalized as $allocation) {
                 $start = $cursor;
@@ -1128,14 +1148,6 @@ final class SyncWooCommerceStockUseCase {
                 $productId = $allocation['product_id'];
                 $locationId = $allocation['location_id'];
                 $this->stockRepo->getStock($productId, $locationId);
-                $saleReference = $cycleUuid . ':' . $locationId;
-                if (!$this->stockRepo->hasMovementReference(
-                    $productId, $locationId, 'wc_stock_cycle', $saleReference, MovementType::OnlineSale
-                )) {
-                    if ($wpdb->query('COMMIT') === false) throw new \RuntimeException('Unable to defer cycle return pending its sale movement.');
-                    return false;
-                }
-
                 // Stock movement reference_id is VARCHAR(64); hash the full
                 // cycle/item/cumulative/location identity to a fixed 64 chars.
                 $returnReference = hash('sha256', 'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $targetReturned . ':' . $locationId);
