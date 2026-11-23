@@ -499,3 +499,12 @@ This section supersedes earlier dated snapshots above wherever their status diff
 - EasyPaisa checkout now collects the customer's Mobile Account number separately, stores only an HMAC of that number, and verifies the authenticated inquiry's returned MSISDN against it. Invalid merchant/order initiation codes are classified as definitive rejection; late/contradictory statuses cannot reopen cancelled/refunded orders or overwrite an already-paid order.
 - Courier retries and direct booking calls use per-order serialization and re-check COD OTP, inventory holds, package state, POS origin, order status and existing tracking before provider submission. Unverified physical COD orders remain blocked even if an order status is manually changed back to processing.
 - Source-level smoke assertions cover these paths. No CI/runtime result is claimed; merchant sandbox and WordPress/WooCommerce concurrency acceptance remain outstanding.
+
+
+### Affiliate feature completion and payout safety follow-up
+
+- Added the missing storefront affiliate dashboard module referenced by the boot loader. It supports account registration, tracking-link copy, commission/payout summaries, product submissions and safe text-only rendering of API values.
+- Affiliate and payout destination mobile numbers are normalized and encrypted at rest through the existing authenticated AES-GCM settings storage. Database rows retain only an encrypted marker; legacy plaintext rows are migrated on read. Customer-facing dashboard data remains masked; authorized admin payout/member screens decrypt the destination only for administrators.
+- Commission recording now runs in a database transaction, locks the affiliate balance row, relies on the unique WooCommerce order index for duplicate-hook idempotency, and rolls back commission inserts if the balance update fails.
+- Automatic JazzCash affiliate disbursement was disabled because the current provider payout endpoint/response contract has not been independently verified. Reaching the payout threshold notifies the administrator for manual review; balances are not marked paid automatically. A complete audited manual payout action/history workflow remains a separate outstanding requirement.
+- Source smoke guards were added. PHP/JS execution, database migration/runtime checks and affiliate end-to-end acceptance remain pending.
