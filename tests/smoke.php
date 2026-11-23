@@ -1545,6 +1545,21 @@ if (!is_string($jazzCashSource)
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
 
+$securityHardenerSource = file_get_contents($src . '/Bootstrap/SecurityHardener.php');
+if (!is_string($securityHardenerSource)
+    || strpos($securityHardenerSource, "add_action('wp_login',[\$this,'loginSuccess'],10,2)") === false
+    || strpos($securityHardenerSource, "hash_hmac('sha256', \$ip, wp_salt('auth'))") === false
+    || strpos($securityHardenerSource, "hash_hmac('sha256', strtolower(trim(\$username)), wp_salt('auth'))") === false
+    || strpos($securityHardenerSource, 'pkstore_lf_ip_') === false
+    || strpos($securityHardenerSource, 'pkstore_lf_user_') === false
+    || strpos($securityHardenerSource, 'pkstore_lf_pair_') === false
+    || strpos($securityHardenerSource, 'SELECT GET_LOCK(%s, %d)') === false
+    || strpos($securityHardenerSource, 'SELECT RELEASE_LOCK(%s)') === false
+    || strpos($securityHardenerSource, "get_transient(\$keys['user']) >= 10") === false
+    || strpos($securityHardenerSource, 'delete_transient($keys[\\'ip\\'])') === false) {
+    throw new \RuntimeException('Login throttling must be atomic, account-aware, non-spoofable and reset after successful authentication.');
+}
+
 $bundledAiEngineSource = file_get_contents(dirname(__DIR__) . '/bundled-plugins/woo-ai-sales-assistant/includes/class-woo-ai-engine.php');
 $bundledAiWidgetSource = file_get_contents(dirname(__DIR__) . '/bundled-plugins/woo-ai-sales-assistant/includes/class-woo-ai-widget.php');
 if (!is_string($bundledAiEngineSource) || !is_string($bundledAiWidgetSource)
