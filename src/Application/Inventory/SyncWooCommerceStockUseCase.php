@@ -45,14 +45,22 @@ final class SyncWooCommerceStockUseCase {
         for ($offset = 0; $offset < $total; $offset += 500) {
             foreach ($this->productRepo->findAll(500, $offset) as $product) {
                 if (!$product->wcProductId) continue;
-                $totalStock = $this->stockRepo->getTotalStock($product->id);
-                $wcProduct = wc_get_product($product->wcProductId);
-                if (!$wcProduct) continue;
-                $wcProduct->set_manage_stock(true);
-                $wcProduct->set_stock_quantity($totalStock);
-                $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-                if ($wcProduct->save() === false) throw new \RuntimeException('WooCommerce rejected stock projection for inventory product '.$product->id.'.');
-                $synced++;
+                try {
+                    $totalStock = $this->stockRepo->getTotalStock($product->id);
+                    $wcProduct = wc_get_product($product->wcProductId);
+                    if (!$wcProduct) throw new \RuntimeException('Mapped WooCommerce product is unavailable.');
+                    $wcProduct->set_manage_stock(true);
+                    $wcProduct->set_stock_quantity($totalStock);
+                    $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
+                    if ($wcProduct->save() === false) throw new \RuntimeException('WooCommerce rejected stock projection.');
+                    $synced++;
+                } catch (\Throwable $e) {
+                    $this->log->error('WooCommerce stock reconciliation failed for inventory product.', [
+                        'inventory_product_id'=>$product->id,
+                        'wc_product_id'=>$product->wcProductId,
+                        'error'=>$e->getMessage(),
+                    ]);
+                }
             }
         }
         return $synced;
