@@ -59,12 +59,33 @@ final class FacebookPixelService {
     }
 
     private function purchaseEventId(\WC_Order $order): string {
-        $eventId = (string) $order->get_meta('_pkstore_facebook_purchase_event_id', true);
-        if ($eventId !== '') return $eventId;
-        $eventId = wp_generate_uuid4();
-        $order->update_meta_data('_pkstore_facebook_purchase_event_id', $eventId);
-        if ((int) $order->save() !== (int) $order->get_id()) return '';
-        return $eventId;
+        $orderId = (int) $order->get_id();
+        if ($orderId < 1) return '';
+        global $wpdb;
+        if (!($wpdb instanceof \wpdb)) return '';
+
+        $lockName = 'pkstore_facebook_event_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) return '';
+
+        try {
+            $freshOrder = wc_get_order($orderId);
+            if (!($freshOrder instanceof \WC_Order)
+                || $freshOrder->get_meta('_pkstore_facebook_marketing_consent', true) !== 'yes') return '';
+
+            $eventId = (string) $freshOrder->get_meta('_pkstore_facebook_purchase_event_id', true);
+            if ($eventId !== '') return $eventId;
+
+            $eventId = wp_generate_uuid4();
+            $freshOrder->update_meta_data('_pkstore_facebook_purchase_event_id', $eventId);
+            if ((int) $freshOrder->save() !== $orderId) return '';
+            return $eventId;
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                error_log('[PK Store] Meta purchase event lock release could not be confirmed.');
+            }
+        }
     }
 
     private function purchaseContentIds(\WC_Order $order): array {
