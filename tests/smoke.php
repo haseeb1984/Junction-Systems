@@ -1562,7 +1562,8 @@ if (!is_string($securityHardenerSource)
 
 $bundledAiEngineSource = file_get_contents(dirname(__DIR__) . '/bundled-plugins/woo-ai-sales-assistant/includes/class-woo-ai-engine.php');
 $bundledAiWidgetSource = file_get_contents(dirname(__DIR__) . '/bundled-plugins/woo-ai-sales-assistant/includes/class-woo-ai-widget.php');
-if (!is_string($bundledAiEngineSource) || !is_string($bundledAiWidgetSource)
+$bundledAiWidgetJsSource = file_get_contents(dirname(__DIR__) . '/bundled-plugins/woo-ai-sales-assistant/assets/js/chat-widget.js');
+if (!is_string($bundledAiEngineSource) || !is_string($bundledAiWidgetSource) || !is_string($bundledAiWidgetJsSource)
     || strpos($bundledAiEngineSource, 'private static function reserve_usage(') === false
     || strpos($bundledAiEngineSource, 'SELECT GET_LOCK(%s, %d)') === false
     || strpos($bundledAiEngineSource, 'SELECT RELEASE_LOCK(%s)') === false
@@ -1570,7 +1571,8 @@ if (!is_string($bundledAiEngineSource) || !is_string($bundledAiWidgetSource)
     || strpos($bundledAiEngineSource, '$_SERVER["REMOTE_ADDR"]') === false
     || strpos($bundledAiEngineSource, 'HTTP_X_FORWARDED_FOR') !== false
     || strpos($bundledAiEngineSource, 'function_exists(\'mb_strlen\') ? mb_strlen($text) : strlen($text)') === false
-    || strpos($bundledAiWidgetSource, 'function_exists("mb_strlen") ? mb_strlen($message) : strlen($message)') === false) {
+    || strpos($bundledAiWidgetSource, 'function_exists("mb_strlen") ? mb_strlen($message) : strlen($message)') === false
+    || strpos($bundledAiWidgetJsSource, ".replace(/\\\"/g,'&quot;').replace(/'/g,'&#39;')") === false) {
     throw new \RuntimeException('Bundled Dukaan AI must reserve provider quotas atomically, use a non-spoofable client IP source and tolerate missing mbstring.');
 }
 
