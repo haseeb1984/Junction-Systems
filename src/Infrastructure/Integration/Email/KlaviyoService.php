@@ -17,17 +17,18 @@ final class KlaviyoService {
     }
 
     public function trackEvent(string $eventName, string $email, array $properties=[]): void {
-        $this->request('POST'.'/events',['data'=>['type'=>'event','attributes'=>['metric'=>['data'=>['type'=>'metric','attributes'=>['name'=>$eventName]]],'profile'=>['data'=>['type'=>'profile','attributes'=>['email'=>$email]]],'properties'=>$properties,'time'=>date('c')]]]);
+        $this->request('POST', '/events', ['data'=>['type'=>'event','attributes'=>['metric'=>['data'=>['type'=>'metric','attributes'=>['name'=>$eventName]]],'profile'=>['data'=>['type'=>'profile','attributes'=>['email'=>$email]]],'properties'=>$properties,'time'=>date('c')]]]);
     }
 
     public function subscribeToList(string $email, string $firstName, string $lastName): void {
         $listId=$this->s->get('KLAVIYO_LIST_ID'); if (!$listId) return;
         $profileId=$this->getOrCreateProfile($email,$firstName,$lastName);
-        if ($profileId) $this->request('POST'.'/lists/'.$listId.'/relationships/profiles',['data'=>[['type'=>'profile','id'=>$profileId]]]);
+        if ($profileId) $this->request('POST', '/lists/' . $listId . '/relationships/profiles', ['data'=>[['type'=>'profile','id'=>$profileId]]]);
     }
 
     private function getOrCreateProfile(string $email, string $first, string $last): ?string {
-        $r=wp_remote_request(self::BASE.'/profiles/?filter=equals(email,'.'"'.$email.'"')',['timeout'=>15,'headers'=>['Authorization'=>'Klaviyo-API-Key '.$this->s->get('KLAVIYO_PRIVATE_KEY'),'revision'=>'2024-02-15']]);
+        $filter = rawurlencode('equals(email,"' . sanitize_email($email) . '")');
+        $r=wp_remote_request(self::BASE . '/profiles/?filter=' . $filter',['timeout'=>15,'headers'=>['Authorization'=>'Klaviyo-API-Key '.$this->s->get('KLAVIYO_PRIVATE_KEY'),'revision'=>'2024-02-15']]);
         if (is_wp_error($r)) return null;
         $b=json_decode(wp_remote_retrieve_body($r),true);
         if (!empty($b['data'][0]['id'])) return $b['data'][0]['id'];
