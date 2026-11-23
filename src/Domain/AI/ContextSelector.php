@@ -48,6 +48,7 @@ final class ContextSelector {
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $message, $match) !== 1) continue;
             $value = (float) str_replace(',', '', $match[1]);
+            if (preg_match('/(?:hazar|hazaar|thousand)/iu', $match[0]) === 1) $value *= 1000;
             if ($value > 0 && $value <= 100000000) return $value;
         }
 
