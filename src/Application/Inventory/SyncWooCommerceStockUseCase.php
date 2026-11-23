@@ -19,10 +19,23 @@ final class SyncWooCommerceStockUseCase {
         if (!$onlineLocation) return;
         $quantities = [];
         foreach ($order->get_items() as $item) {
-            $wcProductId = (int)$item->get_product_id();
-            $product = $this->productRepo->findByWcProductId($wcProductId);
+            // A variation can have its own inventory record; prefer it over the parent product mapping.
+            $variationId = (int)$item->get_variation_id();
+            $wcProductId = $variationId > 0 ? $variationId : (int)$item->get_product_id();
+            $product = $variationId > 0 ? $this->productRepo->findByWcProductId($variationId) : null;
+            if (!$product && $variationId > 0) {
+                $parentProductId = (int)$item->get_product_id();
+                $product = $this->productRepo->findByWcProductId($parentProductId);
+                if ($product) $wcProductId = $parentProductId;
+            } elseif (!$product) {
+                $product = $this->productRepo->findByWcProductId($wcProductId);
+            }
             if (!$product) {
-                $this->log->warning('WooCommerce product has no inventory mapping.', ['order_id'=>$orderId,'wc_product_id'=>$wcProductId]);
+                $this->log->warning('WooCommerce product or variation has no inventory mapping.', [
+                    'order_id'=>$orderId,
+                    'wc_product_id'=>(int)$item->get_product_id(),
+                    'wc_variation_id'=>$variationId,
+                ]);
                 continue;
             }
             $quantities[$product->id] = ($quantities[$product->id] ?? 0) + (int)$item->get_quantity();
