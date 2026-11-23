@@ -29,11 +29,11 @@ final class POSSession {
             foreach ($paymentSplit as $method => $amount) {
                 $amount = (int)$amount;
                 if (!in_array((string)$method, ['cash','card','jazzcash','easypaisa'], true) || $amount < 0) {
-                    throw new \\InvalidArgumentException('Invalid split payment entry.');
+                    throw new \InvalidArgumentException('Invalid split payment entry.');
                 }
                 $splitTotal += $amount;
             }
-            if ($splitTotal !== $total) throw new \\InvalidArgumentException('Split payment amounts must equal the sale total.');
+            if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
             foreach ($paymentSplit as $method => $amount) {
                 $amount = (int)$amount;
                 match($method) {
@@ -46,9 +46,6 @@ final class POSSession {
             $this->totalSalesPkr += $total;
             return;
         }
-            if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
-            return;
-        }
         match($paymentMethod) {
             'cash' => $this->totalCashPkr += $total,
             'card' => $this->totalCardPkr += $total,
@@ -56,6 +53,7 @@ final class POSSession {
             'easypaisa' => $this->totalEasypaisa += $total,
             default => throw new \InvalidArgumentException('Unsupported POS payment method: '.$paymentMethod),
         };
+        $this->totalSalesPkr += $total;
     }
     public function close(int $closingCash): void {
         if ($closingCash < 0) throw new \InvalidArgumentException('Closing cash cannot be negative.');
