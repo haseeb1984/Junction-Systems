@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - fix/pos-woocommerce-queue-sync
-  pull_request:
-    branches:
-      - main
-      - master
 
 permissions:
   contents: read
