@@ -34,6 +34,9 @@ jobs:
       - name: Run dependency-free smoke tests
         run: php tests/smoke.php
 
+      - name: Test inventory mapping migration safety
+        run: php tests/inventory-mapping-migration.php
+
       - name: Check JavaScript syntax
         shell: bash
         run: |
