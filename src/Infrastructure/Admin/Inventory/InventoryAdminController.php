@@ -176,57 +176,56 @@ final class InventoryAdminController {
     }
 
     private function handleAddProduct(): void {
-        $repo = $this->c->make(InventoryProductRepositoryInterface::class);
         $sku = sanitize_text_field($_POST['sku'] ?? '');
         $name = sanitize_text_field($_POST['name'] ?? '');
-        if ($sku === '' || $name === '') {
-            $this->redirect('pkstore-inventory','error','SKU and name are required.'); return;
-        }
-        if ($repo->findBySku($sku)) {
-            $this->redirect('pkstore-inventory','error','SKU already exists.'); return;
+        $category = sanitize_text_field($_POST['category'] ?? '');
+        $unit = sanitize_text_field($_POST['unit'] ?? 'piece');
+        $barcode = sanitize_text_field($_POST['barcode'] ?? '');
+        if ($sku === '' || strlen($sku) > 100 || $name === '' || strlen($name) > 255
+            || strlen($category) > 100 || $unit === '' || strlen($unit) > 20 || strlen($barcode) > 50) {
+            $this->redirect('pkstore-inventory','error','Enter valid SKU, name, category, unit and barcode values.'); return;
         }
 
         $costPrice = current_user_can('manage_options') ? filter_var($_POST['cost_price'] ?? 0, FILTER_VALIDATE_INT) : 0;
         $salePrice = filter_var($_POST['sale_price'] ?? 0, FILTER_VALIDATE_INT);
         $reorderPoint = filter_var($_POST['reorder_point'] ?? 5, FILTER_VALIDATE_INT);
-        $wcProductRaw = $_POST['wc_product_id'] ?? 0;
-        $wcProductId = filter_var($wcProductRaw, FILTER_VALIDATE_INT);
+        $wcProductId = filter_var($_POST['wc_product_id'] ?? 0, FILTER_VALIDATE_INT);
         if ($costPrice === false || $salePrice === false || $reorderPoint === false || $wcProductId === false
             || $costPrice < 0 || $salePrice < 0 || $reorderPoint < 0 || $wcProductId < 0
-            || ($wcProductId > 0 && !wc_get_product($wcProductId))) {
+            || ($wcProductId > 0 && (!function_exists('wc_get_product') || !wc_get_product($wcProductId)))) {
             $this->redirect('pkstore-inventory','error','Prices, reorder point or WooCommerce product mapping are invalid.'); return;
         }
 
-        if ($wcProductId > 0) {
-            try {
-                if ($repo->findByWcProductId($wcProductId)) {
-                    $this->redirect('pkstore-inventory', 'error', 'This WooCommerce product is already mapped to Junction inventory.');
-                    return;
-                }
-            } catch (\Throwable $mappingError) {
-                $this->redirect('pkstore-inventory', 'error', 'WooCommerce product mapping is ambiguous and needs review.');
-                return;
+        try {
+            $repo = $this->c->make(InventoryProductRepositoryInterface::class);
+            if ($repo->findBySku($sku)) {
+                $this->redirect('pkstore-inventory','error','SKU already exists.'); return;
             }
-        }
+            if ($barcode !== '' && $repo->findByBarcode($barcode)) {
+                $this->redirect('pkstore-inventory','error','Barcode already exists.'); return;
+            }
+            if ($wcProductId > 0 && $repo->findByWcProductId($wcProductId)) {
+                $this->redirect('pkstore-inventory','error','This WooCommerce product is already mapped to Junction inventory.'); return;
+            }
 
-        $p = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
-            $sku,
-            $name,
-            $costPrice,
-            $salePrice,
-            sanitize_text_field($_POST['category'] ?? ''),
-            $wcProductId > 0 ? $wcProductId : null,
-            sanitize_text_field($_POST['barcode'] ?? ''),
-            sanitize_text_field($_POST['unit'] ?? 'piece'),
-            $reorderPoint
-        );
-        $id = $repo->save($p);
-        if (!$p->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) {
-            $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
+            $product = \PkStore\Domain\Inventory\Entity\InventoryProduct::create(
+                $sku, $name, $costPrice, $salePrice, $category,
+                $wcProductId > 0 ? $wcProductId : null, $barcode, $unit, $reorderPoint
+            );
+            $id = $repo->save($product);
+            if (!$product->hasBarcode() && FeatureManager::getInstance()->isEnabled('barcode_labels')) {
+                try {
+                    $this->c->make(GenerateBarcodeUseCase::class)->execute($id);
+                } catch (\Throwable $barcodeError) {
+                    error_log('[PKStore Inventory] Product was created but automatic barcode generation failed ('.get_class($barcodeError).').');
+                }
+            }
+            $this->redirect('pkstore-inventory','added','Product added.');
+        } catch (\Throwable $error) {
+            error_log('[PKStore Inventory] Admin product creation failed ('.get_class($error).').');
+            $this->redirect('pkstore-inventory','error','Product could not be added. Check SKU, barcode and WooCommerce mapping for duplicates.');
         }
-        $this->redirect('pkstore-inventory','added','Product added.');
     }
-
     private function handleAdjustStock(): void {
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         $productId = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT);
