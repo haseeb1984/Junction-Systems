@@ -207,8 +207,12 @@ final class InventoryHooks {
 
     private function cycleUuidForReturn(\WC_Order $order): ?string {
         $cycleUuid = (string) $order->get_meta('_pkstore_wc_active_cycle_uuid', true);
-        if ((string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true) !== '1') {
+        $snapshotVersion = (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true);
+        if ($snapshotVersion === '') {
             return $cycleUuid !== '' ? $cycleUuid : null; // pre-cycle legacy order
+        }
+        if ($snapshotVersion !== '1') {
+            return null; // incomplete snapshot must never bind a return to a prior cycle
         }
 
         // For cycle-aware orders, verify the marker against durable cycle
