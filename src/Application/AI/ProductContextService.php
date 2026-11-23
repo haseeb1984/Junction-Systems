@@ -30,17 +30,16 @@ final class ProductContextService {
 
         $keywords = $this->selector->extract($message);
         if ($budget !== null) {
-            $budgetToken = (string) (int) $budget;
             $keywords = array_values(array_filter(
                 $keywords,
-                static function (string $keyword) use ($budget, $budgetToken): bool {
-                    if (ctype_digit($keyword) && (string) (int) $keyword === $budgetToken) return false;
-                    if (preg_match('/^([0-9]+(?:\\.[0-9]+)?)k$/i', $keyword, $match) === 1
+                static function (string $keyword) use ($budget): bool {
+                    $numeric = str_replace(',', '', $keyword);
+                    if (is_numeric($numeric) && (float) $numeric === $budget) return false;
+                    if (preg_match('/^([0-9]+(?:\.[0-9]+)?)k$/i', $keyword, $match) === 1
                         && (float) $match[1] * 1000 === $budget) return false;
                     return true;
                 }
-            ));
-        }
+            ));        }
 
         if ($keywords) {
             $products = $this->repo->findByKeywords($keywords, self::MAX, $budget);
