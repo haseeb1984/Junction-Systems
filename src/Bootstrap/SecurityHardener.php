@@ -77,6 +77,9 @@ final class SecurityHardener {
     }
 
     public function blockBrute(mixed $user, string $username, string $password): mixed {
+        // Authentication already succeeded at the earlier core auth filters.
+        // Never lock a customer out when they finally provide valid credentials.
+        if ($user instanceof \WP_User) return $user;
         $keys = $this->loginKeys($username);
         if ((int) get_transient($keys['ip']) >= 5
             || (int) get_transient($keys['user']) >= 10
