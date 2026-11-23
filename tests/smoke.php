@@ -732,14 +732,26 @@ $groqBridgeSource = file_get_contents($src . '/Infrastructure/AI/GroqBridge.php'
 $promptComposerSource = file_get_contents($src . '/Domain/AI/PromptComposer.php');
 $licenseManagerSource = file_get_contents($src . '/License/LicenseManager.php');
 $pralClientSource = file_get_contents($src . '/Infrastructure/FBR/PralClient.php');
+$pralParserSource = file_get_contents($src . '/Infrastructure/FBR/PralInvoiceResponseParser.php');
+$pralSubmissionSource = file_get_contents($src . '/Application/FBR/SubmitPralInvoiceUseCase.php');
 $pralExceptionSource = file_get_contents($src . '/Domain/FBR/Exception/PralApiException.php');
 $aiServicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $aiChatModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/ai-chat.mjs');
 if (!is_string($aiChatControllerSource) || !is_string($aiChatUseCaseSource)
     || !is_string($groqBridgeSource) || !is_string($promptComposerSource)
     || !is_string($licenseManagerSource) || !is_string($pralClientSource)
+    || !is_string($pralParserSource) || !is_string($pralSubmissionSource)
     || !is_string($pralExceptionSource) || !is_string($aiServicesSource)
     || !is_string($aiChatModuleSource)
+    || strpos($pralParserSource, "statusCode") === false
+    || strpos($pralParserSource, "invoiceStatuses") === false
+    || strpos($pralParserSource, "$expectedItemCount") === false
+    || strpos($pralParserSource, "invoiceNumber") === false
+    || strpos($pralSubmissionSource, "validateInvoice($payload)") === false
+    || strpos($pralSubmissionSource, "postInvoice($payload)") === false
+    || strpos($pralSubmissionSource, "$error->ambiguous") === false
+    || strpos($pralSubmissionSource, "'retry_safe' => false") === false
+    || strpos($aiServicesSource, 'new SubmitPralInvoiceUseCase(') === false
     || strpos($licenseManagerSource, 'getFbrProviderConfig(): array') === false
     || strpos($licenseManagerSource, "'api_tokens'") === false
     || strpos($licenseManagerSource, "'scenario_id'") === false
