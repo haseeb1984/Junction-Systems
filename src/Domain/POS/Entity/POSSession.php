@@ -24,7 +24,6 @@ final class POSSession {
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
     public function recordSale(int $total, string $paymentMethod, ?array $paymentSplit = null): void {
         if (!$this->isOpen()) throw new \LogicException('Cannot record sale on closed session.');
-        $this->totalSalesPkr += $total;
         if ($paymentSplit !== null) {
             $splitTotal = 0;
             foreach ($paymentSplit as $method => $amount) {
