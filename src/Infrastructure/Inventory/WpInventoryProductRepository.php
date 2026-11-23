@@ -72,7 +72,7 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
         }
         $rows = $this->db->get_results($query, ARRAY_A);
         if ($rows === null && $this->db->last_error !== '') {
-            throw new \\RuntimeException('Unable to list inventory products.');
+            throw new \RuntimeException('Unable to list inventory products.');
         }
         return array_map(fn($r) => $this->h($r), $rows ?: []);
     }
@@ -82,14 +82,14 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
             ARRAY_A
         );
         if ($rows === null && $this->db->last_error !== '') {
-            throw new \\RuntimeException('Unable to list inventory products below reorder point.');
+            throw new \RuntimeException('Unable to list inventory products below reorder point.');
         }
         return array_map(fn($r) => $this->h($r), $rows ?: []);
     }
     public function countAll(): int {
         $count = $this->db->get_var("SELECT COUNT(*) FROM {$this->t()} WHERE is_active=1");
         if ($count === null && $this->db->last_error !== '') {
-            throw new \\RuntimeException('Unable to count inventory products.');
+            throw new \RuntimeException('Unable to count inventory products.');
         }
         return (int) $count;
     }
