@@ -543,6 +543,8 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'SELECT RELEASE_LOCK(%s)') === false
     || strpos($inventoryProductRepositorySource, 'pkstore_inv_barcode_') === false
     || strpos($inventoryProductRepositorySource, 'Barcode already exists.') === false
+    || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products share the same barcode.') === false
+    || strpos($inventoryProductRepositorySource, "if (\$barcode === '') return null;") === false
     || strpos($inventoryProductRepositorySource, 'Duplicate entry') === false
     || strpos($inventoryProductRepositorySource, '$rows === null && $this->db->last_error !==') === false) {
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
