@@ -291,7 +291,8 @@ foreach ([
 
 
 $bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
-if (strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
+if (strpos($bootstrapSource, "wp_has_consent('statistics')") === false
+    || strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
     || strpos($bootstrapSource, 'DarazSyncService::class)->register()') !== false
     || strpos($bootstrapSource, 'MailchimpService::class)->register()') !== false
     || strpos($bootstrapSource, 'KlaviyoService::class)->register()') !== false
