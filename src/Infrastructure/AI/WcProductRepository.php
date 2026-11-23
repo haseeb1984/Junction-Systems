@@ -134,12 +134,13 @@ final class WcProductRepository implements ProductRepositoryInterface {
         $product = wc_get_product((int) $id);
         if (!($product instanceof \WC_Product) || !$product->is_visible()) return null;
 
-        if ($product->is_type('variable')) {
-            $context = $this->mapToContext($product);
-        } else {
-            $context = $this->mapToContext($product);
-        }
+        // A parent variable-product SKU does not identify an exact sellable
+        // variant. Let the keyword path expand its real child variations so
+        // Dukaan AI never quotes a fabricated/minimum parent price as an exact
+        // size/colour/model selection.
+        if ($product->is_type('variable')) return null;
 
+        $context = $this->mapToContext($product);
         if ($maxPrice !== null && $this->effectivePrice($context) > $maxPrice) return null;
         return $context;
     }
