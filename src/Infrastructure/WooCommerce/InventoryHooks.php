@@ -62,7 +62,11 @@ final class InventoryHooks {
             $capturedLines = 0;
             foreach ($order->get_items('line_item') as $item) {
                 $reduced = $item->get_meta('_reduced_stock', true);
-                if ($reduced === '' || $reduced === null || (float) $reduced === 0.0) continue;
+                if ($reduced === '' || $reduced === null) continue;
+                if (!is_numeric($reduced)) {
+                    throw new \\RuntimeException('WooCommerce stock-reduction metadata is invalid.');
+                }
+                if ((float) $reduced === 0.0) continue;
                 if (!is_numeric($reduced) || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced) {
                     throw new \RuntimeException('WooCommerce stock-reduction metadata is invalid.');
                 }
