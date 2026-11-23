@@ -22,8 +22,13 @@ final class FacebookPixelService {
     public function captureConsent(\WC_Order $order, array $data = []): void {
         if ($this->hasMarketingConsent()) {
             $order->update_meta_data('_pkstore_facebook_marketing_consent', 'yes');
+            $userAgent = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? ''));
+            if ($userAgent !== '') {
+                $order->update_meta_data('_pkstore_facebook_client_user_agent', substr($userAgent, 0, 512));
+            }
         } else {
             $order->delete_meta_data('_pkstore_facebook_marketing_consent');
+            $order->delete_meta_data('_pkstore_facebook_client_user_agent');
         }
         $order->save_meta_data();
     }
@@ -134,6 +139,9 @@ final class FacebookPixelService {
         $userData = [];
         if ($email !== '') $userData['em'] = [hash('sha256', $email)];
         if ($phone !== '') $userData['ph'] = [hash('sha256', $phone)];
+        $userAgent = (string) $order->get_meta('_pkstore_facebook_client_user_agent', true);
+        if ($userAgent === '') return;
+        $userData['client_user_agent'] = $userAgent;
         if (!$userData) return;
 
         $eventId = $this->purchaseEventId($order);
