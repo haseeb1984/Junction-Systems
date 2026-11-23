@@ -457,3 +457,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 
 - Updated the Meta Conversions API endpoint from retired Graph API v18.0 to v27.0, the current version in Meta's official versioning documentation as of this review.
+
+
+## WooCommerce minimum version for stock restoration
+
+- The cycle-aware return path relies on WooCommerce's `woocommerce_restore_order_item_stock` per-line hook, available from WooCommerce 9.1. Theme metadata now declares 9.1 as the minimum supported version.
+- If an older WooCommerce version is detected, Junction-managed products are made non-purchasable and checkout is blocked for carts containing mapped Junction products. This prevents new online sales that could not be safely reconciled on cancellation/restock.
+- This is a compatibility guard, not a claim that WooCommerce 9.1+ has passed runtime acceptance. The consolidated test batch must cover the minimum supported version and the current production target.
