@@ -39,7 +39,8 @@ final class ProductContextService {
                         && (float) $match[1] * 1000 === $budget) return false;
                     return true;
                 }
-            ));        }
+            ));
+        }
 
         if ($keywords) {
             $products = $this->repo->findByKeywords($keywords, self::MAX, $budget);
