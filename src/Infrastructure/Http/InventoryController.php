@@ -21,6 +21,8 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
@@ -89,6 +91,19 @@ final class InventoryController {
     public function generateBarcode(\WP_REST_Request $req): \WP_REST_Response {
         try { $barcode=$this->c->make(GenerateBarcodeUseCase::class)->execute((int)$req->get_param('id')); return new \WP_REST_Response(['success'=>true,'barcode'=>$barcode],200);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],404); }
+    }
+    public function listSuppliers(\WP_REST_Request $req): \WP_REST_Response {
+        global $wpdb; $table=$wpdb->prefix.'pkstore_inventory_suppliers';
+        $rows=$wpdb->get_results("SELECT id,name,contact,phone,email,address FROM {$table} WHERE is_active=1 ORDER BY name",ARRAY_A)?:[];
+        return new \WP_REST_Response(['success'=>true,'suppliers'=>$rows],200);
+    }
+    public function createSupplier(\WP_REST_Request $req): \WP_REST_Response {
+        global $wpdb; $table=$wpdb->prefix.'pkstore_inventory_suppliers';
+        $name=sanitize_text_field($req->get_param('name')??'');
+        if($name==='') return new \WP_REST_Response(['success'=>false,'message'=>'Supplier name is required.'],422);
+        $ok=$wpdb->insert($table,['name'=>$name,'contact'=>sanitize_text_field($req->get_param('contact')??''),'phone'=>sanitize_text_field($req->get_param('phone')??''),'email'=>sanitize_email($req->get_param('email')??''),'address'=>sanitize_textarea_field($req->get_param('address')??''),'is_active'=>1,'created_at'=>current_time('mysql')]);
+        if($ok===false) return new \WP_REST_Response(['success'=>false,'message'=>'Unable to create supplier.'],500);
+        return new \WP_REST_Response(['success'=>true,'supplier_id'=>(int)$wpdb->insert_id],201);
     }
     public function createPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
         try {
