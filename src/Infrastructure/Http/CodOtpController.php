@@ -261,6 +261,7 @@ final class CodOtpController {
         $proof = $this->wooSession()->get(self::SESSION_PROOF_KEY);
         if (!is_array($proof) || empty($proof['consumed']) || empty($proof['attempt_id'])) {
             $this->holdCodOrderForOtpReview($order, 'No consumed server-side phone verification proof was present when the COD order was finalized.');
+            $this->clearSessionProof();
             return;
         }
 
