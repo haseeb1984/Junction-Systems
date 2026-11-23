@@ -1,0 +1,39 @@
+name: PHP syntax checks
+
+on:
+  push:
+    branches:
+      - fix/pos-woocommerce-queue-sync
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  php-lint:
+    name: PHP 8.2 syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: Lint all PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find . -type f -name '*.php' -not -path './.git/*' -not -path './vendor/*' -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No PHP files found."
+            exit 1
+          fi
+          printf 'Linting %s PHP files\n' "${#files[@]}"
+          for file in "${files[@]}"; do
+            php -l "$file"
+          done
