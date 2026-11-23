@@ -67,6 +67,68 @@ if ($pralUnknown['status'] !== 'unknown') {
     throw new \RuntimeException('PRAL incomplete item status responses must fail closed as unknown.');
 }
 
+
+$fakePralClient = new class extends \PkStore\Infrastructure\FBR\PralClient {
+    public array $validationResponse = [];
+    public array $postResponse = [];
+    public bool $throwAmbiguousPost = false;
+    public int $postCalls = 0;
+
+    public function __construct() {}
+
+    public function validateInvoice(array $payload): array {
+        return $this->validationResponse;
+    }
+
+    public function postInvoice(array $payload): array {
+        $this->postCalls++;
+        if ($this->throwAmbiguousPost) {
+            throw new \PkStore\Domain\FBR\Exception\PralApiException('ambiguous response', true, 500);
+        }
+        return $this->postResponse;
+    }
+};
+
+$validPralValidation = [
+    'validationResponse' => [
+        'statusCode' => '00',
+        'status' => 'Valid',
+        'invoiceStatuses' => [
+            ['itemSNo' => '1', 'statusCode' => '00', 'status' => 'Valid'],
+        ],
+    ],
+];
+$fakePralClient->validationResponse = $validPralValidation;
+$fakePralClient->postResponse = [
+    'invoiceNumber' => '7000007DI1747119701593',
+    'validationResponse' => $validPralValidation['validationResponse'],
+];
+$pralSubmitter = new \PkStore\Application\FBR\SubmitPralInvoiceUseCase($fakePralClient, $pralParser);
+$pralSubmitResult = $pralSubmitter->execute(['items' => [['itemCode' => '1234']]]);
+if ($pralSubmitResult['status'] !== 'valid' || $pralSubmitResult['retry_safe'] !== false) {
+    throw new \RuntimeException('PRAL submission must accept only a fully valid response with an invoice number.');
+}
+
+$fakePralClient->throwAmbiguousPost = true;
+$pralAmbiguousResult = $pralSubmitter->execute(['items' => [['itemCode' => '1234']]]);
+if ($pralAmbiguousResult['status'] !== 'unknown' || $pralAmbiguousResult['retry_safe'] !== false) {
+    throw new \RuntimeException('Ambiguous PRAL post responses must never be marked safe to retry.');
+}
+$fakePralClient->throwAmbiguousPost = false;
+$fakePralClient->postResponse = [
+    'invoiceNumber' => '7000007DI1747119701594',
+    'validationResponse' => [
+        'statusCode' => '00',
+        'status' => 'Valid',
+        'invoiceStatuses' => [
+            ['itemSNo' => '1', 'statusCode' => '01', 'status' => 'Invalid', 'errorCode' => '0046', 'error' => 'Provide rate.'],
+        ],
+    ],
+];
+$pralIssuedButInvalid = $pralSubmitter->execute(['items' => [['itemCode' => '1234']]]);
+if ($pralIssuedButInvalid['status'] !== 'unknown' || $pralIssuedButInvalid['retry_safe'] !== false) {
+    throw new \RuntimeException('A PRAL response containing an invoice number must not be replayed even if an item status is invalid.');
+}
 if (\PkStore\License\LicenseFeatures::forTier('not-a-tier') !== []) {
     throw new \RuntimeException('Unknown license tiers must not receive default entitlements.');
 }
