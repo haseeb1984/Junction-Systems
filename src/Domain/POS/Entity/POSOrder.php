@@ -25,10 +25,27 @@ final class POSOrder {
     }
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
     public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null): self {
-        $subtotal = array_sum(array_map(fn($i) => $i['unit_price_pkr'] * $i['quantity'], $items));
-        $total    = max(0, $subtotal - $discountPkr);
-        $ref      = 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
-        $order    = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
+        if ($discountPkr < 0) throw new \InvalidArgumentException('Order discount cannot be negative.');
+        $subtotal = 0;
+        $lineDiscountTotal = 0;
+        foreach ($items as $item) {
+            $quantity = (int)($item['quantity'] ?? 0);
+            $unitPrice = (int)($item['unit_price_pkr'] ?? 0);
+            $lineDiscount = (int)($item['discount_pkr'] ?? 0);
+            if ($quantity <= 0 || $unitPrice < 0 || $lineDiscount < 0) {
+                throw new \InvalidArgumentException('POS item quantity, price or discount is invalid.');
+            }
+            $lineGross = $unitPrice * $quantity;
+            if ($lineDiscount > $lineGross) throw new \InvalidArgumentException('Line discount cannot exceed its line amount.');
+            $subtotal += $lineGross;
+            $lineDiscountTotal += $lineDiscount;
+        }
+        if ($discountPkr > ($subtotal - $lineDiscountTotal)) {
+            throw new \InvalidArgumentException('Order discount cannot exceed the remaining sale amount.');
+        }
+        $total = $subtotal - $lineDiscountTotal - $discountPkr;
+        $ref = 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
+        $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr + $lineDiscountTotal, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
         $order->items = $items;
         return $order;
     }
