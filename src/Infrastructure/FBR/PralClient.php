@@ -86,6 +86,37 @@ final class PralClient {
         ]);
     }
 
+    public function registrationType(string $registrationNumber): array {
+        $registrationNumber = preg_replace('/[^0-9]/', '', $registrationNumber);
+        if (!in_array(strlen($registrationNumber), [7, 9, 13], true)) {
+            throw new \InvalidArgumentException('Buyer NTN/CNIC must contain 7, 9 or 13 digits.');
+        }
+        $config = $this->configuration();
+        return $this->request(
+            'GET',
+            self::BASE_URL . '/dist/v1/Get_Reg_Type',
+            ['Registration_No' => $registrationNumber],
+            false,
+            $config['api_token']
+        );
+    }
+
+    public function salesTaxStatus(string $registrationNumber, string $date): array {
+        $registrationNumber = preg_replace('/[^0-9]/', '', $registrationNumber);
+        if (!in_array(strlen($registrationNumber), [7, 9, 13], true)
+            || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $date)) {
+            throw new \InvalidArgumentException('PRAL registration number or date is invalid.');
+        }
+        $config = $this->configuration();
+        return $this->request(
+            'GET',
+            self::BASE_URL . '/dist/v1/statl',
+            ['regno' => $registrationNumber, 'date' => $date],
+            false,
+            $config['api_token']
+        );
+    }
+
     private function invoicePath(string $method): string {
         $config = $this->configuration();
         $suffix = $config['environment'] === 'sandbox' ? '_sb' : '';
