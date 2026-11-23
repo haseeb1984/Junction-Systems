@@ -28,6 +28,45 @@ foreach ($exceptions as $exception) {
     }
 }
 
+$pralParser = new \PkStore\Infrastructure\FBR\PralInvoiceResponseParser();
+$pralValid = $pralParser->parse([
+    'invoiceNumber' => '7000007DI1747119701593',
+    'validationResponse' => [
+        'statusCode' => '00',
+        'status' => 'Valid',
+        'invoiceStatuses' => [
+            ['itemSNo' => '1', 'statusCode' => '00', 'status' => 'Valid'],
+        ],
+    ],
+], 1, true);
+if ($pralValid['status'] !== 'valid' || $pralValid['invoice_number'] !== '7000007DI1747119701593') {
+    throw new \RuntimeException('PRAL valid invoice response must require a valid header, valid item and invoice number.');
+}
+
+$pralInvalidItem = $pralParser->parse([
+    'validationResponse' => [
+        'statusCode' => '00',
+        'status' => 'Valid',
+        'invoiceStatuses' => [
+            ['itemSNo' => '1', 'statusCode' => '01', 'status' => 'Invalid', 'errorCode' => '0046', 'error' => 'Provide rate.'],
+        ],
+    ],
+], 1, false);
+if ($pralInvalidItem['status'] !== 'rejected' || count($pralInvalidItem['errors']) !== 1) {
+    throw new \RuntimeException('PRAL header status 00 must not hide an invalid invoice item.');
+}
+
+$pralUnknown = $pralParser->parse([
+    'validationResponse' => [
+        'statusCode' => '00',
+        'status' => 'Valid',
+        'invoiceStatuses' => null,
+    ],
+], 1, true);
+if ($pralUnknown['status'] !== 'unknown') {
+    throw new \RuntimeException('PRAL incomplete item status responses must fail closed as unknown.');
+}
+
 if (\PkStore\License\LicenseFeatures::forTier('not-a-tier') !== []) {
     throw new \RuntimeException('Unknown license tiers must not receive default entitlements.');
 }
