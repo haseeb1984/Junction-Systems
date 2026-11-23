@@ -162,7 +162,7 @@ final class InventoryHooks {
             // worker can safely replay the event if this synchronous pass fails.
             try {
                 $this->c->make(SyncWooCommerceStockUseCase::class)->onWooCommerceSale($orderId, $cycleUuid);
-                $orderQueue->releaseInventorySyncHold($order);
+                $orderQueue->releaseInventorySyncHold($order, $cycleUuid);
                 $orderQueue->acknowledgeCompleted($orderId, $cycleUuid);
             } catch (\Throwable $syncError) {
                 $this->holdOrderForInventorySync($order, $cycleUuid);
