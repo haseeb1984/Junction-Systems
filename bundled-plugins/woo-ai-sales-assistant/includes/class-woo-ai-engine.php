@@ -90,20 +90,13 @@ class Woo_AI_Engine {
         // Refresh options so the request path never reuses the stale plaintext array.
         $opts = get_option("woo_ai_settings", []);
 
-        $sess = self::check_session_limit($opts, $wa);
-        if ($sess !== null) return $sess;
-
-        if (!self::check_rpm($opts)) return self::handoff($wa, "RPM limit");
-        if (!self::check_rpd($opts)) return self::handoff($wa, "RPD limit");
-
         $backoff = (int) get_transient(self::TK_BACKOFF);
         if ($backoff && time() < $backoff) return self::handoff($wa, "In backoff");
 
         $system  = self::build_system_prompt($opts, $wa);
         $est_tok = self::estimate_tokens($system . $user_message) + WOO_AI_MAX_TOKENS;
-        if (((int)get_transient(self::TK_TPM) + $est_tok) > self::GROQ_TPM && empty($opts["allow_paid"])) {
-            return self::handoff($wa, "TPM exceeded");
-        }
+        $reservation = self::reserve_usage($opts, $est_tok, $wa);
+        if ($reservation !== null) return $reservation;
 
         return self::call_groq(sanitize_text_field($user_message), $system,
             $opts["model"] ?? WOO_AI_MODEL_FAST, $opts, $est_tok, $wa);
@@ -148,8 +141,6 @@ class Woo_AI_Engine {
 
         if ($status === 200 && isset($body["choices"][0]["message"]["content"])) {
             $reply = trim($body["choices"][0]["message"]["content"]);
-            self::increment_rpm(); self::increment_rpd();
-            self::increment_tpm($est); self::increment_session($opts);
             return ["success" => true, "reply" => $reply, "whatsapp" => $wa];
         }
 
@@ -168,7 +159,8 @@ class Woo_AI_Engine {
             $price = $p->is_on_sale()
                 ? "PKR " . number_format((float)$p->get_sale_price()) . " (was PKR " . number_format((float)$p->get_regular_price()) . ")"
                 : "PKR " . number_format((float)$p->get_price());
-            $desc  = mb_substr(wp_strip_all_tags($p->get_short_description()), 0, 80);
+            $description = wp_strip_all_tags($p->get_short_description());
+            $desc  = function_exists('mb_substr') ? mb_substr($description, 0, 80) : substr($description, 0, 80);
             $lines[] = "[{$p->get_id()}] {$p->get_name()} | {$price} | " . ($cats ?: "General") . ($desc ? " | $desc" : "");
         }
         $ctx = implode("\n", $lines);
@@ -206,39 +198,75 @@ class Woo_AI_Engine {
         return ["success" => false, "reply" => $msg, "whatsapp" => $wa ?: self::get_whatsapp()];
     }
 
-    private static function check_session_limit(array $opts, string $wa): ?array {
-        $limit = (int)($opts["session_limit"] ?? 10);
-        $key   = self::TK_SESSION . md5(self::get_ip());
-        if ((int) get_transient($key) >= $limit) {
-            return [
-                "success"  => false,
-                "reply"    => "Is ghante {$limit} messages ka limit ho gaya 🙏 Ek ghante baad try karein ya WhatsApp karein!",
-                "handoff"  => true,
-                "whatsapp" => $wa,
-            ];
+    /**
+     * Reserve provider capacity atomically before making the external request.
+     * This counts ambiguous timeouts conservatively and prevents concurrent
+     * visitors from racing past transient-based RPM/TPM/session limits.
+     */
+    private static function reserve_usage(array $opts, int $estimatedTokens, string $wa): ?array {
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) return self::handoff($wa, "Usage limiter unavailable");
+
+        $lockName = 'woo_ai_usage_reservation';
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 2));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) {
+            return self::handoff($wa, "Usage limiter busy");
         }
-        return null;
-    }
 
-    private static function increment_session(array $opts): void {
-        $key = self::TK_SESSION . md5(self::get_ip());
-        set_transient($key, (int) get_transient($key) + 1, HOUR_IN_SECONDS);
-    }
+        try {
+            $ipHash = substr(hash_hmac('sha256', self::get_ip(), wp_salt('auth')), 0, 32);
+            $sessionKey = self::TK_SESSION . $ipHash;
+            $sessionLimit = max(1, min(100, (int) ($opts["session_limit"] ?? 10)));
+            $sessionCount = (int) get_transient($sessionKey);
+            if ($sessionCount >= $sessionLimit) {
+                return [
+                    "success" => false,
+                    "reply" => "Is ghante {$sessionLimit} messages ka limit ho gaya 🙏 Ek ghante baad try karein ya WhatsApp karein!",
+                    "handoff" => true,
+                    "whatsapp" => $wa,
+                ];
+            }
 
-    private static function check_rpm(array $opts): bool { return (int)get_transient(self::TK_RPM) < self::GROQ_RPM || !empty($opts["allow_paid"]); }
-    private static function increment_rpm(): void { set_transient(self::TK_RPM, (int)get_transient(self::TK_RPM) + 1, 60); }
-    private static function check_rpd(array $opts): bool { return (int)get_transient(self::TK_RPD) < self::GROQ_RPD || !empty($opts["allow_paid"]); }
-    private static function increment_rpd(): void { set_transient(self::TK_RPD, (int)get_transient(self::TK_RPD) + 1, strtotime("tomorrow midnight") - time()); }
-    private static function increment_tpm(int $t): void { set_transient(self::TK_TPM, (int)get_transient(self::TK_TPM) + $t, 60); }
-    private static function estimate_tokens(string $text): int { return (int)ceil(mb_strlen($text) / 4); }
+            $allowPaid = !empty($opts["allow_paid"]);
+            $rpm = (int) get_transient(self::TK_RPM);
+            $rpd = (int) get_transient(self::TK_RPD);
+            $tpm = (int) get_transient(self::TK_TPM);
+            if (!$allowPaid && $rpm >= self::GROQ_RPM) return self::handoff($wa, "RPM limit");
+            if (!$allowPaid && $rpd >= self::GROQ_RPD) return self::handoff($wa, "RPD limit");
+            if (!$allowPaid && ($tpm + $estimatedTokens) > self::GROQ_TPM) {
+                return self::handoff($wa, "TPM exceeded");
+            }
 
-    private static function get_ip(): string {
-        foreach (["HTTP_CF_CONNECTING_IP","HTTP_X_FORWARDED_FOR","REMOTE_ADDR"] as $k) {
-            if (!empty($_SERVER[$k])) {
-                $ip = trim(explode(",", sanitize_text_field(wp_unslash($_SERVER[$k])))[0]);
-                if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+            if (!set_transient($sessionKey, $sessionCount + 1, HOUR_IN_SECONDS)) {
+                return self::handoff($wa, "Session limiter persistence failed");
+            }
+            if (!$allowPaid) {
+                $rpdTtl = max(60, strtotime("tomorrow midnight") - time());
+                if (!set_transient(self::TK_RPM, $rpm + 1, 60)
+                    || !set_transient(self::TK_RPD, $rpd + 1, $rpdTtl)
+                    || !set_transient(self::TK_TPM, $tpm + $estimatedTokens, 60)) {
+                    return self::handoff($wa, "Provider usage reservation failed");
+                }
+            }
+            return null;
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                error_log('[WooAI] Usage reservation lock release could not be confirmed.');
             }
         }
-        return "0.0.0.0";
+    }
+
+    private static function estimate_tokens(string $text): int {
+        $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+        return (int) ceil($length / 4);
+    }
+
+    private static function get_ip(): string {
+        // Forwarded headers are client-controlled unless the hosting proxy is
+        // explicitly trusted. Use the transport peer address to prevent a
+        // caller from rotating X-Forwarded-For to bypass provider-cost limits.
+        $ip = trim((string) ($_SERVER["REMOTE_ADDR"] ?? ""));
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : "0.0.0.0";
     }
 }
