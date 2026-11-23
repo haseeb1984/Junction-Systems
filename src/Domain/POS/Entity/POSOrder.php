@@ -44,6 +44,20 @@ final class POSOrder {
             throw new \InvalidArgumentException('Order discount cannot exceed the remaining sale amount.');
         }
         $total = $subtotal - $lineDiscountTotal - $discountPkr;
+        $allowedMethods = ['cash','card','jazzcash','easypaisa'];
+        if ($paymentSplit === null && !in_array($paymentMethod, $allowedMethods, true)) {
+            throw new \InvalidArgumentException('Unsupported POS payment method.');
+        }
+        if ($paymentSplit !== null) {
+            $splitTotal = 0;
+            foreach ($paymentSplit as $method => $amount) {
+                if (!in_array((string)$method, $allowedMethods, true) || (int)$amount < 0) {
+                    throw new \InvalidArgumentException('Invalid split payment entry.');
+                }
+                $splitTotal += (int)$amount;
+            }
+            if ($splitTotal !== $total) throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
+        }
         $ref = 'POS-' . date('ymdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
         $order = new self(0, $sessionId, $locationId, $ref, $subtotal, $discountPkr, $total, $paymentMethod, $paymentSplit, $customerPhone, $customerName, false, SyncStatus::Pending, null, new DateTimeImmutable());
         $order->items = $items;
