@@ -517,9 +517,11 @@ if (!is_string($inventoryHttpSource)
 $woocommerceStockSyncSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($woocommerceStockSyncSource)
     || strpos($woocommerceStockSyncSource, "get_variation_id") === false
-    || strpos($woocommerceStockSyncSource, "findByWcProductId(\$variationId)") === false
-    || strpos($woocommerceStockSyncSource, "findByWcProductId(\$wcProductId)") === false) {
-    throw new \RuntimeException('WooCommerce variation orders must prefer a mapped variation and fall back to the parent product mapping.');
+    || strpos($woocommerceStockSyncSource, "stockManagedWooCommerceProductId(\$item, \$wcProductId, \$variationId)") === false
+    || strpos($woocommerceStockSyncSource, "get_stock_managed_by_id()") === false
+    || strpos($woocommerceStockSyncSource, "findByWcProductId(\$stockManagedProductId)") === false
+    || strpos($woocommerceStockSyncSource, "'stock_managed_product_id' => \$stockManagedProductId") === false) {
+    throw new \RuntimeException('WooCommerce variation orders must resolve the actual stock-owning parent or variation before inventory mapping.');
 }
 
 
@@ -558,6 +560,18 @@ if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, 'catch (\\DomainException $error)') === false
     || strpos($inventoryHttpSource, '], 409)') === false) {
     throw new \RuntimeException('Concurrent inventory identity conflicts must return HTTP 409 instead of a generic server error.');
+}
+
+
+$stockMappingPolicySource = file_get_contents($src . '/Application/Inventory/WooCommerceStockMappingPolicy.php');
+$adjustStockUseCaseSource = file_get_contents($src . '/Application/Inventory/AdjustStockUseCase.php');
+if (!is_string($stockMappingPolicySource) || !is_string($adjustStockUseCaseSource)
+    || strpos($stockMappingPolicySource, 'get_stock_managed_by_id()') === false
+    || strpos($stockMappingPolicySource, "get_manage_stock('edit')") === false
+    || strpos($stockMappingPolicySource, 'This variation uses parent-managed stock.') === false
+    || strpos($stockMappingPolicySource, 'independently managed variations') === false
+    || strpos($adjustStockUseCaseSource, 'WooCommerceStockMappingPolicy::errorFor($wcProduct)') === false) {
+    throw new \RuntimeException('WooCommerce stock sync must reject mappings that do not represent the actual stock owner.');
 }
 
 
@@ -1433,7 +1447,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, "'COMMIT'") === false
     || strpos($stockCycleCaptureSource, "'ROLLBACK'") === false
     || strpos($stockCycleCaptureSource, '$wpdb->last_error') === false
-    || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($variationId)') === false
+    || strpos($stockCycleCaptureSource, 'stockManagedWooCommerceProductId($item, $parentId, $variationId)') === false
+    || strpos($stockCycleCaptureSource, 'get_stock_managed_by_id()') === false
+    || strpos($stockCycleCaptureSource, '$this->productRepo->findByWcProductId($stockManagedProductId)') === false
     || strpos($stockCycleCaptureSource, 'refund_cumulative_baseline') === false
     || strpos($stockCycleCaptureSource, 'markReturnPending(') === false
     || strpos($stockCycleCaptureSource, 'event identity conflicts with its previously captured payload') === false
