@@ -11,14 +11,15 @@ final class TransferStockUseCase {
         private readonly LoggerInterface $log,
     ) {}
     /** Returns the stable transfer reference; callers should retain it for safe retries. */
-    public function execute(int $productId,int $fromLocationId,int $toLocationId,int $quantity,string $note='',?string $referenceId=null): string {
+    public function execute(int $productId,int $fromLocationId,int $toLocationId,int $quantity,string $note='',string $referenceId): string {
         if ($fromLocationId === $toLocationId) throw new \InvalidArgumentException('Source and destination locations must differ.');
         $product=$this->productRepo->findById($productId);
         if (!$product) throw new \RuntimeException('Inventory product not found.');
         $from=$this->locationRepo->findById($fromLocationId);
         $to=$this->locationRepo->findById($toLocationId);
         if (!$from || !$from->isActive || !$to || !$to->isActive) throw new \RuntimeException('Both transfer locations must exist and be active.');
-        $referenceId=$referenceId ?: 'TRF-'.strtoupper(bin2hex(random_bytes(12)));
+        $referenceId=trim($referenceId);
+        if($referenceId==='' || strlen($referenceId)>64) throw new \\InvalidArgumentException('A stable transfer reference_id of 1-64 characters is required.');
         $this->stockRepo->transferStock($productId,$fromLocationId,$toLocationId,$quantity,$referenceId,$note,get_current_user_id());
         if ($product->wcProductId) {
             $wcProduct=wc_get_product($product->wcProductId);
