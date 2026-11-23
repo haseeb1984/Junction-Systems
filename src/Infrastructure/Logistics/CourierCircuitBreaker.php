@@ -73,7 +73,7 @@ final class CourierCircuitBreaker {
     private function optimistic(ShipmentRequestDTO $s):ShipmentResultDTO{
         $orderId = (int) $s->internalOrderId;
         if(function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',[$orderId],'pkstore-logistics');
+            as_schedule_single_action(time()+300,'pkstore_retry_courier_booking',[$orderId],'pkstore-logistics',true);
         } elseif (!wp_next_scheduled('pkstore_retry_courier_booking', [$orderId])) {
             wp_schedule_single_event(time()+300,'pkstore_retry_courier_booking',[$orderId]);
         }
