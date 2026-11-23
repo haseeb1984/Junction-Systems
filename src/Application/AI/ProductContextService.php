@@ -33,7 +33,12 @@ final class ProductContextService {
             $budgetToken = (string) (int) $budget;
             $keywords = array_values(array_filter(
                 $keywords,
-                static fn(string $keyword): bool => !ctype_digit($keyword) || (string) (int) $keyword !== $budgetToken
+                static function (string $keyword) use ($budget, $budgetToken): bool {
+                    if (ctype_digit($keyword) && (string) (int) $keyword === $budgetToken) return false;
+                    if (preg_match('/^([0-9]+(?:\\.[0-9]+)?)k$/i', $keyword, $match) === 1
+                        && (float) $match[1] * 1000 === $budget) return false;
+                    return true;
+                }
             ));
         }
 
