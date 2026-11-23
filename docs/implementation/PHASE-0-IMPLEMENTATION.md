@@ -445,3 +445,12 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Their automatic registration is disabled until the provider request contracts are corrected and an explicit, auditable marketing-consent flow is implemented. Transactional order processing remains unaffected.
 - Mailchimp and Klaviyo API credentials are now classified as encrypted secrets, including legacy plaintext migration on read.
 - Added source smoke guards. The original-project integration phase must implement consent capture, unsubscribe/suppression handling, idempotent event delivery, provider error/retry handling and sandbox acceptance before re-enabling either adapter.
+
+
+## Analytics consent, HPOS and purchase-event integrity
+
+- GA4 browser/server tracking now requires the WordPress Consent API's `statistics` consent. Meta Pixel/CAPI requires `marketing` consent. Checkout records the relevant consent on the WooCommerce order; server-side purchase events do not infer consent from a later webhook/cron request.
+- Purchase deduplication uses WooCommerce order metadata (HPOS-compatible). Meta browser and CAPI purchase events share one persisted `event_id`; GA4 browser/server events share the same transaction ID.
+- Corrected the GA4 cart event's malformed JavaScript value serialization, added safe product fallbacks and skip invalid zero-quantity lines.
+- GA4 API secret and Meta CAPI token are encrypted by SettingsManager. If the Consent API is not installed or consent is absent, tracking is disabled by default.
+- Added source smoke guards. Runtime acceptance still needs browser consent/withdrawal, checkout, HPOS and duplicate purchase-event tests.
