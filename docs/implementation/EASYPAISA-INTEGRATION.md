@@ -7,10 +7,11 @@
 - Sends the store-specific merchant credentials in the HTTP `Credentials` header as Base64(`username:password`).
 - Uses each store's own `storeId`, `accountNum`, username, and password. Username, password, and account number are encrypted through Junction's settings secret storage.
 - Accepts PKR orders only and submits a two-decimal PKR amount.
-- Sends a Mobile Account payment request to the customer's Pakistani mobile number and leaves the WooCommerce order pending until the authenticated status inquiry reports `PAID`.
+- Checkout asks for the customer's Easypaisa Mobile Account number separately from the billing phone. Junction stores only an HMAC of the normalized mobile number on the order, sends the number to Easypaisa for initiation, and leaves the WooCommerce order pending until the authenticated status inquiry reports `PAID`.
 - The IPN endpoint does not trust the incoming notification as proof of payment. It extracts the merchant account/order reference and then calls Easypaisa's authenticated `inquire-transaction` API before changing the order.
 - A pending/unknown transaction is never re-initiated automatically. A later retry first checks the provider status; only a verified failed/blocked/expired/reversed state allows another attempt.
-- A paid transaction must match the stored order amount, store ID, payment mode, and (when supplied) the mobile number. Mismatches move the order to manual review rather than marking it paid.
+- A paid transaction must match the stored order amount, store ID, payment mode, and the submitted mobile number (verified against the stored HMAC). Mismatches move the order to manual review rather than marking it paid.
+- Cancelled/refunded orders and orders already paid through another path retain their existing WooCommerce status if a late or contradictory Easypaisa response arrives; the transaction is marked for manual reconciliation instead of reopening or overwriting the order.
 
 ## Store-specific settings
 
