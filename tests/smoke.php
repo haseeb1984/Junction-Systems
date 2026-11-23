@@ -707,7 +707,7 @@ if (!is_string($orderQueueRetrySource)
     || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order, ?string $expectedCycleUuid = null): void') === false
     || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $heldCycleUuid)') === false
     || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $reloadedCycleUuid)') === false
-    || strpos($orderQueueRetrySource, 'private function bindInventorySyncHoldCycle(\\WC_Order $order, string $cycleUuid): void') === false
+    || strpos($orderQueueRetrySource, 'public function bindInventorySyncHoldCycle(\\WC_Order $order, string $cycleUuid): void') === false
     || strpos($orderQueueRetrySource, '$this->bindInventorySyncHoldCycle($order, $cycleUuid)') === false
     || strpos($orderQueueRetrySource, 'Unable to bind WooCommerce inventory hold to its recovered stock cycle.') === false
     || strpos($orderQueueRetrySource, 'SELECT state FROM {$cyclesTable} WHERE wc_order_id=%d AND cycle_uuid=%s') === false
@@ -1350,6 +1350,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleHooksSource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($stockCycleHooksSource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($stockCycleHooksSource, "update_status('on-hold'") === false
+    || strpos($stockCycleHooksSource, 'bindInventorySyncHoldCycle($order, $cycleUuid)') === false
     || strpos($stockCycleHooksSource, 'releaseInventorySyncHold($order, $cycleUuid)') === false
     || strpos($stockCycleHooksSource, "'capturing'") === false
     || strpos($stockCycleHooksSource, 'Unable to mark WooCommerce stock-reduction snapshot as pending.') === false
