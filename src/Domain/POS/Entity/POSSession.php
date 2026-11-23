@@ -63,6 +63,9 @@ final class POSSession {
     }
     public function getCashVariance(): int { return ($this->closingCash ?? 0) - ($this->openingCash + $this->totalCashPkr); }
     public static function open(int $locationId, int $cashierId, int $openingCash): self {
+        if ($locationId <= 0 || $cashierId <= 0 || $openingCash < 0) {
+            throw new \\InvalidArgumentException('A valid location, cashier and non-negative opening cash are required.');
+        }
         return new self(0, $locationId, $cashierId, $openingCash, null, 0, 0, 0, 0, 0, SessionStatus::Open, new DateTimeImmutable(), null);
     }
 }
