@@ -991,7 +991,7 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($chatRepositorySource, 'ORDER BY created_at DESC,id DESC') === false
     || strpos($chatRepositorySource, 'Unable to save this chat session history.') === false
     || strpos($handleAiChatSource, 'private const HIST=20') === false
-    || strpos($aiChatModuleSource, "sessionStorage.getItem(k)") === false
+    || strpos($aiChatModuleSource, "sessionStorage.getItem(SESSION_KEY)") === false
     || strpos($wcProductRepositorySource, "p.post_type IN ('product','product_variation')") === false
     || strpos($wcProductRepositorySource, "LEFT(attr.meta_key,11)='_attribute_'") === false
     || strpos($wcProductRepositorySource, 'wc_product_meta_lookup') === false
@@ -1067,6 +1067,12 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($aiChatUseCaseSource, 'gemini-1.5-flash') !== false
     || strpos($aiChatUseCaseSource, "function_exists('mb_substr')") === false
     || strpos($aiChatUseCaseSource, 'substr($c,0,self::MAXCHARS)') === false
+    || strpos($aiChatControllerSource, "register_rest_route('pkstore/v1', '/chat/session'") === false
+    || strpos($aiChatControllerSource, 'public function createSession(') === false
+    || strpos($aiChatControllerSource, 'private function ownsSession(') === false
+    || strpos($aiChatControllerSource, "'session_token' => ['required' => true") === false
+    || strpos($aiChatControllerSource, "pkstore_chat_owner_") === false
+    || strpos($aiChatControllerSource, 'hash_equals($storedHash, hash(\\'sha256\\', $token))') === false
     || strpos($aiChatControllerSource, 'validSessionUuid(') === false
     || strpos($aiChatControllerSource, 'REMOTE_ADDR') === false
     || strpos($aiChatControllerSource, '$ipCount >= 100') === false
@@ -1077,6 +1083,8 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($aiChatControllerSource, 'sort($lockNames, SORT_STRING)') === false
     || strpos($aiChatControllerSource, 'SELECT RELEASE_LOCK(%s)') === false
     || strpos($aiChatControllerSource, 'streamError(') === false
+    || strpos($aiChatModuleSource, 'getChatSession()') === false
+    || strpos($aiChatModuleSource, 'session_token:session.token') === false
     || strpos($aiChatModuleSource, 'p.error') === false
     || strpos($aiChatModuleSource, 'new ApiError') === false
     || strpos($aiChatModuleSource, 'if(!res.ok)') === false) {
