@@ -389,7 +389,7 @@ const POS = {
                 // retry it; never present an ambiguous result as a rejected sale.
                 await DB.put('queue', {...payload, ref:orderRef, total, offline:true, status:'pending', queued_at:Date.now(), local_stock_decremented:true});
                 this.clearCart();
-                this.toast(\`⚡ Sale confirmation unavailable — safely queued (\${orderRef})\`);
+                this.toast(`⚡ Sale confirmation unavailable — safely queued (${orderRef})`);
             }
             btn.disabled = false; this.updateTotals();
             return;
@@ -400,7 +400,7 @@ const POS = {
         await this.loadProducts();
         this.printReceipt({ref:result.order_ref, total, items, method:this.paymentMethod, cname, cphone, discount});
         this.clearCart();
-        this.toast(\`✓ Sale \${result.order_ref} — PKR \${total.toLocaleString()}\`);
+        this.toast(`✓ Sale ${result.order_ref} — PKR ${total.toLocaleString()}`);
         if (cphone) {
             try {
                 const receipt = await this.api('/pos/receipt/whatsapp','POST',{
