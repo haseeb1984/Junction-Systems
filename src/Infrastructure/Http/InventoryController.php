@@ -21,6 +21,9 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>fn()=>current_user_can($auth)]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
@@ -86,6 +89,29 @@ final class InventoryController {
     public function generateBarcode(\WP_REST_Request $req): \WP_REST_Response {
         try { $barcode=$this->c->make(GenerateBarcodeUseCase::class)->execute((int)$req->get_param('id')); return new \WP_REST_Response(['success'=>true,'barcode'=>$barcode],200);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],404); }
+    }
+    public function createPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        try {
+            $items=$req->get_param('items');
+            if(!is_array($items)) return new \WP_REST_Response(['success'=>false,'message'=>'items must be an array.'],422);
+            $id=$this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
+                (int)$req->get_param('supplier_id'),(int)$req->get_param('location_id'),$items,sanitize_textarea_field($req->get_param('notes')??'')
+            );
+            return new \WP_REST_Response(['success'=>true,'purchase_order_id'=>$id,'message'=>'Purchase order created.'],201);
+        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+    }
+    public function getPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        $po=$this->c->make(\PkStore\Domain\Inventory\Repository\PurchaseOrderRepositoryInterface::class)->findById((int)$req->get_param('id'));
+        if(!$po) return new \WP_REST_Response(['success'=>false,'message'=>'Purchase order not found.'],404);
+        return new \WP_REST_Response(['success'=>true,'purchase_order'=>['id'=>$po->id,'po_number'=>$po->poNumber,'supplier_id'=>$po->supplierId,'location_id'=>$po->locationId,'status'=>$po->getStatus()->value,'total_pkr'=>$po->totalPkr,'items'=>$po->getItems()]],200);
+    }
+    public function receivePurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        try {
+            $items=$req->get_param('items'); $reference=sanitize_text_field($req->get_param('receipt_reference')??'');
+            if(!is_array($items) || $reference==='') return new \WP_REST_Response(['success'=>false,'message'=>'items and a stable receipt_reference are required.'],422);
+            $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute((int)$req->get_param('id'),$items,$reference);
+            return new \WP_REST_Response(['success'=>true,'message'=>'Purchase receipt processed.','receipt_reference'=>$reference],200);
+        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
     public function lowStock(\WP_REST_Request $req): \WP_REST_Response {
         $products = $this->c->make(InventoryProductRepositoryInterface::class)->findBelowReorderPoint();
