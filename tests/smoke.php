@@ -502,7 +502,7 @@ if (!is_string($adminInventorySource)
 }
 if (!is_string($inventoryHttpSource)
     || strpos($inventoryHttpSource, "register_rest_route(\$ns, '/inventory/products'") === false
-    || strpos($inventoryHttpSource, "[$this,'createProduct']") === false
+    || strpos($inventoryHttpSource, "[\$this,'createProduct']") === false
     || strpos($inventoryHttpSource, 'public function createProduct(') === false
     || strpos($inventoryHttpSource, 'findByWcProductId($wcProductId)') === false
     || strpos($inventoryHttpSource, "isEnabled('barcode_labels')") === false
