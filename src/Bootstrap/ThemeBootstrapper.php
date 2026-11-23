@@ -132,10 +132,10 @@ final class ThemeBootstrapper {
         // ── Marketing integrations ─────────────────────────────────
         if ($this->fm->isEnabled('whatsapp_api'))
             (new \PkStore\Infrastructure\Integration\WhatsApp\WhatsAppHooks($this->c))->register();
-        if ($this->fm->isEnabled('mailchimp'))
-            $this->c->make(\PkStore\Infrastructure\Integration\Email\MailchimpService::class)->register();
-        if ($this->fm->isEnabled('klaviyo'))
-            $this->c->make(\PkStore\Infrastructure\Integration\Email\KlaviyoService::class)->register();
+        // Mailchimp/Klaviyo auto-sync is held until the adapters use valid
+        // HTTP method/endpoint separation and an explicit marketing-consent
+        // proof. The current placeholders can otherwise attempt invalid API
+        // requests and subscribe customers without recorded opt-in.
 
         // QuickBooks and Daraz adapters are intentionally not auto-registered.
         // Their current source does not yet provide complete OAuth/configuration,
