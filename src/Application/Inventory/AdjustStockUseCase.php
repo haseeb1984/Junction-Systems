@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace PkStore\\Application\\Inventory;
-use PkStore\\Domain\\Inventory\\Entity\\{MovementType, StockMovement};
-use PkStore\\Domain\\Inventory\\Repository\\{InventoryProductRepositoryInterface, StockRepositoryInterface};
-use Psr\\Log\\LoggerInterface;
+namespace PkStore\Application\Inventory;
+use PkStore\Domain\Inventory\Entity\{MovementType, StockMovement};
+use PkStore\Domain\Inventory\Repository\{InventoryProductRepositoryInterface, StockRepositoryInterface};
+use Psr\Log\LoggerInterface;
 final class AdjustStockUseCase {
     public function __construct(
         private readonly InventoryProductRepositoryInterface $productRepo,
@@ -32,8 +32,8 @@ final class AdjustStockUseCase {
             $wcProduct->set_manage_stock(true);
             $wcProduct->set_stock_quantity($totalStock);
             $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-            if ($wcProduct->save() === false) throw new \\RuntimeException('WooCommerce rejected the stock projection save.');
-        } catch (\\Throwable $e) {
+            if ($wcProduct->save() === false) throw new \RuntimeException('WooCommerce rejected the stock projection save.');
+        } catch (\Throwable $e) {
             // The hourly full reconciliation is the recovery path for this projection.
             $this->log->error('Inventory adjustment committed but WooCommerce stock projection failed.', [
                 'product_id'=>$productId,'location_id'=>$locationId,'error'=>$e->getMessage(),
