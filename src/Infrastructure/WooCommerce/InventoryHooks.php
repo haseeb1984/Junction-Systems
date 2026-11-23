@@ -109,11 +109,19 @@ final class InventoryHooks {
             $capturedLines = 0;
             foreach ($order->get_items('line_item') as $item) {
                 $reduced = $item->get_meta('_reduced_stock', true);
-                if ($reduced === '' || $reduced === null) continue;
-                if (!is_numeric($reduced)) {
-                    throw new \RuntimeException('WooCommerce stock-reduction metadata is invalid.');
+                if ($reduced === '' || $reduced === null || (is_numeric($reduced) && (float) $reduced === 0.0)) {
+                    // A prior cycle's fallback snapshot must never make a line
+                    // look reduced in this new cycle if WooCommerce did not
+                    // actually decrement it this time (e.g. stock management
+                    // was disabled or the product became virtual).
+                    if ($item->get_meta('_pkstore_wc_reduced_stock_snapshot', true) !== '') {
+                        $item->delete_meta_data('_pkstore_wc_reduced_stock_snapshot');
+                        if ((int) $item->save() !== (int) $item->get_id()) {
+                            throw new \RuntimeException('Unable to clear stale WooCommerce stock-reduction snapshot.');
+                        }
+                    }
+                    continue;
                 }
-                if ((float) $reduced === 0.0) continue;
                 if (!is_numeric($reduced) || (float) $reduced < 0 || floor((float) $reduced) !== (float) $reduced) {
                     throw new \RuntimeException('WooCommerce stock-reduction metadata is invalid.');
                 }
