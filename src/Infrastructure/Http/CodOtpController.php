@@ -233,11 +233,11 @@ final class CodOtpController {
         try {
             $billingPhone = new PakistanPhoneNumber((string) $order->get_billing_phone());
         } catch (\Throwable) {
-            $this->holdCodOrderForOtpReview($order, 'The order billing phone could not be matched to the verified COD phone.');
+            // The order may not yet be persisted at this hook. The later
+            // checkout_order_processed hook performs the authoritative hold.
             return;
         }
         if (!hash_equals((string) ($proof['phone'] ?? ''), $billingPhone->e164)) {
-            $this->holdCodOrderForOtpReview($order, 'The order billing phone differs from the phone verified for COD.');
             return;
         }
 
