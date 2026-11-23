@@ -9,6 +9,26 @@ final class BookShipmentUseCase {
     public function __construct(private readonly CourierCircuitBreaker $cb, private readonly OrderMetaRepository $meta, private readonly LoggerInterface $log) {}
     public function execute(ShipmentRequestDTO $s): ShipmentResultDTO {
         $orderId = (int) $s->internalOrderId;
+        $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
+        if (!($order instanceof \WC_Order)) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'WooCommerce order could not be verified before courier booking.');
+        }
+        if ($order->get_status() !== 'processing'
+            || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes'
+            || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review'
+            || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'Order is not eligible for courier booking.');
+        }
+        if ($order->get_payment_method() === 'cod'
+            && !$this->isDigitalOnlyOrder($order)
+            && ($order->get_meta('_pkstore_cod_otp_review_required', true) === 'yes'
+                || $order->get_meta('_pkstore_cod_otp_verified', true) !== 'yes')) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'COD phone verification is not confirmed; courier booking is blocked.');
+        }
+        $existingTracking = (string) $order->get_meta('_tracking_courier', true);
+        if ($existingTracking !== '' && !str_starts_with($existingTracking, 'PENDING-')) {
+            return ShipmentResultDTO::failure('unknown', $s->internalOrderId, 'A confirmed courier tracking reference already exists; duplicate booking is blocked.');
+        }
         try {
             $result = $this->cb->bookWithFailover($s);
         } catch (\Throwable $error) {
@@ -25,8 +45,6 @@ final class BookShipmentUseCase {
                 'Booking outcome unknown after dispatcher exception. Manual provider reconciliation is required.'
             );
         }
-        $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
-
         if ($result->success && !str_starts_with($result->trackingNumber, 'PENDING-')) {
             try {
                 $this->meta->saveTrackingNumber($s->internalOrderId, $result->trackingNumber, $result->courierCode);
