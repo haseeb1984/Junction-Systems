@@ -83,10 +83,10 @@ final class InventoryController {
     public function transferStock(\WP_REST_Request $req): \WP_REST_Response {
         try {
             $reference=sanitize_text_field($req->get_param('reference_id')??'');
-            if($reference==='') return new \\WP_REST_Response(['success'=>false,'message'=>'A stable reference_id is required for safe transfer retries.'],422);
+            if($reference==='') return new \WP_REST_Response(['success'=>false,'message'=>'A stable reference_id is required for safe transfer retries.'],422);
             $result=$this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
                 (int)$req->get_param('product_id'),(int)$req->get_param('from_location_id'),(int)$req->get_param('to_location_id'),
-                (int)$req->get_param('quantity'),sanitize_text_field($req->get_param('note')??''),$reference
+                (int)$req->get_param('quantity'),$reference,sanitize_text_field($req->get_param('note')??'')
             );
             return new \WP_REST_Response(['success'=>true,'reference_id'=>$result,'message'=>'Stock transferred.'],200);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
