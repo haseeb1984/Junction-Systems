@@ -558,8 +558,9 @@ if (!is_string($inventoryHttpSource)
 
 $barcodeUseCaseSource = file_get_contents($src . '/Application/Inventory/GenerateBarcodeUseCase.php');
 if (!is_string($barcodeUseCaseSource)
-    || strpos($barcodeUseCaseSource, 'for ($attempt = 1; $attempt <= 999; $attempt++)') === false
-    || strpos($barcodeUseCaseSource, 'Unable to generate a unique inventory barcode.') === false) {
+    || strpos($barcodeUseCaseSource, 'for ($attempt = 0; $attempt <= 999; $attempt++)') === false
+    || strpos($barcodeUseCaseSource, 'Unable to generate a unique inventory barcode.') === false
+    || strpos($barcodeUseCaseSource, 'catch (\\DomainException $error)') === false) {
     throw new \RuntimeException('Automatic barcode generation must probe alternatives and fail closed when collisions cannot be resolved.');
 }
 
