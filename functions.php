@@ -11,7 +11,7 @@ require_once PKSTORE_SRC.'/Bootstrap/Autoloader.php';
 \PkStore\Bootstrap\Autoloader::register(PKSTORE_SRC,'PkStore');
 \PkStore\Bootstrap\Autoloader::register(PKSTORE_SRC,'Psr');
 add_action('after_setup_theme',function():void{
-    if(version_compare((string)get_option('pkstore_db_version','0'),'2.1.0','<')){
+    if(version_compare((string)get_option('pkstore_db_version','0'),'2.2.0','<')){
         \PkStore\Infrastructure\Database\Installer::run();
     }
 },5);
