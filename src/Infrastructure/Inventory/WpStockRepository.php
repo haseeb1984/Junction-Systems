@@ -43,7 +43,7 @@ final class WpStockRepository implements StockRepositoryInterface {
             $before=(int)$row['quantity'];
             [$after,$type,$refType,$refId,$note,$userId,$createdAt]=$build($before);
             // A committed movement with the same business reference must never be applied twice.
-            if ($refType !== '' && $refId !== '') {
+            if (in_array($refType, ['pos_order','wc_order'], true) && $refId !== '') {
                 $existing=$this->db->get_var($this->db->prepare(
                     "SELECT id FROM {$this->tm()} WHERE product_id=%d AND location_id=%d AND reference_type=%s AND reference_id=%s LIMIT 1",
                     $productId,$locationId,$refType,$refId
