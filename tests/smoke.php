@@ -298,7 +298,7 @@ if (strpos($bootstrapSource, "wp_has_consent('statistics')") === false
     || strpos($bootstrapSource, 'KlaviyoService::class)->register()') !== false
     || strpos($bootstrapSource, 'explicit marketing-consent') === false
     || strpos($bootstrapSource, 'incorrect accounting records or empty Daraz orders') === false) {
-    throw new \\RuntimeException('Incomplete QuickBooks/Daraz adapters must remain disabled until their safe mapping and idempotency contracts are implemented.');
+    throw new \RuntimeException('Incomplete QuickBooks/Daraz adapters must remain disabled until their safe mapping and idempotency contracts are implemented.');
 }
 
 
@@ -310,7 +310,7 @@ if (!is_string($quickBooksSource)
     || strpos($quickBooksSource, 'set_transient(') !== false
     || strpos($quickBooksSource, 'get_transient(') !== false
     || strpos($settingsManagerSource, "'QUICKBOOKS_ACCESS_TOKEN'=>true") === false) {
-    throw new \\RuntimeException('QuickBooks OAuth access and refresh tokens must use encrypted SettingsManager storage.');
+    throw new \RuntimeException('QuickBooks OAuth access and refresh tokens must use encrypted SettingsManager storage.');
 }
 
 $ga4AnalyticsSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/GA4Service.php');
@@ -338,7 +338,7 @@ if (!is_string($ga4AnalyticsSource) || !is_string($facebookPixelSource)
     || strpos($facebookPixelSource, "get_post_meta(") !== false
     || strpos($settingsManagerSource, "'google_analytics'=>['GA4_MEASUREMENT_ID'=>false,'GA4_API_SECRET'=>true") === false
     || strpos($settingsManagerSource, "'facebook_pixel'=>['FACEBOOK_PIXEL_ID'=>false,'FACEBOOK_CAPI_TOKEN'=>true") === false) {
-    throw new \\RuntimeException('GA4 and Meta tracking must require explicit consent, use HPOS-safe order metadata and deduplicate browser/server purchase events.');
+    throw new \RuntimeException('GA4 and Meta tracking must require explicit consent, use HPOS-safe order metadata and deduplicate browser/server purchase events.');
 }
 
 $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
@@ -811,7 +811,7 @@ if (!is_string($posRetryExceptionSource)
     || strpos($posHttpSource, 'catch (OnlineStockReconciliationPendingException $error)') === false
     || strpos($posHttpSource, "'retryable' => true") === false
     || strpos($posHttpSource, '], 503)') === false
-    || strpos($posRetryExceptionSource, 'extends \\RuntimeException') === false) {
+    || strpos($posRetryExceptionSource, 'extends \RuntimeException') === false) {
     throw new \RuntimeException('Temporary online inventory reconciliation must return a retryable POS response, not reject an offline sale.');
 }
 
@@ -844,7 +844,7 @@ if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
 $posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
 if (!is_string($posSyncSource)
     || strpos($posSyncSource, '\\\\wpdb') !== false
-    || strpos($posSyncSource, '\\\\RuntimeException') !== false
+    || strpos($posSyncSource, '\\\RuntimeException') !== false
     || strpos($posSyncSource, 'private function paidWooCommerceOrderMatches') === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
     || strpos($posSyncSource, "_pkstore_pos_order_ref") === false) {
@@ -1217,7 +1217,7 @@ if (!is_string($orderMetaRepositorySource)
     || strpos($courierRetrySource, 'Provider confirmed the shipment but Junction could not persist its tracking reference.') === false
     || strpos($courierRetrySource, '_pkstore_courier_booking_review_reason') === false
     || strpos($courierRetrySource, 'Courier booking dispatcher failed with an unverified provider outcome.') === false) {
-    throw new \\RuntimeException('A provider-confirmed courier booking must not be blindly retried when local tracking persistence fails.');
+    throw new \RuntimeException('A provider-confirmed courier booking must not be blindly retried when local tracking persistence fails.');
 }
 
 $abstractCourierSource = file_get_contents($src . '/Infrastructure/Logistics/AbstractCourier.php');
@@ -1230,7 +1230,7 @@ if (!is_string($abstractCourierSource) || !is_string($tcsCourierSource)
     || strpos($tcsCourierSource, 'verifiable tracking number after booking submission') === false
     || strpos($leopardsCourierSource, 'verifiable tracking number after booking submission') === false
     || strpos($traxCourierSource, 'verifiable tracking number after booking submission') === false) {
-    throw new \\RuntimeException('Courier transport failures and unverified success responses must be treated as ambiguous, not safe failover signals.');
+    throw new \RuntimeException('Courier transport failures and unverified success responses must be treated as ambiguous, not safe failover signals.');
 }
 
 $shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
@@ -1325,7 +1325,7 @@ $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/Capt
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
     || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false
-    || strpos($stockCycleCaptureSource, 'new \\\\RuntimeException') !== false) {
+    || strpos($stockCycleCaptureSource, 'new \\\RuntimeException') !== false) {
     throw new \RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
@@ -1355,7 +1355,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, "'state' => 'closed'") === false
     || strpos($stockSaleSource, 'refund_cumulative_baseline') === false
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
-    || strpos($stockSaleSource, 'new \\\\RuntimeException') !== false) {
+    || strpos($stockSaleSource, 'new \\\RuntimeException') !== false) {
     throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
 }
 
