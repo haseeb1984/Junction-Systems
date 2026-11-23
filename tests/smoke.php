@@ -1155,9 +1155,9 @@ if (!is_string($inventoryControllerSource) || !is_string($inventoryAdminSource) 
 
 $affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
 if (!is_string($affiliateControllerSource)
-    || strpos($affiliateControllerSource, 'maskPaymentAccount(') === false
-    || strpos($affiliateControllerSource, "'payment_account'=>$this->maskPaymentAccount($a->paymentAccount)") === false
-    || strpos($affiliateControllerSource, "'payment_account'=>$a->paymentAccount") !== false) {
+    || strpos($affiliateControllerSource, "'payment_account'=>\$this->maskPaymentAccount(\$a->paymentAccount)") === false
+    || strpos($affiliateControllerSource, "'payment_account'=>\$this->maskPaymentAccount(\$a->paymentAccount)") === false
+    || strpos($affiliateControllerSource, "'payment_account'=>\$a->paymentAccount") !== false) {
     throw new \RuntimeException('Affiliate dashboard API must mask payout account details by default.');
 }
 
@@ -1222,8 +1222,8 @@ if (!is_string($codOtpControllerSource) || !is_string($otpRepositorySource)
     || strpos($codOtpControllerSource, 'woocommerce_after_checkout_validation') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_create_order') === false
     || strpos($codOtpControllerSource, 'woocommerce_checkout_order_processed') === false
-    || strpos($codOtpControllerSource, 'enforceCodOtpFulfilmentHold') === false
-    || strpos($codOtpControllerSource, "woocommerce_order_status_processing', [$this, 'enforceCodOtpFulfilmentHold'], 1") === false
+    || strpos($codOtpControllerSource, "woocommerce_order_status_processing', [\$this, 'enforceCodOtpFulfilmentHold'], 1") === false
+    || strpos($codOtpControllerSource, "woocommerce_order_status_processing', [\$this, 'enforceCodOtpFulfilmentHold'], 1") === false
     || strpos($codOtpControllerSource, 'bindConsumedAttemptToOrder(') === false
     || strpos($codOtpControllerSource, 'holdCodOrderForOtpReview(') === false
     || strpos($codOtpControllerSource, "_pkstore_cod_otp_review_required") === false
