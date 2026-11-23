@@ -71,7 +71,7 @@ return static function(ServiceContainer $c):void{
 
     // POS use cases
     $c->singleton(\PkStore\Application\POS\ProcessPOSSaleUseCase::class, fn()=>new \PkStore\Application\POS\ProcessPOSSaleUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\POS\Repository\POSSessionRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),$c->make(\PkStore\Application\Inventory\AdjustStockUseCase::class),new WpLogger()));
-    $c->singleton(\\PkStore\\Application\\POS\\SyncPOSQueueUseCase::class, fn()=>new \\PkStore\\Application\\POS\\SyncPOSQueueUseCase($c->make(\\PkStore\\Domain\\POS\\Repository\\POSOrderRepositoryInterface::class),$c->make(\\PkStore\\Domain\\Inventory\\Repository\\InventoryProductRepositoryInterface::class),new WpLogger()));
+    $c->singleton(\PkStore\Application\POS\SyncPOSQueueUseCase::class, fn()=>new \PkStore\Application\POS\SyncPOSQueueUseCase($c->make(\PkStore\Domain\POS\Repository\POSOrderRepositoryInterface::class),$c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class),new WpLogger()));
 
     // Analytics
     $c->singleton(\PkStore\Infrastructure\Integration\Analytics\GA4Service::class, fn()=>new \PkStore\Infrastructure\Integration\Analytics\GA4Service($s));
