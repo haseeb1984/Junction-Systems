@@ -1150,6 +1150,16 @@ if (!is_string($courierCircuitBreakerSource)
     throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
 }
 
+$orderMetaRepositorySource = file_get_contents($src . '/Infrastructure/WooCommerce/OrderMetaRepository.php');
+if (!is_string($orderMetaRepositorySource)
+    || strpos($orderMetaRepositorySource, 'Unable to reload the WooCommerce order after courier booking.') === false
+    || strpos($orderMetaRepositorySource, '$order->save()') === false
+    || strpos($courierRetrySource, 'Provider confirmed the shipment but Junction could not persist its tracking reference.') === false
+    || strpos($courierRetrySource, '_pkstore_courier_booking_review_reason') === false
+    || strpos($courierRetrySource, 'Courier booking dispatcher failed with an unverified provider outcome.') === false) {
+    throw new \\RuntimeException('A provider-confirmed courier booking must not be blindly retried when local tracking persistence fails.');
+}
+
 $abstractCourierSource = file_get_contents($src . '/Infrastructure/Logistics/AbstractCourier.php');
 $tcsCourierSource = file_get_contents($src . '/Infrastructure/Logistics/TcsCourier.php');
 $leopardsCourierSource = file_get_contents($src . '/Infrastructure/Logistics/LeopardsCourier.php');
