@@ -535,7 +535,11 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products are mapped to the same WooCommerce product.') === false
     || strpos($inventoryProductRepositorySource, 'Unable to check inventory SKU.') === false
     || strpos($inventoryProductRepositorySource, 'Unable to check inventory barcode.') === false
-    || strpos($inventoryProductRepositorySource, 'Unable to read inventory product.') === false) {
+    || strpos($inventoryProductRepositorySource, 'Unable to read inventory product.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to list inventory products.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to list inventory products below reorder point.') === false
+    || strpos($inventoryProductRepositorySource, 'Unable to count inventory products.') === false
+    || strpos($inventoryProductRepositorySource, '$rows === null && $this->db->last_error !==') === false) {
     throw new \RuntimeException('Inventory product repository must fail closed when database writes fail.');
 }
 
