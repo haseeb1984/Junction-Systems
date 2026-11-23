@@ -42,7 +42,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
         return array_map(fn($r)=>$this->hydrate($r),$rows);
     }
     public function receive(int $purchaseOrderId,array $items,string $receiptReference,int $userId): void {
-        if($purchaseOrderId<=0 || $receiptReference==='') throw new \InvalidArgumentException('Invalid receipt identity.');
+        if($purchaseOrderId<=0 || $receiptReference==='' || strlen($receiptReference)>64 || !$items) throw new \InvalidArgumentException('Invalid receipt identity.');
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start receiving transaction: '.$this->db->last_error);
         try {
             $po=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$purchaseOrderId),ARRAY_A);
