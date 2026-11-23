@@ -47,7 +47,7 @@ final class SyncWooCommerceStockUseCase {
                 $this->adjustStock->execute((int)$productId, $onlineLocation->id, -$quantity, MovementType::OnlineSale, "WooCommerce order #{$orderId}", 'wc_order', (string)$orderId);
                 $order->update_meta_data($marker, 1);
                 $order->save();
-            } catch (\DomainException $e) {
+            } catch (\Throwable $e) {
                 $this->log->error('WC stock sync failed.', ['order_id'=>$orderId,'product_id'=>$productId,'error'=>$e->getMessage()]);
             }
         }
