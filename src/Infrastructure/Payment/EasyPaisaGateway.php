@@ -253,27 +253,46 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         if (!is_array($orders)) return 0;
 
         $checked = 0;
-        foreach ($orders as $order) {
-            if (!($order instanceof \WC_Order)) continue;
-            $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
-            if ($orderRef === '') continue;
-            $status = $this->inquireTransactionStatus($orderRef);
-            if (!is_array($status)) continue;
-            $this->applyProviderStatus($order, $status);
-            $checked++;
+        foreach ($orders as $candidate) {
+            if (!($candidate instanceof \WC_Order)) continue;
+            try {
+                $result = $this->withPaymentOrderLock((int) $candidate->get_id(), function () use ($candidate): bool {
+                    $order = wc_get_order((int) $candidate->get_id());
+                    if (!($order instanceof \WC_Order) || $order->is_paid()
+                        || $order->get_payment_method() !== $this->id) return false;
+                    $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
+                    if ($orderRef === '') return false;
+                    $status = $this->inquireTransactionStatus($orderRef);
+                    if (!is_array($status)) return false;
+                    $this->applyProviderStatus($order, $status);
+                    return true;
+                });
+                if ($result) $checked++;
+            } catch (\Throwable $error) {
+                $this->log->warning('Easypaisa scheduled reconciliation could not acquire or use the order payment lock.', [
+                    'order_id' => (int) $candidate->get_id(),
+                    'error_class' => get_class($error),
+                ]);
+            }
         }
         return $checked;
     }
 
     public function verifyOnReturn(int $orderId): void {
-        $order = wc_get_order($orderId);
-        if (!$order instanceof \WC_Order || $order->get_payment_method() !== $this->id || $order->is_paid()) return;
-
-        $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
-        if ($orderRef === '') return;
-        $status = $this->inquireTransactionStatus($orderRef);
-        if (is_array($status)) {
-            $this->applyProviderStatus($order, $status);
+        try {
+            $this->withPaymentOrderLock($orderId, function () use ($orderId): void {
+                $order = wc_get_order($orderId);
+                if (!($order instanceof \WC_Order) || $order->get_payment_method() !== $this->id || $order->is_paid()) return;
+                $orderRef = (string) $order->get_meta('_pkstore_easypaisa_order_id');
+                if ($orderRef === '') return;
+                $status = $this->inquireTransactionStatus($orderRef);
+                if (is_array($status)) $this->applyProviderStatus($order, $status);
+            });
+        } catch (\Throwable $error) {
+            $this->log->warning('Easypaisa return verification could not acquire or use the order payment lock.', [
+                'order_id' => $orderId,
+                'error_class' => get_class($error),
+            ]);
         }
     }
 
@@ -319,15 +338,52 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         }
         $order = $orders[0];
 
-        $status = $this->inquireTransactionStatus($orderRef);
-        if (!is_array($status)) {
-            status_header(503);
-            exit;
+        try {
+            $result = $this->withPaymentOrderLock((int) $order->get_id(), function () use ($orderRef, $order): string {
+                $freshOrder = wc_get_order((int) $order->get_id());
+                if (!($freshOrder instanceof \WC_Order) || $freshOrder->get_payment_method() !== $this->id) {
+                    return 'review';
+                }
+                $status = $this->inquireTransactionStatus($orderRef);
+                if (!is_array($status)) return 'unavailable';
+                return $this->applyProviderStatus($freshOrder, $status);
+            });
+        } catch (\Throwable $error) {
+            $this->log->warning('Easypaisa IPN could not acquire or use the order payment lock.', [
+                'order_id' => (int) $order->get_id(),
+                'error_class' => get_class($error),
+            ]);
+            $result = 'unavailable';
         }
-        $result = $this->applyProviderStatus($order, $status);
-        status_header($result === 'pending' ? 503 : 200);
+
+        status_header(in_array($result, ['pending', 'unavailable'], true) ? 503 : 200);
         echo 'OK';
         exit;
+    }
+
+    private function withPaymentOrderLock(int $orderId, callable $callback): mixed {
+        global $wpdb;
+        if ($orderId < 1 || !$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('A valid payment order lock is unavailable.');
+        }
+
+        $lockName = 'pkstore_payment_order_' . $orderId;
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ($wpdb->last_error !== '' || (int) $locked !== 1) {
+            throw new \RuntimeException('Unable to acquire payment order lock.');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            $released = $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+            if ($wpdb->last_error !== '' || (int) $released !== 1) {
+                $this->log->critical('Payment order lock release could not be confirmed.', [
+                    'order_id' => $orderId,
+                    'gateway' => 'easypaisa',
+                ]);
+            }
+        }
     }
 
     private function inquireTransactionStatus(string $orderRef): ?array {
