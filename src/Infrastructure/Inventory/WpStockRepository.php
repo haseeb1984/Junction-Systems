@@ -45,8 +45,8 @@ final class WpStockRepository implements StockRepositoryInterface {
             ),ARRAY_A) ?: [];
             if (count($rows) !== 2) throw new \RuntimeException('Unable to lock both stock locations for transfer.');
             $existing = (int)$this->db->get_var($this->db->prepare(
-                "SELECT COUNT(*) FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s",
-                $referenceId
+                "SELECT COUNT(*) FROM {$this->tm()} WHERE product_id=%d AND reference_type='stock_transfer' AND reference_id=%s AND location_id IN (%d,%d)",
+                $productId,$referenceId,$fromLocationId,$toLocationId
             ));
             if ($existing === 2) {
                 if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit duplicate transfer check: '.$this->db->last_error);
