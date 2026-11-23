@@ -26,7 +26,7 @@ final class ReceivePurchaseOrderUseCase {
                         $wc->set_manage_stock(true);
                         $wc->set_stock_quantity($total);
                         $wc->set_stock_status($total>0?'instock':'outofstock');
-                        $wc->save();
+                        if ($wc->save() === false) throw new \\RuntimeException('WooCommerce rejected the stock projection save.');
                     }
                 } catch(\Throwable $e) {
                     $this->log->error('Purchase receipt committed but WooCommerce stock projection failed.',['product_id'=>$product->id,'purchase_order_id'=>$purchaseOrderId,'receipt_reference'=>$receiptReference,'error'=>$e->getMessage()]);
