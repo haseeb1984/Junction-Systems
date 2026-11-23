@@ -818,6 +818,8 @@ if (!is_string($posSyncSource)
     || !is_string($posInventoryHooks)
     || strpos($posInventoryHooks, "_pkstore_pos_origin") === false
     || strpos($posInventoryHooks, "junction_pos") === false
+    || strpos($posInventoryHooks, "delete_meta_data('_pkstore_wc_reduced_stock_snapshot')") === false
+    || strpos($posInventoryHooks, 'Unable to clear stale WooCommerce stock-reduction snapshot.') === false
     || !is_string($posStockLifecycle)
     || strpos($posStockLifecycle, "findById((int) \$item->get_meta('_pkstore_inventory_product_id', true))") === false
     || strpos($posStockLifecycle, "findById((int) \$item->get_meta('_pkstore_inventory_location_id', true))") === false
