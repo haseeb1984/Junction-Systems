@@ -1581,6 +1581,7 @@ if (!is_string($securityHardenerSource)
     || strpos($securityHardenerSource, 'pkstore_lf_ip_') === false
     || strpos($securityHardenerSource, 'pkstore_lf_user_') === false
     || strpos($securityHardenerSource, 'pkstore_lf_pair_') === false
+    || strpos($securityHardenerSource, "'/wc/store/'") === false
     || strpos($securityHardenerSource, 'if ($user instanceof \WP_User) return $user;') === false
     || strpos($securityHardenerSource, 'SELECT GET_LOCK(%s, %d)') === false
     || strpos($securityHardenerSource, 'SELECT RELEASE_LOCK(%s)') === false
