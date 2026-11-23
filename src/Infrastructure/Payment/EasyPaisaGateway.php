@@ -236,7 +236,7 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
         if ((string) ($body['responseCode'] ?? '') !== '0000') {
             $responseCode = sanitize_text_field((string) ($body['responseCode'] ?? ''));
             $responseMessage = sanitize_text_field((string) ($body['responseDesc'] ?? ''));
-            if (!in_array($responseCode, ['0002', '0005', '0006', '0007', '0008', '0010', '0013', '0014'], true)) {
+            if (!in_array($responseCode, ['0002', '0003', '0004', '0005', '0006', '0007', '0008', '0010', '0013', '0014'], true)) {
                 $order->add_order_note('Easypaisa returned a non-final or unknown initiation response; status must be reconciled before another charge.');
                 return ['result' => 'success', 'redirect' => $this->get_return_url($order)];
             }
