@@ -73,7 +73,9 @@ if ($pralUnknown['status'] !== 'unknown') {
 $contextSelector = new \PkStore\Domain\AI\ContextSelector();
 if ($contextSelector->extractBudget('wireless headphones under PKR 5,000') !== 5000.0
     || $contextSelector->extractBudget('smart watch 5k') !== 5000.0
-    || $contextSelector->extractBudget('shoes 5000 ke andar') !== 5000.0) {
+    || $contextSelector->extractBudget('shoes 5000 ke andar') !== 5000.0
+    || $contextSelector->extractBudget('shoes 5 hazar tak') !== 5000.0
+    || $contextSelector->extractBudget('mobile 5 hazaar') !== 5000.0) {
     throw new \RuntimeException('AI product search must understand English and Roman Urdu hard budgets.');
 }
 $variantKeywords = $contextSelector->extract('black shoes size 42 under 5,000');
@@ -82,6 +84,15 @@ if (!in_array('black', $variantKeywords, true) || !in_array('42', $variantKeywor
 }
 if ($contextSelector->extractSku('Please find SKU ABC-1234') !== 'ABC-1234') {
     throw new \RuntimeException('AI product search must recognize exact SKU lookups.');
+}
+
+$wcProductRepositorySource = file_get_contents($src . '/Infrastructure/AI/WcProductRepository.php');
+$productContextServiceSource = file_get_contents($src . '/Application/AI/ProductContextService.php');
+if (!is_string($wcProductRepositorySource) || !is_string($productContextServiceSource)
+    || strpos($wcProductRepositorySource, "is_type('variable')) return null;") === false
+    || strpos($productContextServiceSource, 'Expand verified child variations') === false
+    || strpos($productContextServiceSource, 'hazar|hazaar|thousand') === false) {
+    throw new \RuntimeException('AI SKU lookup must return exact purchasable variants and Roman Urdu budgets must not pollute product keywords.');
 }
 
 $productContext = new \PkStore\Domain\AI\ValueObject\ProductContext(
