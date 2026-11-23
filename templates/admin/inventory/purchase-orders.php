@@ -24,12 +24,34 @@
 <input type="hidden" name="pkstore_inventory_action" value="create_purchase_order">
 <p><label>Supplier<br><select required name="supplier_id"><option value="">Select supplier</option><?php foreach($suppliers as $supplier): ?><option value="<?=(int)$supplier['id']?>"><?=esc_html($supplier['name'])?></option><?php endforeach; ?></select></label></p>
 <p><label>Receiving location<br><select required name="location_id"><option value="">Select location</option><?php foreach($locations as $location): ?><option value="<?=(int)$location->id?>"><?=esc_html($location->name)?></option><?php endforeach; ?></select></label></p>
-<p><label>Product<br><select required name="product_id"><option value="">Select product</option><?php foreach($products as $product): ?><option value="<?=(int)$product->id?>"><?=esc_html($product->name.' ('.$product->sku.')')?></option><?php endforeach; ?></select></label></p>
-<p><label>Ordered quantity<br><input type="number" min="1" step="1" required name="quantity"></label></p>
-<p><label>Unit cost (PKR)<br><input type="number" min="0" step="1" required name="unit_cost_pkr"></label></p>
+<div id="pkstore-po-items">
+<div class="pkstore-po-item" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:10px 0;">
+<label>Product<br><select required name="items[0][product_id]"><option value="">Select product</option><?php foreach($products as $product): ?><option value="<?=(int)$product->id?>"><?=esc_html($product->name.' ('.$product->sku.')')?></option><?php endforeach; ?></select></label>
+<label>Quantity<br><input type="number" min="1" step="1" required name="items[0][quantity]" style="width:100px;"></label>
+<label>Unit cost (PKR)<br><input type="number" min="0" step="1" required name="items[0][unit_cost_pkr]" style="width:130px;"></label>
+</div>
+</div>
+<p><button type="button" class="button" id="pkstore-add-po-item">+ Add another product</button></p>
 <p><label>Notes<br><textarea class="large-text" name="notes" rows="2"></textarea></label></p>
 <?php submit_button('Create Purchase Order'); ?>
 </form>
+<script>
+(function(){
+ const wrap=document.getElementById('pkstore-po-items');
+ const add=document.getElementById('pkstore-add-po-item');
+ if(!wrap||!add)return;
+ add.addEventListener('click',function(){
+   const index=wrap.querySelectorAll('.pkstore-po-item').length;
+   const first=wrap.querySelector('.pkstore-po-item');
+   const row=first.cloneNode(true);
+   row.querySelectorAll('select,input').forEach(function(el){
+     el.name=el.name.replace(/items\\[\\d+\\]/,'items['+index+']');
+     if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';
+   });
+   wrap.appendChild(row);
+ });
+})();
+</script>
 </section>
 </div>
 
