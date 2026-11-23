@@ -40,6 +40,7 @@ final class ContextSelector {
             '/(?:under|below|less\s+than|up\s+to|max(?:imum)?|budget(?:\s+of)?|within)\s*(?:rs\.?|pkr|₨)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/iu',
             '/between\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*(?:and|to)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/iu',
             '/(?:rs\.?|pkr|₨)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/iu',
+            '/([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:rs\.?|pkr|rupees|rupee|₨)/iu',
             '/([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:tak|ke\s+andar|se\s+kam)/iu',
         ];
 
