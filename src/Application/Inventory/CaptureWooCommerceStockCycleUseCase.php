@@ -301,7 +301,7 @@ final class CaptureWooCommerceStockCycleUseCase {
         try {
             $existing = $wpdb->get_row($wpdb->prepare(
                 "SELECT cycle_uuid, cycle_number, state FROM {$cyclesTable}
-                 WHERE wc_order_id=%d AND state IN ('reducing','active')
+                 WHERE wc_order_id=%d AND state IN ('reducing','active','restoring')
                  ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE",
                 $orderId
             ), ARRAY_A);
