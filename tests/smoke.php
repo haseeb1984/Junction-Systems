@@ -1150,6 +1150,19 @@ if (!is_string($courierCircuitBreakerSource)
     throw new \RuntimeException('Courier failover must continue after provider-level rejections and account for failures.');
 }
 
+$abstractCourierSource = file_get_contents($src . '/Infrastructure/Logistics/AbstractCourier.php');
+$tcsCourierSource = file_get_contents($src . '/Infrastructure/Logistics/TcsCourier.php');
+$leopardsCourierSource = file_get_contents($src . '/Infrastructure/Logistics/LeopardsCourier.php');
+$traxCourierSource = file_get_contents($src . '/Infrastructure/Logistics/TraxCourier.php');
+if (!is_string($abstractCourierSource) || !is_string($tcsCourierSource)
+    || !is_string($leopardsCourierSource) || !is_string($traxCourierSource)
+    || strpos($abstractCourierSource, 'provider returned an unreadable response after submission') === false
+    || strpos($tcsCourierSource, 'verifiable tracking number after booking submission') === false
+    || strpos($leopardsCourierSource, 'verifiable tracking number after booking submission') === false
+    || strpos($traxCourierSource, 'verifiable tracking number after booking submission') === false) {
+    throw new \\RuntimeException('Courier transport failures and unverified success responses must be treated as ambiguous, not safe failover signals.');
+}
+
 $shippingRegistrySource = file_get_contents($src . '/Infrastructure/WooCommerce/ShippingRegistry.php');
 $servicesSource = file_get_contents(dirname(__DIR__) . '/config/services.php');
 $courierRetrySource = file_get_contents($src . '/Application/Logistics/BookShipmentUseCase.php');
