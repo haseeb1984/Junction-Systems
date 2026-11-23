@@ -12,7 +12,7 @@ final class SecurityHardener {
     }
     public function removeVer(string $s):string{return str_contains($s,'ver=')?remove_query_arg('ver',$s):$s;}
     public function disableUsers(array $e):array{unset($e['/wp/v2/users'],$e['/wp/v2/users/(?P<id>[\d]+)']);return $e;}
-    public function restrictRest(mixed $r):mixed{if(!empty($r)||is_user_logged_in())return $r;$uri=$_SERVER['REQUEST_URI']??'';foreach(['/pkstore/v1/cod/','/pkstore/v1/chat','/pkstore/v1/webhooks/','/pkstore/v1/tracking/']as $p){if(str_contains($uri,$p))return $r;}if(str_contains($uri,'/wp/v2/')||str_contains($uri,'/wc/'))return new \WP_Error('rest_forbidden','REST API restricted.',['status'=>401]);return $r;}
+    public function restrictRest(mixed $r):mixed{if(!empty($r)||is_user_logged_in())return $r;$uri=$_SERVER['REQUEST_URI']??'';foreach(['/pkstore/v1/cod/','/pkstore/v1/chat','/pkstore/v1/webhooks/','/pkstore/v1/tracking/','/wc/store/']as $p){if(str_contains($uri,$p))return $r;}if(str_contains($uri,'/wp/v2/')||str_contains($uri,'/wc/'))return new \WP_Error('rest_forbidden','REST API restricted.',['status'=>401]);return $r;}
     public function headers():void{header_remove('X-Powered-By');header('X-Content-Type-Options: nosniff');header('X-Frame-Options: SAMEORIGIN');header('Referrer-Policy: strict-origin-when-cross-origin');}
     private function loginKeys(string $username): array {
         $ip = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
