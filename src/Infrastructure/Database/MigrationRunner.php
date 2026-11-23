@@ -109,8 +109,13 @@ final class MigrationRunner {
                 throw new \RuntimeException('Unable to finalize fresh-install migration state.');
             }
         } catch (\Throwable $error) {
-            // Do not expose SQL details or configuration values to store users.
-            update_option(self::ERROR_OPTION, 'Database migration failed. Contact Junction support.', false);
+            // Expose only a known-safe remediation message; never leak SQL details.
+            $safeMessage = 'Database migration failed. Contact Junction support.';
+            if ($error instanceof \RuntimeException
+                && $error->getMessage() === 'Duplicate WooCommerce inventory product mappings must be reconciled before this upgrade.') {
+                $safeMessage = $error->getMessage();
+            }
+            update_option(self::ERROR_OPTION, $safeMessage, false);
             error_log('[PK Store] Database migration failed: ' . get_class($error));
         } finally {
             delete_option(self::LOCK_OPTION);
