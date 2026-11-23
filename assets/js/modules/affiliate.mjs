@@ -160,8 +160,8 @@ function renderProducts(products) {
         try {
             const body = Object.fromEntries(new FormData(form).entries());
             await request('affiliate/products', { method: 'POST', body });
-            notice('Product submitted successfully.', 'success');
             await loadDashboard();
+            notice('Product submitted successfully.', 'success');
         } catch (error) {
             notice(error.message || 'Product could not be submitted.');
             submit.disabled = false;
