@@ -13,7 +13,7 @@ final class ProcessPOSSaleUseCase {
         private readonly StockRepositoryInterface $stockRepo,
         private readonly LoggerInterface $log,
     ) {}
-    public function execute(int $sessionId,int $locationId,array $items,string $paymentMethod,string $customerPhone='',string $customerName='Walk-in',int $discountPkr=0,?array $paymentSplit=null): POSOrder {
+    public function execute(int $sessionId,int $locationId,array $items,string $paymentMethod,string $customerPhone='',string $customerName='Walk-in',int $discountPkr=0,?array $paymentSplit=null,?string $orderRef=null): POSOrder {
         $session=$this->sessionRepo->findById($sessionId);
         if(!$session || !$session->isOpen()) throw new \RuntimeException('No open POS session found.');
         if($session->locationId!==$locationId) throw new \DomainException('POS sale location does not match its session location.');
@@ -23,7 +23,7 @@ final class ProcessPOSSaleUseCase {
             if(!$product) throw new \RuntimeException('POS product not found.');
             $enriched[]=['product_id'=>$product->id,'sku'=>$product->sku,'name'=>$product->name,'quantity'=>(int)($item['quantity']??0),'unit_price_pkr'=>(int)($item['unit_price_pkr']??$product->salePricePkr),'discount_pkr'=>(int)($item['discount_pkr']??0)];
         }
-        $order=POSOrder::create($sessionId,$locationId,$enriched,$paymentMethod,$customerPhone,$customerName,$discountPkr,$paymentSplit);
+        $order=POSOrder::create($sessionId,$locationId,$enriched,$paymentMethod,$customerPhone,$customerName,$discountPkr,$paymentSplit,$orderRef);
         // Order, lines, stock ledger, stock balances and tender totals commit together.
         $orderId=$this->orderRepo->processSaleAtomic($order,$enriched);
         // WooCommerce is an external projection: sync only after the database transaction commits.
