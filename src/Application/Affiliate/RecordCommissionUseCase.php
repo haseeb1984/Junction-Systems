@@ -6,7 +6,7 @@ use PkStore\Domain\Affiliate\Repository\{AffiliateRepositoryInterface, Commissio
 use PkStore\Domain\Affiliate\ValueObject\AffiliateCode;
 use Psr\Log\LoggerInterface;
 final class RecordCommissionUseCase {
-    public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly CommissionRepositoryInterface $commissionRepo, private readonly ProcessPayoutUseCase $payoutUseCase, private readonly LoggerInterface $log) {}
+    public function __construct(private readonly AffiliateRepositoryInterface $affiliateRepo, private readonly CommissionRepositoryInterface $commissionRepo, private readonly LoggerInterface $log) {}
     public function execute(int $orderId, int $orderTotalPkr, ?string $affiliateCode): void {
         if ($affiliateCode === null) return;
         if ($this->commissionRepo->findByOrderId($orderId) !== null) return;
@@ -20,7 +20,19 @@ final class RecordCommissionUseCase {
         $a->creditCommission($commissionPkr);
         $this->affiliateRepo->update($a);
         $this->log->info('Commission recorded.', ['affiliate_id'=>$a->id,'order_id'=>$orderId,'commission_pkr'=>$commissionPkr]);
-        if ($a->isEligibleForPayout()) { try { $this->payoutUseCase->execute($a->id); } catch (\Throwable $e) { $this->log->error('Auto payout failed.', ['error'=>$e->getMessage()]); } }
+        if ($a->isEligibleForPayout()) {
+            $message = sprintf(
+                "Affiliate #%d (%s) has reached the payout threshold with PKR %s pending. Automated disbursement is disabled until a verified JazzCash/Easypaisa payout API contract is approved. Please review and process manually.",
+                $a->id,
+                $a->name,
+                number_format($a->getPendingPayoutPkr())
+            );
+            $this->log->info('Affiliate reached payout threshold; manual review required.', [
+                'affiliate_id' => $a->id,
+                'pending_pkr' => $a->getPendingPayoutPkr(),
+            ]);
+            wp_mail(get_option('admin_email'), '[PK Store] Affiliate payout review required', $message);
+        }
         TrackAffiliateClickUseCase::clearCookie();
     }
 }
