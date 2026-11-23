@@ -4,6 +4,7 @@ namespace PkStore\Infrastructure\Affiliate;
 use PkStore\Domain\Affiliate\Entity\Affiliate;
 use PkStore\Domain\Affiliate\Repository\AffiliateRepositoryInterface;
 use PkStore\Domain\Affiliate\ValueObject\{AffiliateCode, CommissionRate};
+use PkStore\Settings\SettingsManager;
 final class WpAffiliateRepository implements AffiliateRepositoryInterface {
     public function __construct(private readonly \wpdb $db) {}
     private function t(): string { return $this->db->prefix . 'pkstore_affiliates'; }
