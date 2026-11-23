@@ -704,12 +704,14 @@ $orderQueueRetrySource = file_get_contents($src . '/Application/Inventory/Proces
 $returnQueueRetrySource = file_get_contents($src . '/Application/Inventory/ProcessWooCommerceReturnInventoryQueueUseCase.php');
 $stockQueueRetrySource = file_get_contents($src . '/Infrastructure/Inventory/WpStockRepository.php');
 if (!is_string($orderQueueRetrySource)
-    || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order): void') === false
+    || strpos($orderQueueRetrySource, 'public function releaseInventorySyncHold(\\WC_Order $order, ?string $expectedCycleUuid = null): void') === false
+    || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $heldCycleUuid)') === false
+    || strpos($orderQueueRetrySource, 'hash_equals($expectedCycleUuid, $reloadedCycleUuid)') === false
     || strpos($orderQueueRetrySource, '$freshOrder = wc_get_order($orderId)') === false
     || strpos($orderQueueRetrySource, "do_action('pkstore_inventory_sync_hold_released', \$orderId)") === false
     || strpos($orderQueueRetrySource, "_pkstore_wc_inventory_sync_hold") === false
     || strpos($orderQueueRetrySource, 'update_status($previousStatus') === false
-    || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order)') === false
+    || strpos($orderQueueRetrySource, '$this->releaseInventorySyncHold($order, $cycleUuid !== self::LEGACY_CYCLE_UUID ? $cycleUuid : null)') === false
     || strpos($orderQueueRetrySource, 'MAX_AUTOMATIC_ATTEMPTS = 12') === false
     || strpos($orderQueueRetrySource, "'needs_review' : 'pending'") === false
     || strpos($orderQueueRetrySource, "DATE_ADD(%s, INTERVAL %d SECOND)") === false
