@@ -1257,8 +1257,8 @@ if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, '$this->db->posts') !== false
     || strpos($dashboardServiceSource, '$this->db->postmeta') !== false
     || strpos($dashboardServiceSource, "['cancelled', 'failed', 'refunded']") === false
-    || strpos($dashboardServiceSource, "'verification_rate' => $total > 0") === false
-    || strpos($dashboardServiceSource, "'avg_messages_per_session' => $sessions > 0") === false) {
+    || strpos($dashboardServiceSource, "'verification_rate' => \$total > 0") === false
+    || strpos($dashboardServiceSource, "'avg_messages_per_session' => \$sessions > 0") === false) {
     throw new \RuntimeException('Logistics dashboard order statistics must use the WooCommerce order datastore, not posts/postmeta SQL.');
 }
 
@@ -1280,7 +1280,7 @@ if (!is_string($shippingWebhookSource)
     || strpos($shippingWebhookSource, 'OrderUtil::custom_orders_table_usage_is_enabled()') === false
     || strpos($shippingWebhookSource, "'meta_query'] = [[") === false
     || strpos($shippingWebhookSource, "'meta_key'] = '_tracking_' . $cc") === false
-    || strpos($shippingWebhookSource, "'meta_value'] = $tn") === false
+    || strpos($shippingWebhookSource, "'meta_value'] = \$tn") === false
     || strpos($shippingWebhookSource, "'status'=>'invalid_signature'],401") === false
     || strpos($shippingWebhookSource, "'status'=>'missing_tracking_number'],422") === false
     || strpos($shippingWebhookSource, "'status'=>'order_not_found'],404") === false
@@ -1407,7 +1407,7 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '$quantity !== $reducedQuantity - $alreadyReturned') === false
     || strpos($stockCycleCaptureSource, 'cancellation restock does not match the remaining stock cycle quantity') === false
     || strpos($stockCycleCaptureSource, 'SELECT id,status,event_kind,quantity,cumulative_quantity,cycle_uuid,wc_order_id,wc_order_item_id') === false
-    || strpos($stockCycleCaptureSource, "'wc_product_id' => $wcProductId") === false
+    || strpos($stockCycleCaptureSource, "'wc_product_id' => \$wcProductId") === false
     || strpos($stockCycleCaptureSource, "SET state='restoring'") === false
     || strpos($stockCycleCaptureSource, "WHERE wc_order_id=%d AND state='restoring'") === false
     || strpos($stockCycleCaptureSource, 'A previous WooCommerce stock cycle is still restoring and must finish before another sale cycle can be captured.') === false
@@ -1454,13 +1454,13 @@ if (!is_string($stockCycleCaptureSource)
 $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/CaptureWooCommerceStockCycleUseCase.php');
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
-    || strpos($stockCycleCaptureSource, "if (!is_numeric($reduced))") === false
+    || strpos($stockCycleCaptureSource, "if (!is_numeric(\$reduced))") === false
     || strpos($stockCycleCaptureSource, 'new \\\RuntimeException') !== false) {
     throw new \RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
 if (!is_string($stockCycleHooksSource)
-    || strpos($stockCycleHooksSource, "if (!is_numeric($reduced))") === false
+    || strpos($stockCycleHooksSource, "if (!is_numeric(\$reduced))") === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_reduced_stock_snapshot') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_reduction_snapshot_version') === false
     || strpos($stockCycleHooksSource, 'Unable to persist WooCommerce stock-reduction snapshot.') === false) {
@@ -1479,7 +1479,7 @@ if (!is_string($stockCycleReturnQueueSource)
 $stockSaleSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, 'malformed actual stock-reduction quantity') === false
-    || strpos($stockSaleSource, "if (!is_numeric($reducedStock))") === false
+    || strpos($stockSaleSource, "if (!is_numeric(\$reducedStock))") === false
     || strpos($stockSaleSource, '_pkstore_wc_reduced_stock_snapshot') === false
     || strpos($stockSaleSource, '$this->locationRepo->findAll()') === false
     || strpos($stockSaleSource, '!$product->isActive') === false
@@ -1599,7 +1599,7 @@ if (!is_string($jazzCashSource)
     || strpos($jazzCashSource, "'pp_CNIC' => \$cnic") === false
     || strpos($jazzCashSource, 'normalizeMobileNumber(') === false
     || strpos($jazzCashSource, "add_query_arg('wc-api', 'jazzcash_callback', home_url('/'))") === false
-    || strpos($jazzCashSource, "'pp_ReturnURL' => $callbackUrl") === false
+    || strpos($jazzCashSource, "'pp_ReturnURL' => \$callbackUrl") === false
     || strpos($jazzCashSource, 'calculateSecureHash(') === false
     || strpos($jazzCashSource, 'private function processCallbackPayload(array $payload, int $orderId)') === false
     || strpos($jazzCashSource, '$this->processCallbackPayload($payload, $orderId)') === false
