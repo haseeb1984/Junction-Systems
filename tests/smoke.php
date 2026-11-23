@@ -1381,7 +1381,9 @@ if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, '($kind === \'refund\' && (int) $openCycleCount > 1)') === false
     || strpos($stockCycleCaptureSource, 'wp_generate_uuid4()') === false
     || strpos($stockCycleCaptureSource, 'public function resolveCycleUuidForReturn(\\WC_Order $order): string') === false
-    || strpos($stockCycleCaptureSource, 'prior closed cycles require manual reconciliation') === false
+    || strpos($stockCycleCaptureSource, 'manual reconciliation is required') === false
+    || strpos($stockCycleCaptureSource, 'if ((int) $cycleCount === 1') === false
+    || strpos($stockCycleCaptureSource, 'active cycle metadata does not match the durable open cycle') === false
     || !is_string($stockCycleHooksSource)
     || strpos($stockCycleHooksSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($stockCycleHooksSource, '_pkstore_wc_active_cycle_uuid') === false
