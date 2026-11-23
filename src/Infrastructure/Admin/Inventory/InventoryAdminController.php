@@ -36,6 +36,7 @@ final class InventoryAdminController {
         match($action) {
             'add_product'     => $this->handleAddProduct(),
             'adjust_stock'    => $this->handleAdjustStock(),
+            'transfer_stock'  => $this->handleTransferStock(),
             'generate_barcodes' => $this->handleGenerateBarcodes(),
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
             'create_supplier' => $this->handleCreateSupplier(),
@@ -66,6 +67,17 @@ final class InventoryAdminController {
             );
             $this->redirect('pkstore-inventory','adjusted','Stock updated.');
         } catch(\Throwable $e){ $this->redirect('pkstore-inventory','error',$e->getMessage()); }
+    }
+
+    private function handleTransferStock(): void {
+        try {
+            $reference=sanitize_text_field($_POST['reference_id']??'');
+            $this->c->make(\\PkStore\\Application\\Inventory\\TransferStockUseCase::class)->execute(
+                (int)($_POST['product_id']??0),(int)($_POST['from_location_id']??0),(int)($_POST['to_location_id']??0),
+                (int)($_POST['quantity']??0),$reference,sanitize_text_field($_POST['note']??'')
+            );
+            $this->redirect('pkstore-inventory','transferred','Stock transfer completed.');
+        } catch(\\Throwable $e) { $this->redirect('pkstore-inventory','error',$e->getMessage()); }
     }
 
     private function handleGenerateBarcodes(): void {
