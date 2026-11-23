@@ -1582,6 +1582,9 @@ if (!is_string($commissionUseCaseSource) || !is_string($processPayoutSource) || 
     || strpos($commissionUseCaseSource, "ROLLBACK") === false
     || strpos($commissionUseCaseSource, 'findByCodeForUpdate($code)') === false
     || strpos($commissionUseCaseSource, 'findByOrderId($orderId)') === false
+    || strpos($commissionUseCaseSource, "get_currency()) !== 'PKR'") === false
+    || strpos($commissionUseCaseSource, '$customerId === $affiliate->userId') === false
+    || strpos($commissionUseCaseSource, 'hash_equals($affiliateEmail, $orderEmail)') === false
     || strpos($commissionUseCaseSource, 'payoutUseCase->execute') !== false
     || strpos($processPayoutSource, 'Automated affiliate disbursement is disabled') === false
     || strpos($processPayoutSource, 'wp_remote_post') !== false
