@@ -31,9 +31,11 @@ final class ProductContextService {
 
         $keywords = $this->selector->extract($message);
         if ($budget !== null) {
+            $maxBudgetPrefix = preg_match('/\\bmax(?:imum)?\\s*(?:rs\\.?|pkr|₨)?\\s*[0-9]/iu', $message) === 1;
             $keywords = array_values(array_filter(
                 $keywords,
-                static function (string $keyword) use ($budget): bool {
+                static function (string $keyword) use ($budget, $maxBudgetPrefix): bool {
+                    if ($keyword === 'max' && $maxBudgetPrefix) return false;
                     $numeric = str_replace(',', '', $keyword);
                     if (is_numeric($numeric) && (float) $numeric === $budget) return false;
                     if (preg_match('/^([0-9]+(?:\.[0-9]+)?)k$/i', $keyword, $match) === 1
