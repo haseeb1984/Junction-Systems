@@ -99,6 +99,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
             INNER JOIN {$lookup} lookup ON lookup.product_id=p.ID
             WHERE p.post_type='product' AND p.post_status='publish'
               AND tt.taxonomy='product_cat' AND t.slug=%s
+              AND lookup.stock_status IN ('instock','onbackorder')
               {$priceFilter}
             ORDER BY CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
@@ -124,7 +125,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
             FROM {$this->db->posts} p
             INNER JOIN {$lookup} lookup ON lookup.product_id=p.ID
             WHERE p.post_type='product' AND p.post_status='publish'
-              AND lookup.stock_status='instock'
+              AND lookup.stock_status IN ('instock','onbackorder')
               {$priceFilter}
             ORDER BY CAST(COALESCE((SELECT sales.meta_value FROM {$this->db->postmeta} sales WHERE sales.post_id=p.ID AND sales.meta_key='total_sales' LIMIT 1), '0') AS UNSIGNED) DESC,
               p.menu_order ASC, p.ID DESC
