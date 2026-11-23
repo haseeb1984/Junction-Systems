@@ -907,6 +907,7 @@ if (!is_string($footerSource) || !is_string($themeFunctionsSource)
     || strpos($wcProductRepositorySource, 'get_variation_attributes()') === false
     || strpos($wcProductRepositorySource, 'get_permalink()') === false
     || strpos($wcProductRepositorySource, 'woocommerce_stock_format') === false
+    || strpos($wcProductRepositorySource, "get_manage_stock() === 'parent'") === false
     || strpos($wcProductRepositorySource, 'pk_store_return_policy') === false
     || strpos($wcProductRepositorySource, 'All major cities in Pakistan') !== false
     || strpos($wcProductRepositorySource, '2-5 business days') !== false
