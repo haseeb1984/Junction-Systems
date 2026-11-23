@@ -33,9 +33,15 @@ final class AffiliateController {
         if (!$user) return new \WP_REST_Response(['success'=>false,'message'=>'User not found.'],401);
         $name    = sanitize_text_field($req->get_param('name') ?? '');
         $method  = sanitize_key($req->get_param('payment_method') ?? 'jazzcash');
-        $account = sanitize_text_field($req->get_param('payment_account') ?? '');
-        if (empty($name)||empty($account)) return new \WP_REST_Response(['success'=>false,'message'=>'Name and payment account are required.'],422);
+        $account = preg_replace('/\D+/', '', (string) ($req->get_param('payment_account') ?? ''));
+        if (str_starts_with($account, '92') && strlen($account) === 12) {
+            $account = '0' . substr($account, 2);
+        }
+        if (empty($name)||$account === '') return new \WP_REST_Response(['success'=>false,'message'=>'Name and payment account are required.'],422);
         if (!in_array($method,['jazzcash','easypaisa'],true)) return new \WP_REST_Response(['success'=>false,'message'=>'Invalid payment method.'],422);
+        if (preg_match('/^03[0-9]{9}$/', $account) !== 1) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Enter a valid Pakistani mobile wallet number (03XXXXXXXXX).'],422);
+        }
         try {
             $a = $this->c->make(RegisterAffiliateUseCase::class)->execute($userId,$name,$user->user_email,$method,$account);
             return new \WP_REST_Response(['success'=>true,'affiliate_code'=>(string)$a->code,'message'=>'Welcome! Your affiliate account is active.'],201);
