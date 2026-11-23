@@ -5,7 +5,8 @@ use PkStore\Domain\POS\Entity\POSSession;
 interface POSSessionRepositoryInterface {
     public function save(POSSession $s): int;
     /** Lock the location and create or resume its single open session. */
-    public function openOrResume(POSSession $s): POSSession;
+    /** @return array{session:POSSession,resumed:bool} */
+    public function openOrResume(POSSession $s): array;
     /** Lock and close a session without overwriting concurrently committed tender totals. */
     public function closeAtomic(int $sessionId, int $closingCash): POSSession;
     public function update(POSSession $s): void;
