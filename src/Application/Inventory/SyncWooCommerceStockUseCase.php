@@ -51,7 +51,7 @@ final class SyncWooCommerceStockUseCase {
                 $wcProduct->set_manage_stock(true);
                 $wcProduct->set_stock_quantity($totalStock);
                 $wcProduct->set_stock_status($totalStock > 0 ? 'instock' : 'outofstock');
-                if ($wcProduct->save() === false) throw new \\RuntimeException('WooCommerce rejected stock projection for inventory product '.$product->id.'.');
+                if ($wcProduct->save() === false) throw new \RuntimeException('WooCommerce rejected stock projection for inventory product '.$product->id.'.');
                 $synced++;
             }
         }
