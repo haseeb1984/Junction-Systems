@@ -49,7 +49,7 @@ final class WpStockRepository implements StockRepositoryInterface {
                     $productId,$locationId,$refType,$refId
                 ));
                 if ($existing) {
-                    if ($this->db->query('COMMIT') === false) throw new \\RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
+                    if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit idempotent stock transaction: '.$this->db->last_error);
                     return null;
                 }
             }
