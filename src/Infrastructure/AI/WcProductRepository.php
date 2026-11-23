@@ -251,7 +251,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
                 }
 
                 $context = $this->mapToContext($product);
-                if ($inStockOnly && !str_contains($context->stockStatus, 'in_stock')) continue;
+                if ($inStockOnly && !$product->is_in_stock()) continue;
                 if ($maxPrice !== null && $this->effectivePrice($context) > $maxPrice) continue;
                 if (isset($seen[$context->productId])) continue;
                 $seen[$context->productId] = true;
@@ -296,7 +296,7 @@ final class WcProductRepository implements ProductRepositoryInterface {
             : null;
 
         $rawQuantity = $product->get_stock_quantity();
-        $quantity = is_numeric($rawQuantity) ? (int) $rawQuantity : null;
+        $quantity = is_numeric($rawQuantity) && (int) $rawQuantity >= 0 ? (int) $rawQuantity : null;
         if (!$this->stockQuantityVisible() || $quantity === null) {
             $quantity = null;
         } elseif (get_option('woocommerce_stock_format', '') === 'low_amount'
