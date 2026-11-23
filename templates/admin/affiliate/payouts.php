@@ -1,5 +1,4 @@
 <?php defined('ABSPATH')||exit; global $wpdb;
-use PkStore\\Settings\\SettingsManager;
 $t=$wpdb->prefix.'pkstore_affiliate_payouts'; $at=$wpdb->prefix.'pkstore_affiliates';
 $rows=$wpdb->get_results("SELECT p.*,a.name AS affiliate_name,a.email FROM {$t} p LEFT JOIN {$at} a ON p.affiliate_id=a.id ORDER BY p.created_at DESC LIMIT 200",ARRAY_A)?:[];
 ?><div class="wrap pkstore-admin"><h1>Affiliate Payouts</h1>
@@ -16,9 +15,9 @@ $rows=$wpdb->get_results("SELECT p.*,a.name AS affiliate_name,a.email FROM {$t} 
   $accountKey='AFFILIATE_PAYOUT_ACCOUNT_'.(int)$r['id'];
   $paymentAccount='';
   if($storedAccount==='__encrypted__') {
-    $paymentAccount=SettingsManager::getInstance()->get($accountKey,'');
+    $paymentAccount=\\PkStore\\Settings\\SettingsManager::getInstance()->get($accountKey,'');
   } elseif($storedAccount!=='') {
-    $settings=SettingsManager::getInstance();
+    $settings=\\PkStore\\Settings\\SettingsManager::getInstance();
     $encrypted=$settings->setSecret($accountKey,$storedAccount)||hash_equals($storedAccount,$settings->get($accountKey,''));
     $updated=$encrypted?$wpdb->update($t,['payment_account'=>'__encrypted__'],['id'=>(int)$r['id']]):false;
     $paymentAccount=$updated===1?$storedAccount:'••••'.substr($storedAccount,-4);
