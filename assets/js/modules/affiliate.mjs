@@ -1,10 +1,11 @@
 'use strict';
 
 const money = value => 'PKR ' + new Intl.NumberFormat('en-PK', { maximumFractionDigits: 0 }).format(Number(value) || 0);
+function setText(element, text) { element.textContent=String(text); return element; }
 const text = (tag, value, className = '') => {
     const element = document.createElement(tag);
     if (className) element.className = className;
-    element.textContent = String(value ?? '');
+    setText(element, value ?? '');
     return element;
 };
 const button = (label, className = 'pk-aff-btn', type = 'button') => {
