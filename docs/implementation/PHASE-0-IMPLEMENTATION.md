@@ -408,3 +408,10 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Only definitive provider rejections (such as validation/client errors) may fail over to another enabled courier. Missing provider credentials are classified as preflight failures because no request was sent, so another configured courier may still be attempted.
 - If every provider circuit is open and no request was attempted, the existing delayed retry remains safe. A synthetic `PENDING-*` tracking marker is still not treated as a confirmed shipment.
 - Added source smoke guards across the dispatcher, courier adapters, booking use case and WooCommerce trigger. Runtime sandbox acceptance must simulate provider acceptance followed by connection loss, 5xx-after-acceptance, malformed success bodies, duplicate hooks, and operator reconciliation before any production use.
+
+
+## Combined WooCommerce stock and inactive-location consistency
+
+- WooCommerce's aggregate sellable stock now sums only active Junction inventory locations. Online sale allocation already uses active locations; this aligns the published WooCommerce quantity with the exact locations from which the cycle-aware worker can fulfil an order.
+- Stock in a deactivated location remains in Junction's location ledger for audit/recovery, but is no longer advertised as online sellable stock until that location is reactivated.
+- Added a source smoke guard. Runtime acceptance should verify that deactivating/reactivating a stocked location updates the WooCommerce aggregate without mutating the underlying location ledger.
