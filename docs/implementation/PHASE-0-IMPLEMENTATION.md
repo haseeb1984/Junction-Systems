@@ -12,7 +12,7 @@ This is an implementation branch only. No changes have been merged to `main`, an
 - Connected the setup wizard to the existing license UI and added a license tab, so license activation/status is reachable from the WordPress admin.
 - Made unknown license tiers return no tier-derived entitlements.
 - Added a central-entitlement intersection to `FeatureManager`: a local feature toggle can turn a feature off, but cannot grant a feature that the central license does not include.
-- Gated payment gateway registration by central entitlement and class availability. EasyPaisa remains unavailable because its gateway class is absent from this repository. Foree is deliberately not registered until its callback is changed to provider-side payment verification; its existing browser-return callback is not safe to authorize payment.
+- Gated payment gateway registration by central entitlement and class availability. EasyPaisa Mobile Account gateway is now present and registered behind entitlement/configuration checks; provider sandbox and callback acceptance remain pending. Foree is deliberately not registered until its callback is changed to provider-side payment verification; its existing browser-return callback is not safe to authorize payment.
 - Validate license API HTTP status and entitlement response shape. Definitively invalid licenses no longer receive the offline grace period. Local deactivation is retained unless the central service confirms deactivation.
 - Use authenticated AES-256-GCM for newly stored integration secrets and license cache/key values, while retaining legacy AES-CBC read support for migration. The bundled Groq plugin now encrypts its API key and migrates existing plaintext keys when the assistant next uses them.
 - Removed duplicate theme AI chat controller registration. The bundled assistant now checks the central AI entitlement before it initializes.
@@ -54,7 +54,7 @@ The migration runner intentionally blocks future upgrades until the hosting laye
 ### Payment providers
 
 - JazzCash callbacks now verify the signed transaction reference, expected amount, merchant, currency and success code against the initiated order.
-- EasyPaisa cannot be activated from this repository because the referenced gateway class is missing.
+- EasyPaisa Mobile Account is implemented with authenticated server-side status inquiry, callback validation and per-order payment locking. Provider sandbox acceptance and merchant credential verification remain pending.
 - Foree is intentionally withheld from gateway registration pending the provider's documented server-to-server verification endpoint and response-signature contract. A browser query-string `SUCCESS` is not proof of payment.
 
 ### Runtime and recovery acceptance
@@ -84,7 +84,7 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 - POS session entity: tender validation now happens before aggregate sales totals are mutated. An unsupported tender therefore cannot increment total sales before throwing.
 - POS session repository: failed database inserts and failed updates now raise explicit persistence exceptions instead of returning a session ID or reporting success after a failed write.
-- Remaining POS transaction risk: order creation, line-item persistence, stock movements, and session totals are not yet one database transaction. The offline replay path also still needs a durable idempotency key before retry-after-timeout can be considered safe. These are recorded as open implementation work, not claimed fixed.
+- POS order creation, line items, stock movements and session tender totals now commit in one database transaction. Client order references are bound to canonical request fingerprints, and offline IndexedDB replay retains the same reference after timeout. POS-to-WooCommerce mirroring has its own per-order lock and paid-order metadata verification. Runtime concurrency and timeout acceptance remain outstanding.
 
 
 ### POS transaction integrity corrections — 21 November 2026
@@ -94,7 +94,7 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Inventory stock rows are selected with `FOR UPDATE` during transactional adjustments, serializing competing deductions for an existing product/location stock row.
 - Stock-level initialization, quantity writes, movement-ledger inserts, POS order inserts, and POS line-item inserts now throw on database persistence failures so the outer sale transaction can roll back.
 - This depends on the relevant WordPress custom tables using InnoDB, as declared by the inventory/POS schema installer. Runtime verification remains outstanding.
-- Durable client-supplied idempotency keys and offline replay de-duplication are still not implemented. A lost HTTP response followed by a retry can still create a second sale; this remains an explicit blocker for claiming offline retry safety.
+- Durable client-supplied idempotency references and canonical request fingerprints are implemented. A retry with the same reference and payload returns the committed sale; reuse with a changed or unverifiable payload fails closed. Offline replay retains the same reference. Runtime timeout/replay acceptance remains outstanding.
 
 ### POS stock synchronization boundary (QA correction)
 - POS stock-level and movement writes remain inside the POS database transaction.
@@ -148,7 +148,7 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 
 - Queue coalescing now preserves an in-flight claim using the pre-update `claimed_at` state; a concurrent stock change updates the generation without accidentally clearing the worker's claim or resetting its retry state.
 - A queued product with a missing inventory record, missing WooCommerce link, or deleted/unavailable linked WooCommerce product now fails explicitly and remains retryable instead of being reported as successfully synchronized and silently removed. Such records require the product mapping/product to be restored or an operator-led reconciliation; automated retry alone cannot repair missing catalogue links.
-- Confirmed inventory policy: Junction's Online Store and POS share one integrated inventory. Each location retains its own stock ledger, while the single WooCommerce product stock quantity is the combined stock across all locations. This is intentional and confirmed by the product owner; do not change it to online-location-only stock. POS sales, online orders, receipts and adjustments must continue to affect the same shared inventory model.
+- Confirmed inventory policy: Junction's Online Store and POS share one integrated inventory. Each location retains its own stock ledger, while the single WooCommerce product stock quantity is the combined sellable stock across all active locations. This is intentional and confirmed by the product owner; do not change it to online-location-only stock. POS sales, online orders, receipts and adjustments must continue to affect the same shared inventory model.
 - Remaining validation: run PHP lint and smoke tests, test migration against a backed-up existing database, force WooCommerce save failures and verify retry/backoff/recovery, test concurrent stock changes during an in-flight sync, and verify the host's real cron execution. Manual absolute stock counts now wrap stock-level, movement-ledger and queue writes in one transaction; runtime verification is still outstanding.
 
 
@@ -165,7 +165,7 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - Duplicate lifecycle hooks coalesce into one order row. A generation token ensures a duplicate event arriving during processing is not lost; if refreshed, the event is released for another pass. The underlying inventory movement reference remains the final exactly-once guard against duplicate deductions.
 - Ledger transaction failures are now rethrown to the queue worker after rollback; they can no longer be swallowed and incorrectly acknowledged as completed. The queue stores only the WooCommerce order ID and operational metadata, not customer/order payloads.
 - Added versioned migration `2.0.3`; existing installations remain subject to the existing pre-migration full-backup confirmation gate.
-- Remaining operational work: a dead-letter/terminal status, admin reconciliation screen, alerting/monitoring and a manual replay action are not yet implemented. Retries currently continue indefinitely with capped backoff. A real system cron should invoke WP-Cron reliably; the WordPress scheduler is otherwise traffic-driven. Runtime tests for duplicate hooks, worker crash recovery, transaction rollback, retry timing and concurrent enqueue/claim are still required.
+- After 12 failed attempts, sale/return/stock-sync queue events move to needs_review. Inventory → Sync Health exposes queue status, sanitized errors, audited Retry/Ignore actions for sale/return events, and Retry for stock snapshots. Alerting and periodic reconciliation remain outstanding. A real system cron should invoke WP-Cron reliably; WordPress scheduling is otherwise traffic-driven. Runtime tests for duplicate hooks, worker crash recovery, transaction rollback, retry timing and concurrent enqueue/claim are still required.
 
 
 ### WooCommerce inventory retry correctness correction — 21 November 2026
@@ -464,3 +464,17 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The cycle-aware return path relies on WooCommerce's `woocommerce_restore_order_item_stock` per-line hook, available from WooCommerce 9.1. Theme metadata now declares 9.1 as the minimum supported version.
 - If an older WooCommerce version is detected, Junction-managed products are made non-purchasable and checkout is blocked for carts containing mapped Junction products. This prevents new online sales that could not be safely reconciled on cancellation/restock.
 - This is a compatibility guard, not a claim that WooCommerce 9.1+ has passed runtime acceptance. The consolidated test batch must cover the minimum supported version and the current production target.
+
+## Superseding implementation status — 23 November 2026
+
+This section supersedes earlier dated snapshots above wherever their status differs.
+
+- POS transaction, request-fingerprint idempotency, offline replay reference retention, POS-to-WooCommerce adapter and per-line paid-order verification are implemented on this branch; runtime acceptance remains pending.
+- WooCommerce stock-cycle capture, cycle-bound sale/return workers, return baselines, cycle closure, retry queues, claim-token fencing and Sync Health operator actions are wired. A new cycle is blocked while a previous cycle is still restoring.
+- WooCommerce 9.1+ is required for the per-line restore hook. Older versions block purchases of Junction-mapped products.
+- Online stock reflects the combined sellable stock of active locations; inactive-location stock remains in the Junction ledger but is not advertised as sellable.
+- EasyPaisa Mobile Account and JazzCash payment paths are implemented with provider verification and per-order locking; provider sandbox/concurrent callback acceptance is pending.
+- Courier booking now stops failover/retry on ambiguous provider outcomes, persists needs_review, suppresses duplicate scheduled retries, and resumes booking after a successful inventory-hold release. Provider sandbox acceptance remains pending.
+- GA4 and Meta tracking are consent-gated and HPOS-aware. Meta browser/CAPI purchase events share a persisted event ID. Mailchimp/Klaviyo and QuickBooks/Daraz placeholder auto-sync are disabled because their current adapters are unsafe/incomplete; their original-project integrations remain outstanding.
+- PostEx, Rider.pk and Foree terminal integrations are not wired into the active provider/gateway registries. Multi-location CRUD UI, backup/restore automation, support handoff, central billing, and FBR remain in their planned later phases.
+- The implementation branch is still unmerged and undeployed. No PHP lint, smoke, database migration or WooCommerce runtime test is being claimed as passing. The consolidated test batch remains blocked on repository Actions runner availability and staging credentials.
