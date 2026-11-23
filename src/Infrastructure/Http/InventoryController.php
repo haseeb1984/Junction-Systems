@@ -17,6 +17,7 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/search',           ['methods'=>'GET', 'callback'=>[$this,'searchProduct'],    'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/barcode/(?P<barcode>[A-Za-z0-9\-]+)', ['methods'=>'GET','callback'=>[$this,'lookupBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/stock/adjust',     ['methods'=>'POST','callback'=>[$this,'adjustStock'],     'permission_callback'=>fn()=>current_user_can($auth)]);
+            register_rest_route($ns, '/inventory/stock/transfer', ['methods'=>'POST','callback'=>[$this,'transferStock'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/stock/location/(?P<id>\d+)', ['methods'=>'GET','callback'=>[$this,'locationStock'],'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/locations',        ['methods'=>'GET', 'callback'=>[$this,'listLocations'],    'permission_callback'=>fn()=>current_user_can($auth)]);
             register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>fn()=>current_user_can($auth)]);
@@ -77,6 +78,16 @@ final class InventoryController {
         $note       = sanitize_text_field($req->get_param('note')??'Manual adjustment');
         if (!$productId||!$locationId) return new \WP_REST_Response(['success'=>false,'message'=>'product_id and location_id required.'],422);
         try { $this->c->make(AdjustStockUseCase::class)->execute($productId,$locationId,$quantity,MovementType::from($type),$note); return new \WP_REST_Response(['success'=>true,'message'=>'Stock adjusted.'],200);
+        } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
+    }
+    public function transferStock(\WP_REST_Request $req): \WP_REST_Response {
+        try {
+            $reference=sanitize_text_field($req->get_param('reference_id')??'');
+            $result=$this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
+                (int)$req->get_param('product_id'),(int)$req->get_param('from_location_id'),(int)$req->get_param('to_location_id'),
+                (int)$req->get_param('quantity'),sanitize_text_field($req->get_param('note')??''),$reference!==''?$reference:null
+            );
+            return new \WP_REST_Response(['success'=>true,'reference_id'=>$result,'message'=>'Stock transferred.'],200);
         } catch (\Throwable $e) { return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422); }
     }
     public function locationStock(\WP_REST_Request $req): \WP_REST_Response {
