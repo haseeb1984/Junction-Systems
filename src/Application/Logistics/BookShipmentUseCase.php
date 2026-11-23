@@ -7,11 +7,33 @@ use PkStore\Infrastructure\WooCommerce\OrderMetaRepository;
 use Psr\Log\LoggerInterface;
 final class BookShipmentUseCase {
     public function __construct(private readonly CourierCircuitBreaker $cb, private readonly OrderMetaRepository $meta, private readonly LoggerInterface $log) {}
-    public function execute(ShipmentRequestDTO $s):ShipmentResultDTO {
-        $r=$this->cb->bookWithFailover($s);
-        if($r->success&&!str_starts_with($r->trackingNumber,'PENDING-'))
-            $this->meta->saveTrackingNumber($s->internalOrderId,$r->trackingNumber,$r->courierCode);
-        return $r;
+    public function execute(ShipmentRequestDTO $s): ShipmentResultDTO {
+        $result = $this->cb->bookWithFailover($s);
+        $orderId = (int) $s->internalOrderId;
+        $order = $orderId > 0 && function_exists('wc_get_order') ? wc_get_order($orderId) : null;
+
+        if ($result->success && !str_starts_with($result->trackingNumber, 'PENDING-')) {
+            $this->meta->saveTrackingNumber($s->internalOrderId, $result->trackingNumber, $result->courierCode);
+            if ($order instanceof \WC_Order) {
+                $order->update_meta_data('_pkstore_courier_booking_state', 'confirmed');
+                $order->update_meta_data('_pkstore_courier_booking_provider', $result->courierCode);
+                $order->delete_meta_data('_pkstore_courier_booking_review_reason');
+                $order->save();
+            }
+        } elseif ($order instanceof \WC_Order && !$result->success
+            && str_contains($result->message, 'Booking outcome unknown')) {
+            $order->update_meta_data('_pkstore_courier_booking_state', 'needs_review');
+            $order->update_meta_data('_pkstore_courier_booking_provider', $result->courierCode);
+            $order->update_meta_data('_pkstore_courier_booking_review_reason', 'Provider may have accepted the booking but Junction did not receive a confirmed tracking response.');
+            $order->add_order_note('[PK Store] Courier booking outcome is unknown with ' . sanitize_text_field($result->courierCode) . '. Automatic failover/retry has been stopped to prevent duplicate parcels. Reconcile the provider portal before taking further action.');
+            $order->save();
+        } elseif ($order instanceof \WC_Order && $result->success
+            && str_starts_with($result->trackingNumber, 'PENDING-')) {
+            $order->update_meta_data('_pkstore_courier_booking_state', 'pending');
+            $order->save();
+        }
+
+        return $result;
     }
     public function retryForOrder(int $orderId):void {
         if ($orderId < 1) return;
@@ -26,7 +48,8 @@ final class BookShipmentUseCase {
             $order = wc_get_order($orderId);
             if (!($order instanceof \WC_Order)) return;
             if ($order->get_status() !== 'processing'
-                || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes') return;
+                || $order->get_meta('_pkstore_wc_inventory_sync_hold', true) === 'yes'
+                || $order->get_meta('_pkstore_courier_booking_state', true) === 'needs_review') return;
 
             if ($order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return;
 
