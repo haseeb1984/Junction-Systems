@@ -63,7 +63,7 @@ final class InventoryHooks {
                 $delay=min(86400,60*(2**min(10,$attempts-1)));
                 $wpdb->update($queue,[
                     'status'=>'failed','attempts'=>$attempts,
-                    'next_attempt_at'=>gmdate('Y-m-d H:i:s',current_time('timestamp')+$delay),
+                    'next_attempt_at'=>gmdate('Y-m-d H:i:s',time()+$delay),
                     'last_error'=>substr($e->getMessage(),0,2000),'updated_at'=>current_time('mysql',true),
                 ],['product_id'=>$productId,'revision'=>(int)$row['revision']],['%s','%d','%s','%s','%s'],['%d','%d']);
                 error_log('[PKStore Inventory] POS stock projection retry failed for product '.$productId.': '.$e->getMessage());
