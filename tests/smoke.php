@@ -293,6 +293,9 @@ foreach ([
 $bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
 if (strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
     || strpos($bootstrapSource, 'DarazSyncService::class)->register()') !== false
+    || strpos($bootstrapSource, 'MailchimpService::class)->register()') !== false
+    || strpos($bootstrapSource, 'KlaviyoService::class)->register()') !== false
+    || strpos($bootstrapSource, 'explicit marketing-consent') === false
     || strpos($bootstrapSource, 'incorrect accounting records or empty Daraz orders') === false) {
     throw new \\RuntimeException('Incomplete QuickBooks/Daraz adapters must remain disabled until their safe mapping and idempotency contracts are implemented.');
 }
@@ -872,7 +875,10 @@ if (!is_string($whatsAppHooksSource) || !is_string($whatsAppServiceSource) || !i
     || strpos($settingsManagerSource, "'whatsapp'=>['WHATSAPP_TOKEN'=>true") === false
     || strpos($settingsManagerSource, "'quickbooks'=>['QUICKBOOKS_CLIENT_ID'=>false,'QUICKBOOKS_CLIENT_SECRET'=>true") === false
     || strpos($settingsManagerSource, "'daraz'=>['DARAZ_APP_KEY'=>false,'DARAZ_APP_SECRET'=>true") === false
+    || strpos($settingsManagerSource, "'mailchimp'=>['MAILCHIMP_API_KEY'=>true") === false
+    || strpos($settingsManagerSource, "'klaviyo'=>['KLAVIYO_PRIVATE_KEY'=>true") === false
     || strpos($settingsManagerSource, "'QUICKBOOKS_CLIENT_SECRET','QUICKBOOKS_REFRESH_TOKEN'") === false
+    || strpos($settingsManagerSource, "'MAILCHIMP_API_KEY','KLAVIYO_PRIVATE_KEY'") === false
     || strpos($settingsManagerSource, "'DARAZ_APP_SECRET','DARAZ_ACCESS_TOKEN','DARAZ_REFRESH_TOKEN'") === false) {
     throw new \RuntimeException('WhatsApp must use configured approved templates, verified webhooks, correct WooCommerce hooks and PII-safe logs.');
 }
