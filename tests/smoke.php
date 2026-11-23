@@ -291,6 +291,13 @@ foreach ([
 
 
 $bootstrapSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
+if (strpos($bootstrapSource, 'QuickBooksService::class)->register()') !== false
+    || strpos($bootstrapSource, 'DarazSyncService::class)->register()') !== false
+    || strpos($bootstrapSource, 'incorrect accounting records or empty Daraz orders') === false) {
+    throw new \\RuntimeException('Incomplete QuickBooks/Daraz adapters must remain disabled until their safe mapping and idempotency contracts are implemented.');
+}
+
+
 $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php');
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 $inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
