@@ -12,8 +12,17 @@ final class AiChatController {
 
     public function register(): void {
         add_action('rest_api_init', function (): void {
+            register_rest_route('pkstore/v1', '/chat/session', [
+                'methods' => 'POST',
+                'callback' => [$this, 'createSession'],
+                'permission_callback' => [$this, 'nonce'],
+                'args' => [
+                    '_nonce' => ['required' => true, 'type' => 'string'],
+                ],
+            ]);
             $args = [
                 'session_uuid' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+                'session_token' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
                 'message' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_textarea_field'],
                 '_nonce' => ['required' => true, 'type' => 'string'],
             ];
@@ -34,6 +43,43 @@ final class AiChatController {
 
     public function nonce(\WP_REST_Request $r): bool {
         return (bool) wp_verify_nonce($r->get_param('_nonce'), 'pkstore_ai_chat');
+    }
+
+    public function createSession(\\WP_REST_Request $request): \\WP_REST_Response {
+        try {
+            $uuid = wp_generate_uuid4();
+            $token = bin2hex(random_bytes(32));
+            $stored = set_transient(
+                'pkstore_chat_owner_' . hash('sha256', $uuid),
+                hash('sha256', $token),
+                2 * HOUR_IN_SECONDS
+            );
+            if (!$stored) {
+                throw new \\RuntimeException('Unable to establish chat-session ownership.');
+            }
+            return new \\WP_REST_Response([
+                'success' => true,
+                'session_uuid' => $uuid,
+                'session_token' => $token,
+            ], 201);
+        } catch (\\Throwable $error) {
+            error_log('[PK Store] Chat session creation failed (' . get_class($error) . ').');
+            return new \\WP_REST_Response([
+                'success' => false,
+                'code' => 'session_unavailable',
+                'message' => 'Chat session could not be started. Please refresh and try again.',
+            ], 503);
+        }
+    }
+
+    private function ownsSession(string $uuid, string $token): bool {
+        if (!$this->validSessionUuid($uuid) || preg_match('/^[a-f0-9]{64}$/i', $token) !== 1) {
+            return false;
+        }
+        $storedHash = get_transient('pkstore_chat_owner_' . hash('sha256', $uuid));
+        return is_string($storedHash)
+            && $storedHash !== ''
+            && hash_equals($storedHash, hash('sha256', $token));
     }
 
     private function validSessionUuid(string $uuid): bool {
@@ -90,9 +136,13 @@ final class AiChatController {
 
     public function handleChat(\WP_REST_Request $r): \WP_REST_Response {
         $u = (string) $r->get_param('session_uuid');
+        $token = (string) $r->get_param('session_token');
         $m = (string) $r->get_param('message');
         if (!$this->validSessionUuid($u) || !$this->validMessage($m)) {
             return new \WP_REST_Response(['success'=>false,'code'=>'invalid_request','message'=>'Refresh the chat and enter a message of up to 2,000 characters.'],422);
+        }
+        if (!$this->ownsSession($u, $token)) {
+            return new \WP_REST_Response(['success'=>false,'code'=>'session_expired','message'=>'This chat session has expired. Refresh the chat to start a new session.'],401);
         }
         if ($this->rateLimited($u)) {
             return new \WP_REST_Response(['success'=>false,'code'=>'rate_limited','message'=>'Too many questions. Please wait.'],429);
@@ -117,6 +167,7 @@ final class AiChatController {
 
     public function handleStream(\WP_REST_Request $r): void {
         $u = (string) $r->get_param('session_uuid');
+        $token = (string) $r->get_param('session_token');
         $m = (string) $r->get_param('message');
         if (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: text/event-stream; charset=utf-8');
@@ -125,6 +176,10 @@ final class AiChatController {
 
         if (!$this->validSessionUuid($u) || !$this->validMessage($m)) {
             $this->streamError('invalid_request', 'Refresh the chat and enter a valid message.', 422);
+            exit;
+        }
+        if (!$this->ownsSession($u, $token)) {
+            $this->streamError('session_expired', 'This chat session has expired. Refresh the chat to start a new session.', 401);
             exit;
         }
         if ($this->rateLimited($u)) {
