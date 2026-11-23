@@ -1573,6 +1573,29 @@ if (!is_string($jazzCashSource)
     throw new \RuntimeException('JazzCash must use signed callbacks, correct currency/minor units, and non-persistent CNIC input.');
 }
 
+$affiliateRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpAffiliateRepository.php');
+$payoutRepositorySource = file_get_contents($src . '/Infrastructure/Affiliate/WpPayoutRepository.php');
+$affiliateControllerSource = file_get_contents($src . '/Infrastructure/Http/AffiliateController.php');
+$affiliateModuleSource = file_get_contents(dirname(__DIR__) . '/assets/js/modules/affiliate.mjs');
+$affiliatePayoutTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/affiliate/payouts.php');
+if (!is_string($affiliateRepositorySource) || !is_string($payoutRepositorySource)
+    || !is_string($affiliateControllerSource) || !is_string($affiliateModuleSource)
+    || !is_string($affiliatePayoutTemplateSource)
+    || strpos($affiliateRepositorySource, "'payment_account'=>'__encrypted__'") === false
+    || strpos($affiliateRepositorySource, "setSecret('AFFILIATE_PAYMENT_ACCOUNT_' . \$id") === false
+    || strpos($affiliateRepositorySource, "\$settings->get(\$accountKey, '')") === false
+    || strpos($payoutRepositorySource, "'payment_account'=>'__encrypted__'") === false
+    || strpos($payoutRepositorySource, "setSecret('AFFILIATE_PAYOUT_ACCOUNT_' . \$id") === false
+    || strpos($affiliateControllerSource, "/^03[0-9]{9}$/") === false
+    || strpos($affiliateModuleSource, "request('affiliate/dashboard')") === false
+    || strpos($affiliateModuleSource, "request('affiliate/register'") === false
+    || strpos($affiliateModuleSource, "request('affiliate/products'") === false
+    || strpos($affiliateModuleSource, 'textContent=String(text)') === false
+    || strpos($affiliatePayoutTemplateSource, "__encrypted__") === false
+    || strpos($affiliatePayoutTemplateSource, "SettingsManager::getInstance()->get(\$accountKey") === false) {
+    throw new \RuntimeException('Affiliate dashboard must load and payout account data must be encrypted at rest and decrypted only for authorized admin views.');
+}
+
 $assetEnqueuerSource = file_get_contents($src . '/Infrastructure/WooCommerce/AssetEnqueuer.php');
 if (!is_string($assetEnqueuerSource)
     || strpos($assetEnqueuerSource, 'deregisterJQuery') !== false
