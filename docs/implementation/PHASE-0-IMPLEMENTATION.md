@@ -429,3 +429,11 @@ Remaining POS/inventory redesign beyond the specific transaction, concurrency, i
 - The cycle-capture lookup now treats `restoring` as an open cycle alongside `reducing` and `active`. A reopened/reprocessed order cannot silently create a later cycle while the prior cycle still has outstanding cancellation/refund returns.
 - An identical callback reuses the existing cycle; conflicting or premature new reductions fail closed until the prior cycle is fully reconciled and closed.
 - Added a source smoke guard. Runtime acceptance must exercise partial refund/restock followed by an attempted re-reduction, plus the normal fully-restored → closed → new-cycle sequence.
+
+
+## Unsafe QuickBooks/Daraz placeholder sync disabled pending full integration
+
+- Review found that the existing QuickBooks adapter used hard-coded customer/item/account references and had no complete OAuth setup or mapping workflow. The Daraz adapter could create empty WooCommerce orders with fabricated customer defaults, used a legacy posts-table lookup, and did not import line items or reconcile stock.
+- Both adapters are therefore no longer auto-registered from ThemeBootstrapper. This is a safety stop, not a claim that either integration is complete; package-level QuickBooks/Daraz commitments remain outstanding for the original-project integration phase.
+- Their full implementation must include provider-approved OAuth/configuration, encrypted secrets, explicit customer/catalogue mapping, HPOS-safe idempotent order import/export, line-item/tax/discount/shipping reconciliation, inventory/fulfilment rules, retry/review queues, and sandbox acceptance before registration is restored.
+- Added a source smoke guard to prevent accidental re-enablement of these placeholder adapters.
