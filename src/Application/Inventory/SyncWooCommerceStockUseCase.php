@@ -52,7 +52,7 @@ final class SyncWooCommerceStockUseCase {
             }
             if ($reducedStock === '' || $reducedStock === null) continue;
             if (!is_numeric($reducedStock)) {
-                throw new \\RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
+                throw new \RuntimeException('WooCommerce stock-cycle reduction quantity is invalid.');
             }
             if ((float) $reducedStock === 0.0) continue;
             if ((float) $reducedStock < 0
