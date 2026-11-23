@@ -545,9 +545,10 @@ if (!is_string($inventoryProductRepositorySource)
     || strpos($inventoryProductRepositorySource, 'Unable to count inventory products.') === false
     || strpos($inventoryProductRepositorySource, 'SELECT GET_LOCK(%s, %d)') === false
     || strpos($inventoryProductRepositorySource, 'SELECT RELEASE_LOCK(%s)') === false
-    || strpos($inventoryProductRepositorySource, 'pkstore_inv_barcode_') === false
-    || strpos($inventoryProductRepositorySource, 'pkstore_inv_wc_map_') === false
-    || strpos($inventoryProductRepositorySource, 'withWooCommerceMappingLock(') === false
+    || strpos($inventoryProductRepositorySource, 'pkstore_inv_product_identity') === false
+    || strpos($inventoryProductRepositorySource, 'withProductIdentityLock(') === false
+    || strpos($inventoryProductRepositorySource, 'findByWcProductId($p->wcProductId)') === false
+    || strpos($inventoryProductRepositorySource, 'findByBarcode($p->getBarcode())') === false
     || strpos($inventoryProductRepositorySource, 'This WooCommerce product is already mapped to Junction inventory.') === false
     || strpos($inventoryProductRepositorySource, 'Barcode already exists.') === false
     || strpos($inventoryProductRepositorySource, 'Multiple Junction inventory products share the same barcode.') === false
