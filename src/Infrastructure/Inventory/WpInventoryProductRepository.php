@@ -75,11 +75,18 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
         return $this->h($row);
     }
     public function findByBarcode(string $barcode): ?InventoryProduct {
-        $row = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE barcode=%s", $barcode), ARRAY_A);
-        if ($row === null && $this->db->last_error !== '') {
+        if ($barcode === '') return null;
+        $rows = $this->db->get_results($this->db->prepare(
+            "SELECT * FROM {$this->t()} WHERE barcode=%s ORDER BY id ASC LIMIT 2",
+            $barcode
+        ), ARRAY_A);
+        if ($rows === null && $this->db->last_error !== '') {
             throw new \RuntimeException('Unable to check inventory barcode.');
         }
-        return $this->h($row);
+        if (count($rows ?: []) > 1) {
+            throw new \DomainException('Multiple Junction inventory products share the same barcode.');
+        }
+        return $this->h($rows[0] ?? null);
     }
     public function findByWcProductId(int $wcId): ?InventoryProduct {
         if ($wcId < 1) throw new \InvalidArgumentException('WooCommerce product ID must be positive.');
