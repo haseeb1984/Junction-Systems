@@ -32,8 +32,14 @@ final class WpStockRepository implements StockRepositoryInterface {
             throw new \InvalidArgumentException('Stock transfer requires a product, two different locations and a positive quantity.');
         }
         if ($referenceId === '') throw new \InvalidArgumentException('Stock transfer reference is required.');
-        if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start stock transfer: '.$this->db->last_error);
+        // Serialize a reference globally, not merely by product/location rows. Otherwise the same
+        // reference could race on two different products and create two independent transfers.
+        $lockName = 'pkstore_transfer_' . substr(hash('sha256', $referenceId), 0, 40);
+        $lockResult = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lockName));
+        if ((string)$lockResult !== '1') throw new \RuntimeException('Unable to acquire stock transfer reference lock.');
         try {
+            if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start stock transfer: '.$this->db->last_error);
+
             $locations = [$fromLocationId,$toLocationId];
             sort($locations,SORT_NUMERIC);
             foreach ($locations as $locationId) {
@@ -47,7 +53,11 @@ final class WpStockRepository implements StockRepositoryInterface {
             $existingRows = $this->db->get_results($this->db->prepare(
                 "SELECT product_id,location_id,quantity_delta,movement_type FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s ORDER BY location_id",
                 $referenceId
-            ),ARRAY_A) ?: [];
+            ),ARRAY_A);
+            if ($existingRows === null && $this->db->last_error !== '') {
+                throw new \RuntimeException('Unable to verify stock transfer reference: '.$this->db->last_error);
+            }
+            $existingRows = $existingRows ?: [];
             if ($existingRows) {
                 $expected = [
                     $fromLocationId => ['delta'=>-$quantity,'type'=>'transfer_out'],
@@ -82,6 +92,8 @@ final class WpStockRepository implements StockRepositoryInterface {
         } catch (\Throwable $e) {
             $this->db->query('ROLLBACK');
             throw $e;
+        } finally {
+            $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
     }
     public function setStockAndRecordMovement(int $productId,int $locationId,int $quantity,string $note,?int $userId): ?StockMovement {
