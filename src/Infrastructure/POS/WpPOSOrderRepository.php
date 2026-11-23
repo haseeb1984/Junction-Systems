@@ -117,7 +117,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)$item['unit_price_pkr'],'discount_pkr'=>(int)($item['discount_pkr']??0)
         ],$items);
         $storedItems=array_map(fn($item)=>[
-            'product_id'=>(int)$item['product_id'],'sku'=>(string)$item['sku'],'name'=>(string)$item['name'],
+            'product_id'=>(int)$item['product_id'],
             'quantity'=>(int)$item['quantity'],'unit_price_pkr'=>(int)$item['unit_price_pkr'],'discount_pkr'=>(int)($item['discount_pkr']??0)
         ],$storedItems);
         if(!$same || $storedItems!==$expectedItems) throw new \DomainException('POS order reference was already used for a different sale payload.');
