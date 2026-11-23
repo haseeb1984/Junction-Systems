@@ -200,6 +200,18 @@ final class InventoryInstaller {
             INDEX idx_item (item_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
 
+        // Durable outbox for POS stock projections to WooCommerce.
+        dbDelta("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}pkstore_stock_projection_queue (
+            product_id INT UNSIGNED NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_at DATETIME NOT NULL,
+            last_error TEXT DEFAULT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (product_id),
+            INDEX idx_status_retry (status,next_attempt_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 {$cs};");
+
         // Seed default locations
         self::seedLocations();
     }
