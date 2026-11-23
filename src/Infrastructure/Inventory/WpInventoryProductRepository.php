@@ -20,9 +20,27 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
             throw new \RuntimeException('Unable to update inventory product.');
         }
     }
-    public function findById(int $id): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A)); }
-    public function findBySku(string $sku): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE sku=%s",$sku),ARRAY_A)); }
-    public function findByBarcode(string $barcode): ?InventoryProduct { return $this->h($this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE barcode=%s",$barcode),ARRAY_A)); }
+    public function findById(int $id): ?InventoryProduct {
+        $row = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d", $id), ARRAY_A);
+        if ($row === null && $this->db->last_error !== '') {
+            throw new \RuntimeException('Unable to read inventory product.');
+        }
+        return $this->h($row);
+    }
+    public function findBySku(string $sku): ?InventoryProduct {
+        $row = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE sku=%s", $sku), ARRAY_A);
+        if ($row === null && $this->db->last_error !== '') {
+            throw new \RuntimeException('Unable to check inventory SKU.');
+        }
+        return $this->h($row);
+    }
+    public function findByBarcode(string $barcode): ?InventoryProduct {
+        $row = $this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE barcode=%s", $barcode), ARRAY_A);
+        if ($row === null && $this->db->last_error !== '') {
+            throw new \RuntimeException('Unable to check inventory barcode.');
+        }
+        return $this->h($row);
+    }
     public function findByWcProductId(int $wcId): ?InventoryProduct {
         if ($wcId < 1) throw new \InvalidArgumentException('WooCommerce product ID must be positive.');
         $rows = $this->db->get_results($this->db->prepare(
