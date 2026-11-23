@@ -302,6 +302,16 @@ if (strpos($bootstrapSource, "wp_has_consent('statistics')") === false
 }
 
 
+$quickBooksSource = file_get_contents($src . '/Infrastructure/Integration/Accounting/QuickBooksService.php');
+if (!is_string($quickBooksSource)
+    || strpos($quickBooksSource, "setSecret('QUICKBOOKS_ACCESS_TOKEN'") === false
+    || strpos($quickBooksSource, "setSecret('QUICKBOOKS_REFRESH_TOKEN'") === false
+    || strpos($quickBooksSource, 'set_transient(') !== false
+    || strpos($quickBooksSource, 'get_transient(') !== false
+    || strpos($settingsManagerSource, "'QUICKBOOKS_ACCESS_TOKEN'=>true") === false) {
+    throw new \\RuntimeException('QuickBooks OAuth access and refresh tokens must use encrypted SettingsManager storage.');
+}
+
 $ga4AnalyticsSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/GA4Service.php');
 $facebookPixelSource = file_get_contents($src . '/Infrastructure/Integration/Analytics/FacebookPixelService.php');
 $settingsManagerSource = file_get_contents($src . '/Settings/SettingsManager.php');
