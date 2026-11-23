@@ -84,7 +84,8 @@ class Woo_AI_Widget {
         check_ajax_referer("woo_ai_nonce", "nonce");
         $message = sanitize_text_field(wp_unslash($_POST["message"] ?? ""));
         if (empty($message)) wp_send_json_error(["reply" => "Empty message."]);
-        if (mb_strlen($message) > 500) wp_send_json_error(["reply" => "Message too long."]);
+        $messageLength = function_exists("mb_strlen") ? mb_strlen($message) : strlen($message);
+        if ($messageLength > 500) wp_send_json_error(["reply" => "Message too long."]);
 
         $result  = Woo_AI_Engine::process($message);
         $payload = [
