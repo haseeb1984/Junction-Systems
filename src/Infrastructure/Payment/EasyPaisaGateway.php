@@ -50,22 +50,6 @@ final class EasyPaisaGateway extends \WC_Payment_Gateway {
     }
 
     public function payment_fields(): void {
-        if ($this->description) echo wpautop(wptexturize($this->description));
-        echo '<p>Use the Pakistani mobile number linked to your Easypaisa Mobile Account in the billing phone field. A payment request will be sent to that account.</p>';
-    }
-
-    public function validate_fields(): bool {
-        $phone = isset($_POST['billing_phone'])
-            ? $this->normalizeMobileNumber((string) wc_clean(wp_unslash($_POST['billing_phone'])))
-            : '';
-        if (!preg_match('/^03[0-9]{9}$/', $phone)) {
-            wc_add_notice('Enter a valid Pakistani mobile number linked to your Easypaisa account (03XXXXXXXXX).', 'error');
-            return false;
-        }
-        return true;
-    }
-
-    public function payment_fields(): void {
         if ($this->description !== '') echo wpautop(wp_kses_post($this->description));
         echo '<p class="form-row form-row-wide">';
         echo '<label for="easypaisa_mobile_account_no">Easypaisa mobile number <span class="required">*</span></label>';
