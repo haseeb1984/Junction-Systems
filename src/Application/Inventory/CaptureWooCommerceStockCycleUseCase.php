@@ -331,10 +331,8 @@ final class CaptureWooCommerceStockCycleUseCase {
                 throw new \RuntimeException('WooCommerce stock-cycle line snapshot is invalid or the order item quantity changed.');
             }
 
-            $inventoryProduct = $variationId > 0
-                ? $this->productRepo->findByWcProductId($variationId)
-                : null;
-            $inventoryProduct ??= $this->productRepo->findByWcProductId($parentId);
+            $stockManagedProductId = $this->stockManagedWooCommerceProductId($item, $parentId, $variationId);
+            $inventoryProduct = $this->productRepo->findByWcProductId($stockManagedProductId);
             if (!$inventoryProduct || !$inventoryProduct->isActive) {
                 throw new \RuntimeException('Reduced WooCommerce product has no active Junction inventory mapping.');
             }
@@ -512,5 +510,33 @@ final class CaptureWooCommerceStockCycleUseCase {
             $wpdb->query('ROLLBACK');
             throw $error;
         }
+    }
+
+    /**
+     * WooCommerce variations may share their parent's stock. Map the actual
+     * stock-owning product ID, not always the variation ID.
+     */
+    private function stockManagedWooCommerceProductId($item, int $parentId, int $variationId): int {
+        if ($parentId < 1) {
+            throw new \RuntimeException('WooCommerce order item has an invalid parent product ID.');
+        }
+        if ($variationId < 1) return $parentId;
+        if (!is_object($item) || !method_exists($item, 'get_product')) {
+            throw new \RuntimeException('Unable to resolve the WooCommerce variation stock owner.');
+        }
+        $variation = $item->get_product();
+        if (!is_object($variation) || !method_exists($variation, 'get_stock_managed_by_id')
+            || !method_exists($variation, 'get_id')
+            || (int) $variation->get_id() !== $variationId) {
+            throw new \RuntimeException('WooCommerce variation stock ownership could not be verified.');
+        }
+        if (method_exists($variation, 'managing_stock') && !$variation->managing_stock()) {
+            throw new \RuntimeException('WooCommerce order variation does not manage stock despite reduced-stock metadata.');
+        }
+        $stockManagedId = (int) $variation->get_stock_managed_by_id();
+        if (!in_array($stockManagedId, [$parentId, $variationId], true)) {
+            throw new \RuntimeException('WooCommerce variation resolved to an unexpected stock-owning product.');
+        }
+        return $stockManagedId;
     }
 }
