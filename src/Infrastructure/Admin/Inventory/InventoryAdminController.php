@@ -301,13 +301,17 @@ final class InventoryAdminController {
 
     private function handleTransferStock(): void {
         try {
+            $productId = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT);
+            $fromLocationId = filter_var($_POST['from_location_id'] ?? null, FILTER_VALIDATE_INT);
+            $toLocationId = filter_var($_POST['to_location_id'] ?? null, FILTER_VALIDATE_INT);
+            $quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT);
+            if ($productId === false || $fromLocationId === false || $toLocationId === false || $quantity === false
+                || $productId < 1 || $fromLocationId < 1 || $toLocationId < 1 || $quantity < 1 || $quantity > 2147483647) {
+                throw new \\InvalidArgumentException('Transfer identifiers and quantity must be positive whole numbers.');
+            }
             $reference = sanitize_text_field($_POST['reference_id'] ?? '');
             $this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
-                (int) ($_POST['product_id'] ?? 0),
-                (int) ($_POST['from_location_id'] ?? 0),
-                (int) ($_POST['to_location_id'] ?? 0),
-                (int) ($_POST['quantity'] ?? 0),
-                $reference,
+                $productId, $fromLocationId, $toLocationId, $quantity, $reference,
                 sanitize_text_field($_POST['note'] ?? '')
             );
             $this->redirect('pkstore-inventory', 'transferred', 'Stock transfer completed.');
@@ -320,16 +324,20 @@ final class InventoryAdminController {
         global $wpdb;
         $name = sanitize_text_field($_POST['supplier_name'] ?? '');
         $email = sanitize_email($_POST['supplier_email'] ?? '');
-        if ($name === '' || ($email !== '' && !is_email($email))) {
-            $this->redirect('pkstore-purchase-orders', 'error', 'Supplier name or email is invalid.');
+        $contact = sanitize_text_field($_POST['supplier_contact'] ?? '');
+        $phone = sanitize_text_field($_POST['supplier_phone'] ?? '');
+        $address = sanitize_textarea_field($_POST['supplier_address'] ?? '');
+        if ($name === '' || strlen($name) > 150 || strlen($contact) > 100 || strlen($phone) > 20
+            || strlen($email) > 150 || strlen($address) > 65000 || ($email !== '' && !is_email($email))) {
+            $this->redirect('pkstore-purchase-orders', 'error', 'Supplier details exceed allowed lengths or the email is invalid.');
             return;
         }
         $inserted = $wpdb->insert($wpdb->prefix . 'pkstore_inventory_suppliers', [
             'name'=>$name,
-            'contact'=>sanitize_text_field($_POST['supplier_contact'] ?? ''),
-            'phone'=>sanitize_text_field($_POST['supplier_phone'] ?? ''),
+            'contact'=>$contact,
+            'phone'=>$phone,
             'email'=>$email,
-            'address'=>sanitize_textarea_field($_POST['supplier_address'] ?? ''),
+            'address'=>$address,
             'is_active'=>1,
             'created_at'=>current_time('mysql'),
         ]);
@@ -350,10 +358,13 @@ final class InventoryAdminController {
                     'unit_cost_pkr'=>$item['unit_cost_pkr'] ?? null,
                 ];
             }
+            $supplierId = filter_var($_POST['supplier_id'] ?? null, FILTER_VALIDATE_INT);
+            $locationId = filter_var($_POST['location_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($supplierId === false || $locationId === false || $supplierId < 1 || $locationId < 1) {
+                throw new \\InvalidArgumentException('Supplier and location identifiers must be positive integers.');
+            }
             $id = $this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
-                (int) ($_POST['supplier_id'] ?? 0),
-                (int) ($_POST['location_id'] ?? 0),
-                $items,
+                $supplierId, $locationId, $items,
                 sanitize_textarea_field($_POST['notes'] ?? '')
             );
             $this->redirect('pkstore-purchase-orders', 'po_created', 'Purchase order #' . $id . ' created.');
@@ -373,9 +384,11 @@ final class InventoryAdminController {
                 }
                 if ((int) $quantity > 0) $items[] = ['item_id'=>$itemId, 'quantity'=>$quantity];
             }
+            $purchaseOrderId = filter_var($_POST['purchase_order_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($purchaseOrderId === false || $purchaseOrderId < 1) throw new \\InvalidArgumentException('Purchase order identifier must be a positive integer.');
             $reference = sanitize_text_field($_POST['receipt_reference'] ?? '');
             $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute(
-                (int) ($_POST['purchase_order_id'] ?? 0), $items, $reference
+                $purchaseOrderId, $items, $reference
             );
             $this->redirect('pkstore-purchase-orders', 'received', 'Purchase receipt saved.');
         } catch (\Throwable $error) {
