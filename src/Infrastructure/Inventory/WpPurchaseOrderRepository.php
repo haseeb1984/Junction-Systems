@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace PkStore\Infrastructure\Inventory;
+use PkStore\Application\Inventory\InventoryProductLock;
 use PkStore\Domain\Inventory\Entity\{POStatus,PurchaseOrder};
 use PkStore\Domain\Inventory\Repository\{PurchaseOrderRepositoryInterface, StockRepositoryInterface};
 final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterface {
@@ -43,7 +44,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             }
             if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit purchase order: '.$this->db->last_error);
             return $id;
-        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); InventoryProductLock::release($productLocks); throw $e; }
     }
     public function findById(int $id): ?PurchaseOrder {
         $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
@@ -64,6 +65,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
     public function receive(int $purchaseOrderId,array $items,string $receiptReference,int $userId): void {
         if($purchaseOrderId<=0 || $receiptReference==='' || strlen($receiptReference)>64 || !$items) throw new \InvalidArgumentException('Invalid receipt identity.');
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start receiving transaction: '.$this->db->last_error);
+        $productLocks=[];
         try {
             $po=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$purchaseOrderId),ARRAY_A);
             $this->assertReadSucceeded('locked purchase order lookup');
@@ -95,6 +97,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             }
             // Lock and update shared stock rows in a stable product order.
             uasort($receiptLines, static fn(array $a, array $b): int => (int)$a['item']['product_id'] <=> (int)$b['item']['product_id']);
+            $productLocks=InventoryProductLock::acquireMany(array_map(static fn(array $line): int => (int)$line['item']['product_id'], array_values($receiptLines)));
             $ok=$this->db->insert($this->tr(),['receipt_reference'=>$receiptReference,'po_id'=>$purchaseOrderId,'received_by'=>$userId,'received_at'=>current_time('mysql')]);
             if($ok===false) throw new \RuntimeException('Unable to create receipt record: '.$this->db->last_error);
             $receiptId=(int)$this->db->insert_id;
@@ -118,6 +121,8 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             $data=['status'=>$status]; if($status==='received') $data['received_at']=current_time('mysql');
             if($this->db->update($this->t(),$data,['id'=>$purchaseOrderId])===false) throw new \RuntimeException('Unable to update purchase order status: '.$this->db->last_error);
             if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit purchase receipt: '.$this->db->last_error);
+            InventoryProductLock::release($productLocks);
+            $productLocks=[];
         } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     private function hydrate(array $r): PurchaseOrder {
