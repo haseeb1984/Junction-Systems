@@ -8,6 +8,8 @@ namespace PkStore\Application\Inventory;
  * The name matches AdjustStockUseCase's WooCommerce snapshot lock.
  */
 final class InventoryProductLock {
+    /** @var array<string, int> Re-entrant reference counts for this DB connection. */
+    private static array $held = [];
     /**
      * @param int[] $productIds
      * @return string[] Acquired lock names, in acquisition order.
@@ -31,6 +33,11 @@ final class InventoryProductLock {
         try {
             foreach ($ids as $productId) {
                 $name = 'pkstore_wc_stock_' . $productId;
+                if (isset(self::$held[$name])) {
+                    self::$held[$name]++;
+                    $acquired[] = $name;
+                    continue;
+                }
                 $result = $wpdb->get_var($wpdb->prepare(
                     'SELECT GET_LOCK(%s, %d)',
                     $name,
@@ -39,6 +46,7 @@ final class InventoryProductLock {
                 if ((int) $result !== 1) {
                     throw new \RuntimeException('Unable to acquire the shared inventory product lock.');
                 }
+                self::$held[$name] = 1;
                 $acquired[] = $name;
             }
             return $acquired;
@@ -54,6 +62,10 @@ final class InventoryProductLock {
         if (!$wpdb instanceof \wpdb) return;
 
         foreach (array_reverse($lockNames) as $name) {
+            if (!isset(self::$held[$name])) continue;
+            self::$held[$name]--;
+            if (self::$held[$name] > 0) continue;
+            unset(self::$held[$name]);
             $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $name));
         }
     }
