@@ -229,6 +229,35 @@ if (hash_equals($fingerprintA, $fingerprintChanged)) {
     throw new \RuntimeException('POS request fingerprint must change when sale quantities change.');
 }
 
+// Purchase-order status must be independently PSR-4 autoloadable.
+if (!enum_exists(\\PkStore\\Domain\\Inventory\\Entity\\POStatus::class)
+    || \\PkStore\\Domain\\Inventory\\Entity\\POStatus::Draft->value !== 'draft') {
+    throw new \\RuntimeException('Purchase-order status enum failed PSR-4 autoload.');
+}
+if (!method_exists(\\PkStore\\Domain\\Inventory\\Repository\\StockRepositoryInterface::class, 'transferStock')) {
+    throw new \\RuntimeException('Inventory stock repository must expose the atomic transfer contract.');
+}
+
+// Split tender must reconcile exactly and update each cashier-session bucket once.
+$splitSession = \\PkStore\\Domain\\POS\\Entity\\POSSession::open(3, 9, 5000);
+$splitSession->recordSale(1000, 'cash', ['cash'=>300, 'card'=>200, 'jazzcash'=>250, 'easypaisa'=>250]);
+if ($splitSession->getTotalSalesPkr() !== 1000
+    || $splitSession->getTotalCashPkr() !== 300
+    || $splitSession->getTotalCardPkr() !== 200
+    || $splitSession->getTotalJazzcashPkr() !== 250
+    || $splitSession->getTotalEasypaisaPkr() !== 250) {
+    throw new \\RuntimeException('POS split tender did not reconcile to the cashier session totals.');
+}
+$beforeRejectedSplit = $splitSession->getTotalSalesPkr();
+try {
+    $splitSession->recordSale(1000, 'cash', ['cash'=>999, 'card'=>1]);
+    throw new \\RuntimeException('Invalid split tender was unexpectedly accepted.');
+} catch (\\InvalidArgumentException $expected) {
+    if ($splitSession->getTotalSalesPkr() !== $beforeRejectedSplit) {
+        throw new \\RuntimeException('Rejected split tender partially changed cashier session totals.');
+    }
+}
+
 $basic = \PkStore\License\LicenseFeatures::forTier('basic');
 foreach (['junction_pos', 'inventory_management', 'whatsapp_api', 'quickbooks_sync', 'daraz_sync'] as $required) {
     if (!in_array($required, $basic, true)) {
