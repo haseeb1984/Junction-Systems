@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace PkStore\Application\POS;
 use PkStore\Application\Inventory\AdjustStockUseCase;
+use PkStore\Application\Inventory\InventoryProductLock;
 use PkStore\Application\POS\Exception\OnlineStockReconciliationPendingException;
 use PkStore\Domain\Inventory\Entity\MovementType;
 use PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface;
@@ -78,6 +79,9 @@ final class ProcessPOSSaleUseCase {
             throw new \InvalidArgumentException('Sale discount must be between zero and the sale subtotal.');
         }
 
+        // Hold shared product locks across reconciliation checks, ledger writes and WC sync.
+        $productLocks = InventoryProductLock::acquireMany(array_column($enriched, 'product_id'));
+        try {
         // Online orders reduce WooCommerce stock before the durable Junction
         // ledger event is applied. Never let a POS sale spend that same stock
         // while an online reduction is still pending or needs operator review.
@@ -156,6 +160,9 @@ final class ProcessPOSSaleUseCase {
 
         $this->log->info('POS sale processed.', ['order_ref'=>$savedOrder->orderRef,'total'=>$savedOrder->totalPkr,'method'=>$paymentMethod]);
         return $savedOrder;
+        } finally {
+            InventoryProductLock::release($productLocks);
+        }
     }
 
     private function assertNoPendingOnlineStockReductions(): void {
