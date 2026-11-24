@@ -78,7 +78,7 @@ final class WpStockRepository implements StockRepositoryInterface {
     }
 
     public function transferStock(int $productId, int $fromLocationId, int $toLocationId, int $quantity, string $referenceId, string $note, ?int $userId): void {
-        if ($productId < 1 || $fromLocationId < 1 || $toLocationId < 1 || $fromLocationId === $toLocationId || $quantity < 1 || trim($referenceId) === '' || strlen($referenceId) > 64) {
+        if ($productId < 1 || $fromLocationId < 1 || $toLocationId < 1 || $fromLocationId === $toLocationId || $quantity < 1 || $quantity > 2147483647 || trim($referenceId) === '' || strlen($referenceId) > 64) {
             throw new \InvalidArgumentException('Stock transfer details are invalid.');
         }
         $lockName = 'pkstore_transfer_' . substr(hash('sha256', $referenceId), 0, 40);
@@ -119,6 +119,7 @@ final class WpStockRepository implements StockRepositoryInterface {
                 if (!$source || !$destination) throw new \RuntimeException('Transfer stock rows are incomplete.');
                 $beforeFrom = (int) $source['quantity'];
                 $beforeTo = (int) $destination['quantity'];
+                if ($beforeTo < 0 || $beforeTo > 2147483647 - $quantity) throw new \\OverflowException('Destination stock exceeds the supported inventory quantity range.');
                 if ($beforeFrom < $quantity) throw new \DomainException("Insufficient source stock. Available: {$beforeFrom}, requested: {$quantity}.");
                 if ($this->db->update($this->ts(), ['quantity' => $beforeFrom - $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $source['id']]) === false) throw new \RuntimeException('Unable to deduct source stock.');
                 if ($this->db->update($this->ts(), ['quantity' => $beforeTo + $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $destination['id']]) === false) throw new \RuntimeException('Unable to add destination stock.');
