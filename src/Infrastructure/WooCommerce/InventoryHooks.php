@@ -2,10 +2,14 @@
 declare(strict_types=1);
 namespace PkStore\Infrastructure\WooCommerce;
 use PkStore\Application\Inventory\SyncWooCommerceStockUseCase;
+use PkStore\Application\Inventory\InventoryProductLock;
 use PkStore\Application\Inventory\ProcessWooCommerceOrderInventoryQueueUseCase;
 use PkStore\Application\Inventory\ProcessWooCommerceReturnInventoryQueueUseCase;
 use PkStore\Container\ServiceContainer;
 final class InventoryHooks {
+    /** @var array<string, string[]> */
+    private array $lifecycleLocks = [];
+
     public function __construct(private readonly ServiceContainer $c) {}
     public function register(): void {
         // MigrationRunner runs on init priority 1. Register lifecycle hooks only
@@ -33,6 +37,14 @@ final class InventoryHooks {
             return;
         }
 
+        // Acquire the shared product mutex before WooCommerce mutates stock.
+        add_filter('woocommerce_can_reduce_order_stock', [$this, 'lockProductsBeforeOrderStockReduction'], 1, 2);
+        add_filter('woocommerce_can_restore_order_stock', [$this, 'lockProductsBeforeOrderStockRestore'], 1, 2);
+        add_filter('woocommerce_can_restock_refunded_items', [$this, 'lockProductsBeforeRefundRestock'], 1, 3);
+        add_action('woocommerce_restore_order_stock', [$this, 'releaseOrderRestoreLocks'], PHP_INT_MAX, 1);
+        add_action('woocommerce_order_refunded', [$this, 'releaseRefundRestockLocks'], PHP_INT_MAX, 2);
+        register_shutdown_function([$this, 'releaseAllLifecycleLocks']);
+
         // Queue an online sale only after WooCommerce has completed its actual
         // order stock-reduction pass. Payment/status transitions alone are not proof.
         add_action('woocommerce_reduce_order_stock', [$this, 'onOrderStockReduced'], 10, 1);
@@ -44,6 +56,76 @@ final class InventoryHooks {
             wp_schedule_event(time(), 'hourly', 'pkstore_inventory_hourly_sync');
         }
         add_action('pkstore_inventory_hourly_sync', [$this, 'hourlySyncAll']);
+    }
+
+    /**
+     * Lock mapped stock owners before WooCommerce performs an order stock change.
+     * @return bool Preserve WooCommerce's original decision.
+     */
+    public function lockProductsBeforeOrderStockReduction(bool $allowed, $order): bool {
+        if (!$allowed || !($order instanceof \\WC_Order) || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return $allowed;
+        $this->acquireOrderLifecycleLocks('reduce', $order, null);
+        return $allowed;
+    }
+
+    public function lockProductsBeforeOrderStockRestore(bool $allowed, $order): bool {
+        if (!$allowed || !($order instanceof \\WC_Order)) return $allowed;
+        $this->acquireOrderLifecycleLocks('restore', $order, null);
+        return $allowed;
+    }
+
+    public function lockProductsBeforeRefundRestock(bool $allowed, $order, array $refundedLineItems = []): bool {
+        if (!$allowed || !($order instanceof \\WC_Order)) return $allowed;
+        $this->acquireOrderLifecycleLocks('refund', $order, $refundedLineItems);
+        return $allowed;
+    }
+
+    private function acquireOrderLifecycleLocks(string $kind, \\WC_Order $order, ?array $selectedLines): void {
+        $orderId = (int) $order->get_id();
+        if ($orderId < 1) throw new \\RuntimeException('Cannot lock stock for an invalid WooCommerce order.');
+        $key = $kind . ':' . $orderId;
+        if (isset($this->lifecycleLocks[$key])) return;
+
+        $productRepo = $this->c->make(\\PkStore\\Domain\\Inventory\\Repository\\InventoryProductRepositoryInterface::class);
+        $inventoryIds = [];
+        foreach ($order->get_items('line_item') as $itemId => $item) {
+            if ($selectedLines !== null && (!isset($selectedLines[$itemId]['qty']) || (int) $selectedLines[$itemId]['qty'] <= 0)) continue;
+            $reduced = $item->get_meta('_reduced_stock', true);
+            if ($kind === 'restore' && (!is_numeric($reduced) || (float) $reduced <= 0)) continue;
+            $wcProduct = $item->get_product();
+            if (!$wcProduct instanceof \\WC_Product || !$wcProduct->managing_stock()) continue;
+            $stockOwnerId = method_exists($wcProduct, 'get_stock_managed_by_id')
+                ? (int) $wcProduct->get_stock_managed_by_id()
+                : (int) $wcProduct->get_id();
+            if ($stockOwnerId < 1) throw new \\RuntimeException('WooCommerce stock owner could not be resolved.');
+            $inventoryProduct = $productRepo->findByWcProductId($stockOwnerId);
+            if ($inventoryProduct) $inventoryIds[] = (int) $inventoryProduct->id;
+        }
+
+        if ($inventoryIds) $this->lifecycleLocks[$key] = InventoryProductLock::acquireMany($inventoryIds);
+        else $this->lifecycleLocks[$key] = [];
+    }
+
+    private function releaseOrderLifecycleLocks(string $kind, int $orderId): void {
+        $key = $kind . ':' . $orderId;
+        if (!array_key_exists($key, $this->lifecycleLocks)) return;
+        InventoryProductLock::release($this->lifecycleLocks[$key]);
+        unset($this->lifecycleLocks[$key]);
+    }
+
+    public function releaseOrderRestoreLocks($order): void {
+        if ($order instanceof \\WC_Order) $this->releaseOrderLifecycleLocks('restore', (int) $order->get_id());
+    }
+
+    public function releaseRefundRestockLocks(int $orderId, int $refundId): void {
+        $this->releaseOrderLifecycleLocks('refund', $orderId);
+    }
+
+    public function releaseAllLifecycleLocks(): void {
+        foreach (array_keys($this->lifecycleLocks) as $key) {
+            [$kind, $orderId] = explode(':', $key, 2);
+            $this->releaseOrderLifecycleLocks($kind, (int) $orderId);
+        }
     }
 
     public function blockPurchasesDuringMigration(bool $purchasable, $product): bool {
@@ -202,6 +284,8 @@ final class InventoryHooks {
                 }
             }
             error_log('[PKStore Inventory] WooCommerce stock reduction hook could not complete ingestion ('.get_class($error).').');
+        } finally {
+            $this->releaseOrderLifecycleLocks('reduce', $orderId);
         }
     }
 
