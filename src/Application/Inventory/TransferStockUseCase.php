@@ -23,7 +23,12 @@ final class TransferStockUseCase {
         if ($referenceId === '' || strlen($referenceId) > 64) throw new \InvalidArgumentException('A stable transfer reference of 1-64 characters is required.');
         $cleanNote = sanitize_text_field($note);
         $cleanNote = function_exists('mb_substr') ? mb_substr($cleanNote, 0, 255) : substr($cleanNote, 0, 255);
-        $this->stock->transferStock($productId, $fromLocationId, $toLocationId, $quantity, $referenceId, $cleanNote, get_current_user_id());
+        $locks = InventoryProductLock::acquireMany([$productId]);
+        try {
+            $this->stock->transferStock($productId, $fromLocationId, $toLocationId, $quantity, $referenceId, $cleanNote, get_current_user_id());
+        } finally {
+            InventoryProductLock::release($locks);
+        }
         $this->log->info('Inventory stock transferred.', ['product_id'=>$productId,'from_location_id'=>$fromLocationId,'to_location_id'=>$toLocationId,'quantity'=>$quantity,'reference_id'=>$referenceId]);
         return $referenceId;
     }
