@@ -21,7 +21,9 @@ final class TransferStockUseCase {
         if (!$from || !$from->isActive || !$to || !$to->isActive) throw new \DomainException('Both transfer locations must be active.');
         $referenceId = trim($referenceId);
         if ($referenceId === '' || strlen($referenceId) > 64) throw new \InvalidArgumentException('A stable transfer reference of 1-64 characters is required.');
-        $this->stock->transferStock($productId, $fromLocationId, $toLocationId, $quantity, $referenceId, sanitize_text_field($note), get_current_user_id());
+        $cleanNote = sanitize_text_field($note);
+        $cleanNote = function_exists('mb_substr') ? mb_substr($cleanNote, 0, 255) : substr($cleanNote, 0, 255);
+        $this->stock->transferStock($productId, $fromLocationId, $toLocationId, $quantity, $referenceId, $cleanNote, get_current_user_id());
         $this->log->info('Inventory stock transferred.', ['product_id'=>$productId,'from_location_id'=>$fromLocationId,'to_location_id'=>$toLocationId,'quantity'=>$quantity,'reference_id'=>$referenceId]);
         return $referenceId;
     }
