@@ -63,41 +63,41 @@ final class InventoryHooks {
      * @return bool Preserve WooCommerce's original decision.
      */
     public function lockProductsBeforeOrderStockReduction(bool $allowed, $order): bool {
-        if (!$allowed || !($order instanceof \\WC_Order) || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return $allowed;
+        if (!$allowed || !($order instanceof \WC_Order) || $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') return $allowed;
         $this->acquireOrderLifecycleLocks('reduce', $order, null);
         return $allowed;
     }
 
     public function lockProductsBeforeOrderStockRestore(bool $allowed, $order): bool {
-        if (!$allowed || !($order instanceof \\WC_Order)) return $allowed;
+        if (!$allowed || !($order instanceof \WC_Order)) return $allowed;
         $this->acquireOrderLifecycleLocks('restore', $order, null);
         return $allowed;
     }
 
     public function lockProductsBeforeRefundRestock(bool $allowed, $order, array $refundedLineItems = []): bool {
-        if (!$allowed || !($order instanceof \\WC_Order)) return $allowed;
+        if (!$allowed || !($order instanceof \WC_Order)) return $allowed;
         $this->acquireOrderLifecycleLocks('refund', $order, $refundedLineItems);
         return $allowed;
     }
 
-    private function acquireOrderLifecycleLocks(string $kind, \\WC_Order $order, ?array $selectedLines): void {
+    private function acquireOrderLifecycleLocks(string $kind, \WC_Order $order, ?array $selectedLines): void {
         $orderId = (int) $order->get_id();
-        if ($orderId < 1) throw new \\RuntimeException('Cannot lock stock for an invalid WooCommerce order.');
+        if ($orderId < 1) throw new \RuntimeException('Cannot lock stock for an invalid WooCommerce order.');
         $key = $kind . ':' . $orderId;
         if (isset($this->lifecycleLocks[$key])) return;
 
-        $productRepo = $this->c->make(\\PkStore\\Domain\\Inventory\\Repository\\InventoryProductRepositoryInterface::class);
+        $productRepo = $this->c->make(\PkStore\Domain\Inventory\Repository\InventoryProductRepositoryInterface::class);
         $inventoryIds = [];
         foreach ($order->get_items('line_item') as $itemId => $item) {
             if ($selectedLines !== null && (!isset($selectedLines[$itemId]['qty']) || (int) $selectedLines[$itemId]['qty'] <= 0)) continue;
             $reduced = $item->get_meta('_reduced_stock', true);
             if ($kind === 'restore' && (!is_numeric($reduced) || (float) $reduced <= 0)) continue;
             $wcProduct = $item->get_product();
-            if (!$wcProduct instanceof \\WC_Product || !$wcProduct->managing_stock()) continue;
+            if (!$wcProduct instanceof \WC_Product || !$wcProduct->managing_stock()) continue;
             $stockOwnerId = method_exists($wcProduct, 'get_stock_managed_by_id')
                 ? (int) $wcProduct->get_stock_managed_by_id()
                 : (int) $wcProduct->get_id();
-            if ($stockOwnerId < 1) throw new \\RuntimeException('WooCommerce stock owner could not be resolved.');
+            if ($stockOwnerId < 1) throw new \RuntimeException('WooCommerce stock owner could not be resolved.');
             $inventoryProduct = $productRepo->findByWcProductId($stockOwnerId);
             if ($inventoryProduct) $inventoryIds[] = (int) $inventoryProduct->id;
         }
@@ -114,7 +114,7 @@ final class InventoryHooks {
     }
 
     public function releaseOrderRestoreLocks($order): void {
-        if ($order instanceof \\WC_Order) $this->releaseOrderLifecycleLocks('restore', (int) $order->get_id());
+        if ($order instanceof \WC_Order) $this->releaseOrderLifecycleLocks('restore', (int) $order->get_id());
     }
 
     public function releaseRefundRestockLocks(int $orderId, int $refundId): void {
