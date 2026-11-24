@@ -308,8 +308,8 @@ $posOrderRepositorySource = file_get_contents($src . '/Infrastructure/POS/WpPOSO
 if (!is_string($posOrderRepositorySource)
     || substr_count($posOrderRepositorySource, 'assertReadSucceeded(') < 5
     || strpos($posOrderRepositorySource, "if (\$this->db->last_error !== '')") === false
-    || strpos($posOrderRepositorySource, "throw new \\RuntimeException('Database error during ' . \$operation . '.');") === false) {
-    throw new \\RuntimeException('POS order repository reads must fail closed on database errors instead of returning empty queue/session data.');
+    || strpos($posOrderRepositorySource, "throw new \RuntimeException('Database error during ' . \$operation . '.');") === false) {
+    throw new \RuntimeException('POS order repository reads must fail closed on database errors instead of returning empty queue/session data.');
 }
 
 if (!method_exists(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class, 'hasMovementReference')) {
@@ -705,7 +705,7 @@ if (!is_string($purchaseReceiptInstallerSource)
 }
 foreach ($purchaseReceiptMigrationChecks as $requiredMigrationCheck) {
     if (strpos($migrationRunnerSource, $requiredMigrationCheck) === false) {
-        throw new \\RuntimeException('Purchase receipt migration must verify its version, columns and unique indexes.');
+        throw new \RuntimeException('Purchase receipt migration must verify its version, columns and unique indexes.');
     }
 }
 
@@ -1014,7 +1014,7 @@ if (!is_string($purchaseOrderRepositorySource)
     || substr_count($purchaseOrderRepositorySource, 'assertReadSucceeded(') < 8
     || strpos($purchaseOrderRepositorySource, "assertReadSucceeded('receipt idempotency lookup')") === false
     || strpos($purchaseOrderRepositorySource, "assertReadSucceeded('locked purchase stock lookup')") === false
-    || strpos($purchaseOrderRepositorySource, "throw new \\RuntimeException('Database error during '.$operation.'.')") === false) {
+    || strpos($purchaseOrderRepositorySource, "throw new \RuntimeException('Database error during '.$operation.'.')") === false) {
     throw new \RuntimeException('Purchase order repository reads must fail closed instead of presenting database failures as missing orders, suppliers, or receipt data.');
 }
 
@@ -1034,7 +1034,7 @@ if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
 $posSyncSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
 if (!is_string($posSyncSource)
     || strpos($posSyncSource, '\\\\wpdb') !== false
-    || strpos($posSyncSource, '\\\RuntimeException') !== false
+    || strpos($posSyncSource, '\\RuntimeException') !== false
     || strpos($posSyncSource, 'private function paidWooCommerceOrderMatches') === false
     || strpos($posSyncSource, "_pkstore_inventory_location_id") === false
     || strpos($posSyncSource, "_pkstore_pos_order_ref") === false) {
@@ -1593,7 +1593,7 @@ $stockCycleCaptureSource = file_get_contents($src . '/Application/Inventory/Capt
 if (!is_string($stockCycleCaptureSource)
     || strpos($stockCycleCaptureSource, 'malformed reduced-stock metadata') === false
     || strpos($stockCycleCaptureSource, "if (!is_numeric(\$reduced))") === false
-    || strpos($stockCycleCaptureSource, 'new \\\RuntimeException') !== false) {
+    || strpos($stockCycleCaptureSource, 'new \\RuntimeException') !== false) {
     throw new \RuntimeException('Stock-cycle capture must reject malformed reduced-stock metadata instead of silently skipping it.');
 }
 
@@ -1637,7 +1637,7 @@ if (!is_string($stockSaleSource)
     || strpos($stockSaleSource, "SET state='closed'") === false
     || strpos($stockSaleSource, 'refund_cumulative_baseline') === false
     || strpos($stockSaleSource, '_pkstore_inventory_returned_quantity') === false
-    || strpos($stockSaleSource, 'new \\\RuntimeException') !== false) {
+    || strpos($stockSaleSource, 'new \\RuntimeException') !== false) {
     throw new \RuntimeException('WooCommerce sale ingestion must preserve actual reductions and allocate shared stock across locations.');
 }
 
@@ -1866,7 +1866,7 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false) {
-    throw new \\RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
+    throw new \RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
 }
 
 echo "Smoke tests passed.\n";
