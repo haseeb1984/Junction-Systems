@@ -180,6 +180,27 @@ final class InventoryInstaller {
             INDEX idx_product (product_id)
         ) ENGINE=InnoDB {$cs};");
 
+        // Receipt headers and lines provide idempotency for partial purchase-order receiving.
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_purchase_receipts (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            receipt_reference VARCHAR(64) NOT NULL,
+            po_id INT UNSIGNED NOT NULL,
+            received_by BIGINT UNSIGNED NOT NULL,
+            received_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_receipt_reference (receipt_reference),
+            INDEX idx_po (po_id)
+        ) ENGINE=InnoDB {$cs};");
+        dbDelta("CREATE TABLE {$wpdb->prefix}pkstore_purchase_receipt_items (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            receipt_id BIGINT UNSIGNED NOT NULL,
+            item_id INT UNSIGNED NOT NULL,
+            quantity INT NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE INDEX idx_receipt_item (receipt_id,item_id),
+            INDEX idx_item (item_id)
+        ) ENGINE=InnoDB {$cs};");
+
         self::installStockSyncQueue();
 
         // Seed default locations
