@@ -11,8 +11,14 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
     private function tm(): string { return $this->db->prefix.'pkstore_inventory_movements'; }
     private function tr(): string { return $this->db->prefix.'pkstore_purchase_receipts'; }
     private function tri(): string { return $this->db->prefix.'pkstore_purchase_receipt_items'; }
+    private function assertReadSucceeded(string $operation): void {
+        if ($this->db->last_error !== '') throw new \RuntimeException('Database error during '.$operation.'.');
+    }
     public function supplierExists(int $supplierId): bool {
-        return $supplierId>0 && (bool)$this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}pkstore_inventory_suppliers WHERE id=%d AND is_active=1",$supplierId));
+        if ($supplierId<=0) return false;
+        $found=$this->db->get_var($this->db->prepare("SELECT id FROM {$this->db->prefix}pkstore_inventory_suppliers WHERE id=%d AND is_active=1",$supplierId));
+        $this->assertReadSucceeded('supplier lookup');
+        return (bool)$found;
     }
     public function create(PurchaseOrder $order,array $items): int {
         $total=0;
@@ -41,26 +47,34 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
     }
     public function findById(int $id): ?PurchaseOrder {
         $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
+        $this->assertReadSucceeded('purchase order lookup');
         if(!$r) return null;
         $po=$this->hydrate($r);
-        $po->setItems($this->db->get_results($this->db->prepare("SELECT id AS item_id,product_id,quantity_ordered,quantity_received,unit_cost_pkr FROM {$this->ti()} WHERE po_id=%d ORDER BY id",$id),ARRAY_A)?:[]);
+        $items=$this->db->get_results($this->db->prepare("SELECT id AS item_id,product_id,quantity_ordered,quantity_received,unit_cost_pkr FROM {$this->ti()} WHERE po_id=%d ORDER BY id",$id),ARRAY_A);
+        $this->assertReadSucceeded('purchase order item lookup');
+        $po->setItems($items?:[]);
         return $po;
     }
     public function findAll(int $limit=100): array {
         $limit=max(1,min(500,$limit));
-        $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} ORDER BY created_at DESC LIMIT %d",$limit),ARRAY_A)?:[];
-        return array_map(fn($r)=>$this->hydrate($r),$rows);
+        $rows=$this->db->get_results($this->db->prepare("SELECT * FROM {$this->t()} ORDER BY created_at DESC LIMIT %d",$limit),ARRAY_A);
+        $this->assertReadSucceeded('purchase order list');
+        return array_map(fn($r)=>$this->hydrate($r),$rows?:[]);
     }
     public function receive(int $purchaseOrderId,array $items,string $receiptReference,int $userId): void {
         if($purchaseOrderId<=0 || $receiptReference==='' || strlen($receiptReference)>64 || !$items) throw new \InvalidArgumentException('Invalid receipt identity.');
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start receiving transaction: '.$this->db->last_error);
         try {
             $po=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$purchaseOrderId),ARRAY_A);
+            $this->assertReadSucceeded('locked purchase order lookup');
             if(!$po) throw new \RuntimeException('Purchase order not found.');
             $existing=$this->db->get_row($this->db->prepare("SELECT id,po_id FROM {$this->tr()} WHERE receipt_reference=%s FOR UPDATE",$receiptReference),ARRAY_A);
+            $this->assertReadSucceeded('receipt idempotency lookup');
             if($existing) {
                 if((int)$existing['po_id']!==$purchaseOrderId) throw new \DomainException('Receipt reference has already been used for another purchase order.');
-                $stored=$this->db->get_results($this->db->prepare("SELECT item_id,quantity FROM {$this->tri()} WHERE receipt_id=%d ORDER BY item_id",(int)$existing['id']),ARRAY_A)?:[];
+                $stored=$this->db->get_results($this->db->prepare("SELECT item_id,quantity FROM {$this->tri()} WHERE receipt_id=%d ORDER BY item_id",(int)$existing['id']),ARRAY_A);
+                $this->assertReadSucceeded('stored receipt item lookup');
+                $stored=$stored?:[];
                 $expected=$items; usort($expected,fn($a,$b)=>(int)$a['item_id']<=>(int)$b['item_id']);
                 if(count($stored)!==count($expected)) throw new \DomainException('Receipt reference replay does not match the original receipt payload.');
                 foreach($stored as $i=>$line) if((int)$line['item_id']!==(int)$expected[$i]['item_id'] || (int)$line['quantity']!==(int)$expected[$i]['quantity']) throw new \DomainException('Receipt reference replay does not match the original receipt payload.');
@@ -73,6 +87,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 $itemId=(int)$line['item_id']; $qty=(int)$line['quantity'];
                 if($itemId<=0 || $qty<=0 || isset($receiptLines[$itemId])) throw new \InvalidArgumentException('Receipt lines must have unique item IDs and positive quantities.');
                 $item=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->ti()} WHERE id=%d AND po_id=%d FOR UPDATE",$itemId,$purchaseOrderId),ARRAY_A);
+                $this->assertReadSucceeded('locked purchase order item lookup');
                 if(!$item) throw new \InvalidArgumentException("Purchase order line {$itemId} does not exist.");
                 $remaining=(int)$item['quantity_ordered']-(int)$item['quantity_received'];
                 if($qty>$remaining) throw new \DomainException("Received quantity exceeds remaining quantity for purchase order line {$itemId}.");
@@ -87,6 +102,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 $item=$line['item']; $qty=$line['quantity']; $productId=(int)$item['product_id']; $locationId=(int)$po['location_id'];
                 $this->db->query($this->db->prepare("INSERT IGNORE INTO {$this->ts()} (product_id,location_id,quantity,updated_at) VALUES (%d,%d,0,%s)",$productId,$locationId,current_time('mysql')));
                 $stock=$this->db->get_row($this->db->prepare("SELECT id,quantity FROM {$this->ts()} WHERE product_id=%d AND location_id=%d FOR UPDATE",$productId,$locationId),ARRAY_A);
+                $this->assertReadSucceeded('locked purchase stock lookup');
                 if(!$stock) throw new \RuntimeException('Unable to lock stock row for purchase receipt.');
                 $before=(int)$stock['quantity']; if($before<0 || $before>2147483647-$qty) throw new \OverflowException('Received stock exceeds the supported inventory quantity range.'); $after=$before+$qty;
                 if($this->db->update($this->ts(),['quantity'=>$after,'updated_at'=>current_time('mysql')],['id'=>(int)$stock['id']])===false) throw new \RuntimeException('Unable to update received stock: '.$this->db->last_error);
