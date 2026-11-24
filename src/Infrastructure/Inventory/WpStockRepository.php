@@ -95,7 +95,7 @@ final class WpStockRepository implements StockRepositoryInterface {
                 }
                 $rows = $this->db->get_results($this->db->prepare("SELECT id,location_id,quantity FROM {$this->ts()} WHERE product_id=%d AND location_id IN (%d,%d) ORDER BY location_id FOR UPDATE", $productId, $locations[0], $locations[1]), ARRAY_A);
                 if (!is_array($rows) || count($rows) !== 2) throw new \RuntimeException('Unable to lock both stock locations.');
-                $existing = $this->db->get_results($this->db->prepare("SELECT product_id,location_id,quantity_delta,movement_type FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s ORDER BY location_id", $referenceId), ARRAY_A);
+                $existing = $this->db->get_results($this->db->prepare("SELECT product_id,location_id,quantity_delta,quantity_before,quantity_after,movement_type FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s ORDER BY location_id", $referenceId), ARRAY_A);
                 if ($existing === null && $this->db->last_error !== '') throw new \RuntimeException('Unable to verify stock transfer idempotency.');
                 $existing = $existing ?: [];
                 if ($existing) {
@@ -106,7 +106,7 @@ final class WpStockRepository implements StockRepositoryInterface {
                     $valid = count($existing) === 2;
                     foreach ($existing as $entry) {
                         $location = (int) $entry['location_id'];
-                        if ((int) $entry['product_id'] !== $productId || !isset($expected[$location]) || (int) $entry['quantity_delta'] !== $expected[$location]['delta'] || $entry['movement_type'] !== $expected[$location]['type']) $valid = false;
+                        if ((int) $entry['product_id'] !== $productId || !isset($expected[$location]) || (int) $entry['quantity_delta'] !== $expected[$location]['delta'] || (int) $entry['quantity_after'] - (int) $entry['quantity_before'] !== $expected[$location]['delta'] || $entry['movement_type'] !== $expected[$location]['type']) $valid = false;
                     }
                     if (!$valid) throw new \DomainException('Transfer reference was already used for a different or incomplete transfer.');
                     if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit duplicate transfer verification.');
