@@ -250,7 +250,7 @@ if ($splitSession->getTotalSalesPkr() !== 1000
 }
 $beforeRejectedSplit = $splitSession->getTotalSalesPkr();
 try {
-    $splitSession->recordSale(1000, 'cash', ['cash'=>999, 'card'=>1]);
+    $splitSession->recordSale(1000, 'cash', ['cash'=>999, 'card'=>2]);
     throw new \RuntimeException('Invalid split tender was unexpectedly accepted.');
 } catch (\InvalidArgumentException $expected) {
     if ($splitSession->getTotalSalesPkr() !== $beforeRejectedSplit) {
