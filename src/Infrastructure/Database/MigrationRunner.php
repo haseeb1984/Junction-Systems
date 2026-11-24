@@ -242,7 +242,7 @@ final class MigrationRunner {
             ] as $table => $columns) {
                 foreach ($columns as $columnName) {
                     $column = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $table . ' LIKE %s', $columnName));
-                    if (!$column) throw new \\RuntimeException('Required purchase receipt schema column was not created.');
+                    if (!$column) throw new \RuntimeException('Required purchase receipt schema column was not created.');
                 }
             }
             self::verifyUniqueIndex($receipts, 'idx_receipt_reference', ['receipt_reference']);
