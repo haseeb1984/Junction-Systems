@@ -45,23 +45,23 @@ final class AdjustStockUseCase {
         $locks = InventoryProductLock::acquireMany([$productId]);
         try {
             global $wpdb;
-            if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
-                throw new \\RuntimeException('Unable to start stock adjustment transaction.');
+            if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+                throw new \RuntimeException('Unable to start stock adjustment transaction.');
             }
 
             try {
                 $this->execute($productId, $locationId, $delta, $type, $note, 'manual', '', false);
                 if ($wpdb->query('COMMIT') === false) {
-                    throw new \\RuntimeException('Unable to commit stock adjustment transaction.');
+                    throw new \RuntimeException('Unable to commit stock adjustment transaction.');
                 }
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $wpdb->query('ROLLBACK');
                 throw $error;
             }
 
             try {
                 $this->syncProductToWooCommerce($productId);
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $this->log->error('Stock adjustment committed; WooCommerce sync remains queued for retry.', [
                     'product_id' => $productId,
                     'error_class' => get_class($error),
@@ -77,8 +77,8 @@ final class AdjustStockUseCase {
         $locks = InventoryProductLock::acquireMany([$productId]);
         try {
             global $wpdb;
-            if (!$wpdb instanceof \\wpdb || $wpdb->query('START TRANSACTION') === false) {
-                throw new \\RuntimeException('Unable to start manual stock count transaction.');
+            if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+                throw new \RuntimeException('Unable to start manual stock count transaction.');
             }
 
             try {
@@ -92,16 +92,16 @@ final class AdjustStockUseCase {
                 $this->stockRepo->enqueueWooCommerceSync($productId);
 
                 if ($wpdb->query('COMMIT') === false) {
-                    throw new \\RuntimeException('Unable to commit manual stock count transaction.');
+                    throw new \RuntimeException('Unable to commit manual stock count transaction.');
                 }
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $wpdb->query('ROLLBACK');
                 throw $error;
             }
 
             try {
                 $this->syncProductToWooCommerce($productId);
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $this->log->error('Manual stock count saved; WooCommerce stock sync remains queued for retry.', [
                     'product_id' => $productId,
                     'error_class' => get_class($error),
