@@ -29,6 +29,11 @@ final class InventoryController {
                 register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>$barcodeAuth]);
             }
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>$manageAuth]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
@@ -272,5 +277,70 @@ final class InventoryController {
         $products = $this->c->make(InventoryProductRepositoryInterface::class)->findBelowReorderPoint();
         $sr = $this->c->make(StockRepositoryInterface::class);
         return new \WP_REST_Response(['success'=>true,'count'=>count($products),'products'=>array_map(fn($p)=>['id'=>$p->id,'sku'=>$p->sku,'name'=>$p->name,'total_stock'=>$sr->getTotalStock($p->id),'reorder_point'=>$p->reorderPoint],$products)],200);
+    }
+
+    public function listSuppliers(\WP_REST_Request $req): \WP_REST_Response {
+        global $wpdb;
+        $table = $wpdb->prefix . 'pkstore_inventory_suppliers';
+        $rows = $wpdb->get_results("SELECT id,name,contact,phone,email,address FROM {$table} WHERE is_active=1 ORDER BY name", ARRAY_A) ?: [];
+        if ($wpdb->last_error !== '') return new \WP_REST_Response(['success'=>false,'message'=>'Unable to load suppliers.'],500);
+        return new \WP_REST_Response(['success'=>true,'suppliers'=>$rows],200);
+    }
+
+    public function createSupplier(\WP_REST_Request $req): \WP_REST_Response {
+        global $wpdb;
+        $name = sanitize_text_field($req->get_param('name') ?? '');
+        $email = sanitize_email($req->get_param('email') ?? '');
+        if ($name === '') return new \WP_REST_Response(['success'=>false,'message'=>'Supplier name is required.'],422);
+        if ($email !== '' && !is_email($email)) return new \WP_REST_Response(['success'=>false,'message'=>'Supplier email is invalid.'],422);
+        $table = $wpdb->prefix . 'pkstore_inventory_suppliers';
+        $ok = $wpdb->insert($table, [
+            'name'=>$name,'contact'=>sanitize_text_field($req->get_param('contact') ?? ''),
+            'phone'=>sanitize_text_field($req->get_param('phone') ?? ''),'email'=>$email,
+            'address'=>sanitize_textarea_field($req->get_param('address') ?? ''),
+            'is_active'=>1,'created_at'=>current_time('mysql'),
+        ]);
+        if ($ok === false) return new \WP_REST_Response(['success'=>false,'message'=>'Unable to create supplier.'],500);
+        return new \WP_REST_Response(['success'=>true,'supplier_id'=>(int)$wpdb->insert_id],201);
+    }
+
+    public function createPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        try {
+            $items = $req->get_param('items');
+            if (!is_array($items)) return new \WP_REST_Response(['success'=>false,'message'=>'items must be an array.'],422);
+            $id = $this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
+                (int)$req->get_param('supplier_id'), (int)$req->get_param('location_id'), $items,
+                sanitize_textarea_field($req->get_param('notes') ?? '')
+            );
+            return new \WP_REST_Response(['success'=>true,'purchase_order_id'=>$id,'message'=>'Purchase order created.'],201);
+        } catch (\Throwable $e) {
+            return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422);
+        }
+    }
+
+    public function getPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        $po = $this->c->make(\PkStore\Domain\Inventory\Repository\PurchaseOrderRepositoryInterface::class)->findById((int)$req->get_param('id'));
+        if (!$po) return new \WP_REST_Response(['success'=>false,'message'=>'Purchase order not found.'],404);
+        return new \WP_REST_Response(['success'=>true,'purchase_order'=>[
+            'id'=>$po->id,'po_number'=>$po->poNumber,'supplier_id'=>$po->supplierId,
+            'location_id'=>$po->locationId,'status'=>$po->getStatus()->value,
+            'total_pkr'=>$po->totalPkr,'items'=>$po->getItems(),
+        ]],200);
+    }
+
+    public function receivePurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
+        try {
+            $items = $req->get_param('items');
+            $reference = sanitize_text_field($req->get_param('receipt_reference') ?? '');
+            if (!is_array($items) || $reference === '') {
+                return new \WP_REST_Response(['success'=>false,'message'=>'items and a stable receipt_reference are required.'],422);
+            }
+            $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute(
+                (int)$req->get_param('id'), $items, $reference
+            );
+            return new \WP_REST_Response(['success'=>true,'message'=>'Purchase receipt processed.','receipt_reference'=>$reference],200);
+        } catch (\Throwable $e) {
+            return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422);
+        }
     }
 }
