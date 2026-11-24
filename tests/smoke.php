@@ -304,6 +304,14 @@ foreach (['postex_courier', 'rider_courier', 'klaviyo', 'multi_location_inventor
     }
 }
 
+$posOrderRepositorySource = file_get_contents($src . '/Infrastructure/POS/WpPOSOrderRepository.php');
+if (!is_string($posOrderRepositorySource)
+    || substr_count($posOrderRepositorySource, 'assertReadSucceeded(') < 5
+    || strpos($posOrderRepositorySource, "if (\$this->db->last_error !== '')") === false
+    || strpos($posOrderRepositorySource, "throw new \\RuntimeException('Database error during ' . \$operation . '.');") === false) {
+    throw new \\RuntimeException('POS order repository reads must fail closed on database errors instead of returning empty queue/session data.');
+}
+
 if (!method_exists(\PkStore\Domain\Inventory\Repository\StockRepositoryInterface::class, 'hasMovementReference')) {
     throw new \RuntimeException('Stock repository must expose WooCommerce order movement idempotency lookup.');
 }
