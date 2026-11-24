@@ -19,11 +19,11 @@ final class AdjustStockUseCase {
             $this->stockRepo->updateStock($stock);
             $movement = StockMovement::create($productId, $locationId, $type, $delta, $before, $refType, $refId, $note, get_current_user_id());
             $this->stockRepo->recordMovement($movement);
-    
+
             // Persist the outbox intent alongside stock changes. POS calls this inside
             // its sale transaction, so a rollback also rolls back the sync request.
             $this->stockRepo->enqueueWooCommerceSync($productId);
-    
+
             // POS defers WooCommerce side effects until after its transaction commits.
             if ($syncWooCommerce) {
                 try {
@@ -41,7 +41,7 @@ final class AdjustStockUseCase {
                 'delta' => $delta,
                 'type' => $type->value,
             ]);
-            } finally {
+        } finally {
             InventoryProductLock::release($locks);
         }
     }
