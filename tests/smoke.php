@@ -1866,6 +1866,9 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryHooksLockSource, "woocommerce_can_restore_order_stock") === false
     || strpos($inventoryHooksLockSource, "woocommerce_can_restock_refunded_items") === false
     || strpos($inventoryHooksLockSource, "releaseOrderLifecycleLocks('reduce', \$orderId)") === false
+    || strpos($inventoryHooksLockSource, 'releaseOrderRestoreLocks') === false
+    || strpos($inventoryHooksLockSource, 'releaseRefundRestockLocks') === false
+    || strpos($inventoryHooksLockSource, 'releaseAllLifecycleLocks') === false
     || substr_count($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') !== 4
     || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 4
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
