@@ -1858,6 +1858,9 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryLockSource, 'self::$held[$name]++') === false
     || strpos($posLockSource, 'InventoryProductLock::acquireMany(array_column($enriched, \'product_id\'))') === false
     || strpos($posLockSource, 'InventoryProductLock::release($productLocks)') === false
+    || strpos($posLockSource, 'pkstore_wc_return_inventory_queue') === false
+    || strpos($posLockSource, "event_kind IN ('cancellation','refund')") === false
+    || strpos($posLockSource, 'pendingReturnQueueRows') === false
     || strpos($posLockSource, '$this->assertNoPendingOnlineStockReductions();') < strpos($posLockSource, 'InventoryProductLock::acquireMany')
     || strpos($inventoryHooksLockSource, "woocommerce_can_reduce_order_stock") === false
     || strpos($inventoryHooksLockSource, "woocommerce_can_restore_order_stock") === false
