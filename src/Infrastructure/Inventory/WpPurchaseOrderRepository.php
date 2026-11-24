@@ -87,7 +87,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 $this->stock->enqueueWooCommerceSync($productId);
             }
             $remaining=$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->ti()} WHERE po_id=%d AND quantity_received<quantity_ordered",$purchaseOrderId));
-            if($this->db->last_error!=='' || !is_numeric($remaining)) throw new \\RuntimeException('Unable to verify remaining purchase order quantities: '.$this->db->last_error);
+            if($this->db->last_error!=='' || !is_numeric($remaining)) throw new \RuntimeException('Unable to verify remaining purchase order quantities: '.$this->db->last_error);
             $status=(int)$remaining===0?'received':'partial';
             $data=['status'=>$status]; if($status==='received') $data['received_at']=current_time('mysql');
             if($this->db->update($this->t(),$data,['id'=>$purchaseOrderId])===false) throw new \RuntimeException('Unable to update purchase order status: '.$this->db->last_error);
