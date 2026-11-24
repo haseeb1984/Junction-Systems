@@ -33,6 +33,7 @@ final class MigrationRunner {
         '2.0.12' => [InventoryInstaller::class, 'installWooCommerceStockCycleRuntime'],
         '2.0.13' => [InventoryInstaller::class, 'installWooCommerceOrderInventoryQueueCycleIdentity'],
         '2.0.14' => [InventoryInstaller::class, 'installInventoryProductMappingConstraint'],
+        '2.0.15' => [InventoryInstaller::class, 'installPurchaseReceiptTables'],
     ];
 
 
@@ -170,6 +171,10 @@ final class MigrationRunner {
 
         // This queue is introduced by migration 2.0.3; requiring it while
         // verifying 2.0.0–2.0.2 prevents those earlier steps from completing.
+        if (version_compare($version, '2.0.15', '>=')) {
+            $required[] = 'pkstore_purchase_receipts';
+            $required[] = 'pkstore_purchase_receipt_items';
+        }
         if (version_compare($version, '2.0.3', '>=')) {
             $required[] = 'pkstore_wc_order_inventory_queue';
         }
@@ -226,6 +231,22 @@ final class MigrationRunner {
             if ($wpdb->last_error !== '' || $legacyIndex) {
                 throw new \RuntimeException('Legacy order-only queue index was not replaced by the cycle identity index.');
             }
+        }
+
+        if (version_compare($version, '2.0.15', '>=')) {
+            $receipts = $wpdb->prefix . 'pkstore_purchase_receipts';
+            $receiptItems = $wpdb->prefix . 'pkstore_purchase_receipt_items';
+            foreach ([
+                $receipts => ['receipt_reference', 'po_id', 'received_by', 'received_at'],
+                $receiptItems => ['receipt_id', 'item_id', 'quantity'],
+            ] as $table => $columns) {
+                foreach ($columns as $columnName) {
+                    $column = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM ' . $table . ' LIKE %s', $columnName));
+                    if (!$column) throw new \\RuntimeException('Required purchase receipt schema column was not created.');
+                }
+            }
+            self::verifyUniqueIndex($receipts, 'idx_receipt_reference', ['receipt_reference']);
+            self::verifyUniqueIndex($receiptItems, 'idx_receipt_item', ['receipt_id', 'item_id']);
         }
 
         if (version_compare($version, '2.0.14', '>=')) {
