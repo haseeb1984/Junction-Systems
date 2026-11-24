@@ -20,10 +20,10 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             $quantity=(int)($item['quantity']??0); $unitCost=(int)($item['unit_cost_pkr']??-1);
             if($quantity<1 || $quantity>2147483647 || $unitCost<0 || $unitCost>2147483647
                 || ($unitCost>0 && $quantity>intdiv(2147483647,$unitCost))) {
-                throw new \\InvalidArgumentException('Purchase order quantity or unit cost exceeds the supported database range.');
+                throw new \InvalidArgumentException('Purchase order quantity or unit cost exceeds the supported database range.');
             }
             $lineTotal=$quantity*$unitCost;
-            if($total>2147483647-$lineTotal) throw new \\InvalidArgumentException('Purchase order total exceeds the supported PKR range.');
+            if($total>2147483647-$lineTotal) throw new \InvalidArgumentException('Purchase order total exceeds the supported PKR range.');
             $total+=$lineTotal;
         }
         if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start purchase order transaction: '.$this->db->last_error);
@@ -88,7 +88,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 $this->db->query($this->db->prepare("INSERT IGNORE INTO {$this->ts()} (product_id,location_id,quantity,updated_at) VALUES (%d,%d,0,%s)",$productId,$locationId,current_time('mysql')));
                 $stock=$this->db->get_row($this->db->prepare("SELECT id,quantity FROM {$this->ts()} WHERE product_id=%d AND location_id=%d FOR UPDATE",$productId,$locationId),ARRAY_A);
                 if(!$stock) throw new \RuntimeException('Unable to lock stock row for purchase receipt.');
-                $before=(int)$stock['quantity']; if($before<0 || $before>2147483647-$qty) throw new \\OverflowException('Received stock exceeds the supported inventory quantity range.'); $after=$before+$qty;
+                $before=(int)$stock['quantity']; if($before<0 || $before>2147483647-$qty) throw new \OverflowException('Received stock exceeds the supported inventory quantity range.'); $after=$before+$qty;
                 if($this->db->update($this->ts(),['quantity'=>$after,'updated_at'=>current_time('mysql')],['id'=>(int)$stock['id']])===false) throw new \RuntimeException('Unable to update received stock: '.$this->db->last_error);
                 if($this->db->update($this->ti(),['quantity_received'=>(int)$item['quantity_received']+$qty],['id'=>$itemId])===false) throw new \RuntimeException('Unable to update purchase order received quantity: '.$this->db->last_error);
                 if($this->db->insert($this->tri(),['receipt_id'=>$receiptId,'item_id'=>$itemId,'quantity'=>$qty])===false) throw new \RuntimeException('Unable to save receipt line: '.$this->db->last_error);
