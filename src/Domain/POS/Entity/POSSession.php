@@ -21,18 +21,37 @@ final class POSSession {
     public function getTotalEasypaisaPkr(): int { return $this->totalEasypaisa; }
     public function getClosingCash(): ?int { return $this->closingCash; }
     public function getClosedAt(): ?DateTimeImmutable { return $this->closedAt; }
-    public function recordSale(int $total, string $paymentMethod): void {
+    public function recordSale(int $total, string $paymentMethod, ?array $paymentSplit = null): void {
         if (!$this->isOpen()) throw new \LogicException('Cannot record sale on closed session.');
         if ($total < 0) throw new \InvalidArgumentException('Sale total cannot be negative.');
-        // Validate and apply the tender bucket before changing the aggregate.
-        // An unsupported method must never leave partially-mutated session totals.
-        match($paymentMethod) {
-            'cash'      => $this->totalCashPkr   += $total,
-            'card'      => $this->totalCardPkr   += $total,
-            'jazzcash'  => $this->totalJazzcash  += $total,
-            'easypaisa' => $this->totalEasypaisa += $total,
-            default => throw new \InvalidArgumentException('Unsupported POS payment method.'),
-        };
+
+        $amounts = ['cash' => 0, 'card' => 0, 'jazzcash' => 0, 'easypaisa' => 0];
+        if ($paymentSplit !== null) {
+            foreach ($paymentSplit as $method => $amount) {
+                if (!array_key_exists((string) $method, $amounts)) {
+                    throw new \InvalidArgumentException('Unsupported split payment method.');
+                }
+                $validatedAmount = filter_var($amount, FILTER_VALIDATE_INT);
+                if ($validatedAmount === false || $validatedAmount < 0) {
+                    throw new \InvalidArgumentException('Split payment amounts must be non-negative integers.');
+                }
+                $amounts[$method] += $validatedAmount;
+            }
+            if (array_sum($amounts) !== $total) {
+                throw new \InvalidArgumentException('Split payment amounts must equal the sale total.');
+            }
+        } else {
+            if (!array_key_exists($paymentMethod, $amounts)) {
+                throw new \InvalidArgumentException('Unsupported POS payment method.');
+            }
+            $amounts[$paymentMethod] = $total;
+        }
+
+        // Apply all validated tender buckets only after the complete split is valid.
+        $this->totalCashPkr += $amounts['cash'];
+        $this->totalCardPkr += $amounts['card'];
+        $this->totalJazzcash += $amounts['jazzcash'];
+        $this->totalEasypaisa += $amounts['easypaisa'];
         $this->totalSalesPkr += $total;
     }
     public function close(int $closingCash): void {
