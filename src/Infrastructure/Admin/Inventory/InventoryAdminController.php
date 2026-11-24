@@ -307,7 +307,7 @@ final class InventoryAdminController {
             $quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT);
             if ($productId === false || $fromLocationId === false || $toLocationId === false || $quantity === false
                 || $productId < 1 || $fromLocationId < 1 || $toLocationId < 1 || $quantity < 1 || $quantity > 2147483647) {
-                throw new \\InvalidArgumentException('Transfer identifiers and quantity must be positive whole numbers.');
+                throw new \InvalidArgumentException('Transfer identifiers and quantity must be positive whole numbers.');
             }
             $reference = sanitize_text_field($_POST['reference_id'] ?? '');
             $this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
@@ -361,7 +361,7 @@ final class InventoryAdminController {
             $supplierId = filter_var($_POST['supplier_id'] ?? null, FILTER_VALIDATE_INT);
             $locationId = filter_var($_POST['location_id'] ?? null, FILTER_VALIDATE_INT);
             if ($supplierId === false || $locationId === false || $supplierId < 1 || $locationId < 1) {
-                throw new \\InvalidArgumentException('Supplier and location identifiers must be positive integers.');
+                throw new \InvalidArgumentException('Supplier and location identifiers must be positive integers.');
             }
             $id = $this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
                 $supplierId, $locationId, $items,
@@ -385,7 +385,7 @@ final class InventoryAdminController {
                 if ((int) $quantity > 0) $items[] = ['item_id'=>$itemId, 'quantity'=>$quantity];
             }
             $purchaseOrderId = filter_var($_POST['purchase_order_id'] ?? null, FILTER_VALIDATE_INT);
-            if ($purchaseOrderId === false || $purchaseOrderId < 1) throw new \\InvalidArgumentException('Purchase order identifier must be a positive integer.');
+            if ($purchaseOrderId === false || $purchaseOrderId < 1) throw new \InvalidArgumentException('Purchase order identifier must be a positive integer.');
             $reference = sanitize_text_field($_POST['receipt_reference'] ?? '');
             $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute(
                 $purchaseOrderId, $items, $reference
