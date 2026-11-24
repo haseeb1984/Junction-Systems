@@ -178,6 +178,7 @@ final class ProcessPOSSaleUseCase {
         $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
         $queueTable = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
+        $returnQueueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
 
         $pendingEvents = $wpdb->get_var(
             "SELECT COUNT(*) FROM {$eventsTable} WHERE event_kind='reduction' AND status IN ('pending','processing','needs_review','failed','review')"
@@ -200,8 +201,29 @@ final class ProcessPOSSaleUseCase {
             throw new OnlineStockReconciliationPendingException('Online store inventory queue could not be verified; POS sales are paused.');
         }
 
-        if ((int) $pendingEvents > 0 || (int) $unresolvedQueueRows > 0) {
-            throw new OnlineStockReconciliationPendingException('Online store sales are still being reconciled. Wait briefly and retry the POS sale.');
+        // Cancellation/refund stock is restored by WooCommerce before its
+        // durable Junction return event is ingested. Never sell against that
+        // stale ledger while a return queue row still needs reconciliation.
+        $pendingReturnEvents = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$eventsTable}
+             WHERE event_kind IN ('cancellation','refund')
+               AND status IN ('pending','processing','needs_review','failed','review')"
+        );
+        if ($wpdb->last_error !== '' || !is_numeric($pendingReturnEvents)) {
+            throw new OnlineStockReconciliationPendingException('Online store return events could not be verified; POS sales are paused.');
+        }
+
+        $pendingReturnQueueRows = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$returnQueueTable}
+             WHERE status IN ('pending','processing','needs_review')"
+        );
+        if ($wpdb->last_error !== '' || !is_numeric($pendingReturnQueueRows)) {
+            throw new OnlineStockReconciliationPendingException('Online store return queue could not be verified; POS sales are paused.');
+        }
+
+        if ((int) $pendingEvents > 0 || (int) $unresolvedQueueRows > 0
+            || (int) $pendingReturnEvents > 0 || (int) $pendingReturnQueueRows > 0) {
+            throw new OnlineStockReconciliationPendingException('Online store sales or returns are still being reconciled. Wait briefly and retry the POS sale.');
         }
     }
 
