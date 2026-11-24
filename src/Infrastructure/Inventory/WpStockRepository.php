@@ -119,7 +119,7 @@ final class WpStockRepository implements StockRepositoryInterface {
                 if (!$source || !$destination) throw new \RuntimeException('Transfer stock rows are incomplete.');
                 $beforeFrom = (int) $source['quantity'];
                 $beforeTo = (int) $destination['quantity'];
-                if ($beforeTo < 0 || $beforeTo > 2147483647 - $quantity) throw new \\OverflowException('Destination stock exceeds the supported inventory quantity range.');
+                if ($beforeTo < 0 || $beforeTo > 2147483647 - $quantity) throw new \OverflowException('Destination stock exceeds the supported inventory quantity range.');
                 if ($beforeFrom < $quantity) throw new \DomainException("Insufficient source stock. Available: {$beforeFrom}, requested: {$quantity}.");
                 if ($this->db->update($this->ts(), ['quantity' => $beforeFrom - $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $source['id']]) === false) throw new \RuntimeException('Unable to deduct source stock.');
                 if ($this->db->update($this->ts(), ['quantity' => $beforeTo + $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $destination['id']]) === false) throw new \RuntimeException('Unable to add destination stock.');
