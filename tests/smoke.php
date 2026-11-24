@@ -1849,8 +1849,9 @@ $inventoryHooksLockSource = file_get_contents($src . '/Infrastructure/WooCommerc
 $adjustStockLockSource = file_get_contents($src . '/Application/Inventory/AdjustStockUseCase.php');
 $transferLockSource = file_get_contents($src . '/Application/Inventory/TransferStockUseCase.php');
 $purchaseReceiptLockSource = file_get_contents($src . '/Infrastructure/Inventory/WpPurchaseOrderRepository.php');
+$onlineSaleLockSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
 if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string($inventoryHooksLockSource)
-    || !is_string($adjustStockLockSource) || !is_string($transferLockSource) || !is_string($purchaseReceiptLockSource)
+    || !is_string($adjustStockLockSource) || !is_string($transferLockSource) || !is_string($purchaseReceiptLockSource) || !is_string($onlineSaleLockSource)
     || strpos($inventoryLockSource, "'pkstore_wc_stock_' . \$productId") === false
     || strpos($inventoryLockSource, 'sort($ids, SORT_NUMERIC)') === false
     || strpos($inventoryLockSource, 'array_reverse($lockNames)') === false
@@ -1866,7 +1867,9 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 4
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
-    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false) {
+    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false
+    || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($products)') !== 2
+    || substr_count($onlineSaleLockSource, 'InventoryProductLock::release($productLocks)') !== 4) {
     throw new \RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
 }
 
