@@ -327,7 +327,9 @@ final class InventoryAdminController {
         $contact = sanitize_text_field($_POST['supplier_contact'] ?? '');
         $phone = sanitize_text_field($_POST['supplier_phone'] ?? '');
         $address = sanitize_textarea_field($_POST['supplier_address'] ?? '');
-        if ($name === '' || strlen($name) > 150 || strlen($contact) > 100 || strlen($phone) > 20
+        $nameLength = function_exists('mb_strlen') ? mb_strlen($name, 'UTF-8') : strlen($name);
+        $contactLength = function_exists('mb_strlen') ? mb_strlen($contact, 'UTF-8') : strlen($contact);
+        if ($name === '' || $nameLength > 150 || $contactLength > 100 || strlen($phone) > 20
             || strlen($email) > 150 || strlen($address) > 65000 || ($email !== '' && !is_email($email))) {
             $this->redirect('pkstore-purchase-orders', 'error', 'Supplier details exceed allowed lengths or the email is invalid.');
             return;
