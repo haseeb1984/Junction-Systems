@@ -1854,6 +1854,7 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryLockSource, "'pkstore_wc_stock_' . \$productId") === false
     || strpos($inventoryLockSource, 'sort($ids, SORT_NUMERIC)') === false
     || strpos($inventoryLockSource, 'array_reverse($lockNames)') === false
+    || strpos($inventoryLockSource, 'self::$held[$name]++') === false
     || strpos($posLockSource, 'InventoryProductLock::acquireMany(array_column($enriched, \'product_id\'))') === false
     || strpos($posLockSource, 'InventoryProductLock::release($productLocks)') === false
     || strpos($posLockSource, '$this->assertNoPendingOnlineStockReductions();') < strpos($posLockSource, 'InventoryProductLock::acquireMany')
@@ -1861,8 +1862,8 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryHooksLockSource, "woocommerce_can_restore_order_stock") === false
     || strpos($inventoryHooksLockSource, "woocommerce_can_restock_refunded_items") === false
     || strpos($inventoryHooksLockSource, "releaseOrderLifecycleLocks('reduce', \$orderId)") === false
-    || strpos($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
-    || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 2
+    || substr_count($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') !== 4
+    || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 4
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false) {
