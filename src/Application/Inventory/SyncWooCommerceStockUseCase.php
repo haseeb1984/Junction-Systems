@@ -152,12 +152,14 @@ final class SyncWooCommerceStockUseCase {
             }
         }
 
+        $products = array_values(array_unique(array_column($lines, 'product_id')));
+        sort($products, SORT_NUMERIC);
+        $productLocks = InventoryProductLock::acquireMany($products);
         if ($wpdb->query('START TRANSACTION') === false) {
+            InventoryProductLock::release($productLocks);
             throw new \RuntimeException('Unable to start cycle-aware WooCommerce inventory transaction.');
         }
 
-        $products = array_values(array_unique(array_column($lines, 'product_id')));
-        sort($products, SORT_NUMERIC);
         $stockLevels = [];
         $allocationsByProductLocation = [];
         try {
@@ -434,6 +436,8 @@ final class SyncWooCommerceStockUseCase {
                 'error_class' => get_class($error),
             ]);
             throw $error;
+        } finally {
+            InventoryProductLock::release($productLocks);
         }
 
         foreach (array_keys($allocationsByProductLocation) as $productId) {
@@ -519,15 +523,20 @@ final class SyncWooCommerceStockUseCase {
         });
 
         global $wpdb;
-        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('WordPress database is unavailable for WooCommerce order inventory ledger.');
+        }
+        $products = array_values(array_unique(array_column($lines, 'product_id')));
+        sort($products, SORT_NUMERIC);
+        $productLocks = InventoryProductLock::acquireMany($products);
+        if ($wpdb->query('START TRANSACTION') === false) {
+            InventoryProductLock::release($productLocks);
             $this->log->critical('WooCommerce order inventory ledger could not start its transaction.', [
                 'order_id' => $orderId,
             ]);
             throw new \RuntimeException('Unable to start WooCommerce order inventory ledger transaction.');
         }
 
-        $products = array_values(array_unique(array_column($lines, 'product_id')));
-        sort($products, SORT_NUMERIC);
         $stockLevels = [];
         $allocationsByProductLocation = [];
         try {
@@ -683,6 +692,8 @@ final class SyncWooCommerceStockUseCase {
                 'error_class' => get_class($error),
             ]);
             throw $error;
+        } finally {
+            InventoryProductLock::release($productLocks);
         }
 
         foreach (array_keys($allocationsByProductLocation) as $productId) {
