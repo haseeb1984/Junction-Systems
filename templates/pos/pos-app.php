@@ -141,6 +141,15 @@ body{background:var(--bg);color:var(--dark);height:100vh;overflow:hidden}
         <button class="pos-pm-btn" data-method="easypaisa" onclick="POS.selectPayment(this)">🟠 EasyPaisa</button>
         <button class="pos-pm-btn" data-method="card" onclick="POS.selectPayment(this)">💳 Card</button>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0 8px;">
+        <input type="checkbox" id="pos-split-toggle" onchange="POS.toggleSplitPayment()" style="width:auto;margin:0;"> Split payment across methods
+      </label>
+      <div id="pos-split-payment" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <label style="font-size:12px;">Cash (PKR)<input type="number" min="0" step="1" data-split-method="cash" value="0" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;"></label>
+        <label style="font-size:12px;">Card (PKR)<input type="number" min="0" step="1" data-split-method="card" value="0" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;"></label>
+        <label style="font-size:12px;">JazzCash (PKR)<input type="number" min="0" step="1" data-split-method="jazzcash" value="0" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;"></label>
+        <label style="font-size:12px;">EasyPaisa (PKR)<input type="number" min="0" step="1" data-split-method="easypaisa" value="0" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;"></label>
+      </div>
       <button class="pos-charge-btn" id="pos-charge-btn" onclick="POS.processSale()">CHARGE — PKR 0</button>
     </div>
   </div>
@@ -351,6 +360,11 @@ const POS = {
         this.paymentMethod = btn.dataset.method;
     },
 
+    toggleSplitPayment() {
+        const enabled = document.getElementById('pos-split-toggle').checked;
+        document.getElementById('pos-split-payment').style.display = enabled ? 'grid' : 'none';
+    },
+
     async processSale() {
         if (!this.cart.length) return;
         if (!this.sessionId) { alert('Please open a session first.'); return; }
@@ -362,7 +376,26 @@ const POS = {
         const items    = this.cart.map(i=>({product_id:i.id,sku:i.sku,name:i.name,quantity:i.qty,unit_price_pkr:i.price,discount_pkr:0}));
         const total    = Math.max(0, this.cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount);
         const orderRef = 'P-' + Array.from(crypto.getRandomValues(new Uint8Array(13))).map(b=>b.toString(16).padStart(2,'0')).join('');
-        const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount};
+        let paymentSplit = null;
+        if (document.getElementById('pos-split-toggle').checked) {
+            paymentSplit = {};
+            let splitTotal = 0;
+            document.querySelectorAll('[data-split-method]').forEach(input => {
+                const raw = input.value.trim();
+                const amount = raw === '' ? 0 : Number(raw);
+                if (!Number.isSafeInteger(amount) || amount < 0) paymentSplit = false;
+                else if (amount > 0) {
+                    paymentSplit[input.dataset.splitMethod] = amount;
+                    splitTotal += amount;
+                }
+            });
+            if (paymentSplit === false || splitTotal !== total || Object.keys(paymentSplit).length === 0) {
+                this.toast('Split payment amounts must be whole, non-negative values equal to the sale total.');
+                btn.disabled = false; this.updateTotals();
+                return;
+            }
+        }
+        const payload  = {order_ref:orderRef, session_id:this.sessionId, location_id:this.locationId, items, payment_method:this.paymentMethod, customer_name:cname, customer_phone:cphone, discount_pkr:discount, ...(paymentSplit ? {payment_split:paymentSplit} : {})};
 
         let result;
         try {
