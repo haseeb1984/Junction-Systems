@@ -77,6 +77,67 @@ final class WpStockRepository implements StockRepositoryInterface {
         return (int) $total;
     }
 
+    public function transferStock(int $productId, int $fromLocationId, int $toLocationId, int $quantity, string $referenceId, string $note, ?int $userId): void {
+        if ($productId < 1 || $fromLocationId < 1 || $toLocationId < 1 || $fromLocationId === $toLocationId || $quantity < 1 || trim($referenceId) === '' || strlen($referenceId) > 64) {
+            throw new \InvalidArgumentException('Stock transfer details are invalid.');
+        }
+        $lockName = 'pkstore_transfer_' . substr(hash('sha256', $referenceId), 0, 40);
+        $lock = $this->db->get_var($this->db->prepare('SELECT GET_LOCK(%s, 10)', $lockName));
+        if ((string) $lock !== '1') throw new \RuntimeException('Unable to acquire stock transfer reference lock.');
+        try {
+            if ($this->db->query('START TRANSACTION') === false) throw new \RuntimeException('Unable to start stock transfer transaction.');
+            try {
+                $locations = [$fromLocationId, $toLocationId];
+                sort($locations, SORT_NUMERIC);
+                foreach ($locations as $locationId) {
+                    $inserted = $this->db->query($this->db->prepare("INSERT IGNORE INTO {$this->ts()} (product_id,location_id,quantity,updated_at) VALUES (%d,%d,0,%s)", $productId, $locationId, current_time('mysql')));
+                    if ($inserted === false) throw new \RuntimeException('Unable to initialize transfer stock rows.');
+                }
+                $rows = $this->db->get_results($this->db->prepare("SELECT id,location_id,quantity FROM {$this->ts()} WHERE product_id=%d AND location_id IN (%d,%d) ORDER BY location_id FOR UPDATE", $productId, $locations[0], $locations[1]), ARRAY_A);
+                if (!is_array($rows) || count($rows) !== 2) throw new \RuntimeException('Unable to lock both stock locations.');
+                $existing = $this->db->get_results($this->db->prepare("SELECT product_id,location_id,quantity_delta,movement_type FROM {$this->tm()} WHERE reference_type='stock_transfer' AND reference_id=%s ORDER BY location_id", $referenceId), ARRAY_A);
+                if ($existing === null && $this->db->last_error !== '') throw new \RuntimeException('Unable to verify stock transfer idempotency.');
+                $existing = $existing ?: [];
+                if ($existing) {
+                    $expected = [
+                        $fromLocationId => ['delta' => -$quantity, 'type' => MovementType::TransferOut->value],
+                        $toLocationId => ['delta' => $quantity, 'type' => MovementType::Transfer->value],
+                    ];
+                    $valid = count($existing) === 2;
+                    foreach ($existing as $entry) {
+                        $location = (int) $entry['location_id'];
+                        if ((int) $entry['product_id'] !== $productId || !isset($expected[$location]) || (int) $entry['quantity_delta'] !== $expected[$location]['delta'] || $entry['movement_type'] !== $expected[$location]['type']) $valid = false;
+                    }
+                    if (!$valid) throw new \DomainException('Transfer reference was already used for a different or incomplete transfer.');
+                    if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit duplicate transfer verification.');
+                    return;
+                }
+                $byLocation = [];
+                foreach ($rows as $row) $byLocation[(int) $row['location_id']] = $row;
+                $source = $byLocation[$fromLocationId] ?? null;
+                $destination = $byLocation[$toLocationId] ?? null;
+                if (!$source || !$destination) throw new \RuntimeException('Transfer stock rows are incomplete.');
+                $beforeFrom = (int) $source['quantity'];
+                $beforeTo = (int) $destination['quantity'];
+                if ($beforeFrom < $quantity) throw new \DomainException("Insufficient source stock. Available: {$beforeFrom}, requested: {$quantity}.");
+                if ($this->db->update($this->ts(), ['quantity' => $beforeFrom - $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $source['id']]) === false) throw new \RuntimeException('Unable to deduct source stock.');
+                if ($this->db->update($this->ts(), ['quantity' => $beforeTo + $quantity, 'updated_at' => current_time('mysql')], ['id' => (int) $destination['id']]) === false) throw new \RuntimeException('Unable to add destination stock.');
+                $now = new \DateTimeImmutable();
+                foreach ([
+                    new StockMovement(0, $productId, $fromLocationId, MovementType::TransferOut, -$quantity, $beforeFrom, $beforeFrom - $quantity, 'stock_transfer', $referenceId, $note, $userId, $now),
+                    new StockMovement(0, $productId, $toLocationId, MovementType::Transfer, $quantity, $beforeTo, $beforeTo + $quantity, 'stock_transfer', $referenceId, $note, $userId, $now),
+                ] as $movement) $this->recordMovement($movement);
+                $this->enqueueWooCommerceSync($productId);
+                if ($this->db->query('COMMIT') === false) throw new \RuntimeException('Unable to commit stock transfer.');
+            } catch (\Throwable $error) {
+                $this->db->query('ROLLBACK');
+                throw $error;
+            }
+        } finally {
+            $this->db->get_var($this->db->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+        }
+    }
+
     public function enqueueWooCommerceSync(int $productId): void {
         $table = $this->db->prefix . 'pkstore_wc_stock_sync';
         $now = current_time('mysql');
