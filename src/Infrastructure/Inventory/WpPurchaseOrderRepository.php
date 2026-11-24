@@ -68,6 +68,8 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 if($qty>$remaining) throw new \DomainException("Received quantity exceeds remaining quantity for purchase order line {$itemId}.");
                 $receiptLines[$itemId]=['item'=>$item,'quantity'=>$qty];
             }
+            // Lock and update shared stock rows in a stable product order.
+            uasort($receiptLines, static fn(array $a, array $b): int => (int)$a['item']['product_id'] <=> (int)$b['item']['product_id']);
             $ok=$this->db->insert($this->tr(),['receipt_reference'=>$receiptReference,'po_id'=>$purchaseOrderId,'received_by'=>$userId,'received_at'=>current_time('mysql')]);
             if($ok===false) throw new \RuntimeException('Unable to create receipt record: '.$this->db->last_error);
             $receiptId=(int)$this->db->insert_id;
@@ -84,8 +86,9 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 // Queue the combined WooCommerce projection in the same DB transaction.
                 $this->stock->enqueueWooCommerceSync($productId);
             }
-            $remaining=(int)$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->ti()} WHERE po_id=%d AND quantity_received<quantity_ordered",$purchaseOrderId));
-            $status=$remaining===0?'received':'partial';
+            $remaining=$this->db->get_var($this->db->prepare("SELECT COUNT(*) FROM {$this->ti()} WHERE po_id=%d AND quantity_received<quantity_ordered",$purchaseOrderId));
+            if($this->db->last_error!=='' || !is_numeric($remaining)) throw new \\RuntimeException('Unable to verify remaining purchase order quantities: '.$this->db->last_error);
+            $status=(int)$remaining===0?'received':'partial';
             $data=['status'=>$status]; if($status==='received') $data['received_at']=current_time('mysql');
             if($this->db->update($this->t(),$data,['id'=>$purchaseOrderId])===false) throw new \RuntimeException('Unable to update purchase order status: '.$this->db->last_error);
             if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit purchase receipt: '.$this->db->last_error);
