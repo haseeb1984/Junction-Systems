@@ -10,6 +10,7 @@ interface StockRepositoryInterface {
     public function hasMovementReference(int $productId, int $locationId, string $referenceType, string $referenceId, MovementType $movementType): bool;
     public function getLocationStock(int $locationId): array;
     public function getTotalStock(int $productId): int;
+    public function transferStock(int $productId, int $fromLocationId, int $toLocationId, int $quantity, string $referenceId, string $note, ?int $userId): void;
     public function enqueueWooCommerceSync(int $productId): void;
     public function claimWooCommerceSyncBatch(int $limit = 20): array;
     public function completeWooCommerceSync(int $id, string $generation, string $claimToken): void;
