@@ -296,7 +296,9 @@ final class InventoryController {
         $contact = sanitize_text_field($req->get_param('contact') ?? '');
         $phone = sanitize_text_field($req->get_param('phone') ?? '');
         $address = sanitize_textarea_field($req->get_param('address') ?? '');
-        if ($name === '' || strlen($name) > 150 || strlen($contact) > 100 || strlen($phone) > 20
+        $nameLength = function_exists('mb_strlen') ? mb_strlen($name, 'UTF-8') : strlen($name);
+        $contactLength = function_exists('mb_strlen') ? mb_strlen($contact, 'UTF-8') : strlen($contact);
+        if ($name === '' || $nameLength > 150 || $contactLength > 100 || strlen($phone) > 20
             || strlen($email) > 150 || strlen($address) > 65000 || ($email !== '' && !is_email($email))) {
             return new \WP_REST_Response(['success'=>false,'message'=>'Supplier details exceed allowed lengths or the email is invalid.'],422);
         }
