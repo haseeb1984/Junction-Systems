@@ -12,9 +12,12 @@ final class CreatePurchaseOrderUseCase {
         if (!$items) throw new \InvalidArgumentException('A purchase order must contain at least one item.');
         $clean=[]; $seen=[];
         foreach ($items as $item) {
-            $productId=(int)($item['product_id']??0); $quantity=(int)($item['quantity']??0); $cost=(int)($item['unit_cost_pkr']??-1);
-            if ($productId<=0 || $quantity<=0 || $cost<0) throw new \InvalidArgumentException('Each purchase item needs a product, positive quantity and non-negative unit cost.');
-            if (!$this->products->findById($productId)) throw new \InvalidArgumentException("Inventory product {$productId} was not found.");
+            $productId=filter_var($item['product_id']??null,FILTER_VALIDATE_INT);
+            $quantity=filter_var($item['quantity']??null,FILTER_VALIDATE_INT);
+            $cost=filter_var($item['unit_cost_pkr']??null,FILTER_VALIDATE_INT);
+            if (!$productId || !$quantity || $productId<1 || $quantity<1 || $cost===false || $cost<0) throw new \InvalidArgumentException('Each purchase item needs a product, positive whole quantity and non-negative whole unit cost.');
+            $product=$this->products->findById($productId);
+            if (!$product || !$product->isActive) throw new \InvalidArgumentException("Active inventory product {$productId} was not found.");
             if (isset($seen[$productId])) throw new \InvalidArgumentException('Duplicate products must be combined into one purchase order line.');
             $seen[$productId]=true; $clean[]=['product_id'=>$productId,'quantity'=>$quantity,'unit_cost_pkr'=>$cost];
         }
