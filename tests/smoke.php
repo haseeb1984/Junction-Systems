@@ -1843,4 +1843,30 @@ if (!is_string($bundledAiEngineSource) || !is_string($bundledAiWidgetSource) || 
     throw new \RuntimeException('Bundled Dukaan AI must reserve provider quotas atomically, use a non-spoofable client IP source and tolerate missing mbstring.');
 }
 
+$inventoryLockSource = file_get_contents($src . '/Application/Inventory/InventoryProductLock.php');
+$posLockSource = file_get_contents($src . '/Application/POS/ProcessPOSSaleUseCase.php');
+$inventoryHooksLockSource = file_get_contents($src . '/Infrastructure/WooCommerce/InventoryHooks.php');
+$adjustStockLockSource = file_get_contents($src . '/Application/Inventory/AdjustStockUseCase.php');
+$transferLockSource = file_get_contents($src . '/Application/Inventory/TransferStockUseCase.php');
+$purchaseReceiptLockSource = file_get_contents($src . '/Infrastructure/Inventory/WpPurchaseOrderRepository.php');
+if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string($inventoryHooksLockSource)
+    || !is_string($adjustStockLockSource) || !is_string($transferLockSource) || !is_string($purchaseReceiptLockSource)
+    || strpos($inventoryLockSource, "'pkstore_wc_stock_' . \$productId") === false
+    || strpos($inventoryLockSource, 'sort($ids, SORT_NUMERIC)') === false
+    || strpos($inventoryLockSource, 'array_reverse($lockNames)') === false
+    || strpos($posLockSource, 'InventoryProductLock::acquireMany(array_column($enriched, \'product_id\'))') === false
+    || strpos($posLockSource, 'InventoryProductLock::release($productLocks)') === false
+    || strpos($posLockSource, '$this->assertNoPendingOnlineStockReductions();') < strpos($posLockSource, 'InventoryProductLock::acquireMany')
+    || strpos($inventoryHooksLockSource, "woocommerce_can_reduce_order_stock") === false
+    || strpos($inventoryHooksLockSource, "woocommerce_can_restore_order_stock") === false
+    || strpos($inventoryHooksLockSource, "woocommerce_can_restock_refunded_items") === false
+    || strpos($inventoryHooksLockSource, "releaseOrderLifecycleLocks('reduce', \$orderId)") === false
+    || strpos($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
+    || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 2
+    || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
+    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
+    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false) {
+    throw new \\RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
+}
+
 echo "Smoke tests passed.\n";
