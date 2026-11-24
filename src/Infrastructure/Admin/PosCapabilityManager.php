@@ -87,6 +87,14 @@ final class PosCapabilityManager {
 
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_inventory_locations';
+        $tableExists = $wpdb->get_var($wpdb->prepare(
+            'SHOW TABLES LIKE %s',
+            $wpdb->esc_like($table)
+        ));
+        if ($tableExists !== $table) {
+            return;
+        }
+
         $exists = $wpdb->get_var($wpdb->prepare(
             "SELECT id FROM {$table} WHERE id=%d AND is_active=1 AND is_pos=1",
             $locationId
