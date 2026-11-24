@@ -1078,7 +1078,14 @@ final class SyncWooCommerceStockUseCase {
         }
 
         global $wpdb;
-        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('WordPress database is unavailable for WooCommerce stock-cycle return.');
+        }
+        $lockProductIds = array_values(array_unique(array_column($normalized, 'product_id')));
+        sort($lockProductIds, SORT_NUMERIC);
+        $productLocks = InventoryProductLock::acquireMany($lockProductIds);
+        if ($wpdb->query('START TRANSACTION') === false) {
+            InventoryProductLock::release($productLocks);
             throw new \RuntimeException('Unable to start WooCommerce stock-cycle return transaction.');
         }
         $productIds = [];
@@ -1262,6 +1269,8 @@ final class SyncWooCommerceStockUseCase {
                 'error_class' => get_class($error),
             ]);
             throw $error;
+        } finally {
+            InventoryProductLock::release($productLocks);
         }
 
         foreach ($productIds as $productId) {
@@ -1382,7 +1391,14 @@ final class SyncWooCommerceStockUseCase {
 
         $productIds = [];
         global $wpdb;
-        if (!$wpdb instanceof \wpdb || $wpdb->query('START TRANSACTION') === false) {
+        if (!$wpdb instanceof \wpdb) {
+            throw new \RuntimeException('WordPress database is unavailable for allocated WooCommerce return.');
+        }
+        $lockProductIds = array_values(array_unique(array_column($normalized, 'product_id')));
+        sort($lockProductIds, SORT_NUMERIC);
+        $productLocks = InventoryProductLock::acquireMany($lockProductIds);
+        if ($wpdb->query('START TRANSACTION') === false) {
+            InventoryProductLock::release($productLocks);
             throw new \RuntimeException('Unable to start allocated WooCommerce return transaction.');
         }
 
@@ -1453,6 +1469,8 @@ final class SyncWooCommerceStockUseCase {
                 'error_class' => get_class($error),
             ]);
             throw $error;
+        } finally {
+            InventoryProductLock::release($productLocks);
         }
 
         foreach ($productIds as $productId) {
