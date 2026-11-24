@@ -17,9 +17,10 @@ final class ProcessPOSSaleUseCase {
         private readonly LoggerInterface $log,
     ) {}
     public function execute(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $clientOrderRef = null): POSOrder {
-        if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true) || !empty($paymentSplit)) {
-            throw new \InvalidArgumentException('Unsupported POS payment method or split-tender payload.');
+        if (!in_array($paymentMethod, ['cash', 'card', 'jazzcash', 'easypaisa'], true)) {
+            throw new \InvalidArgumentException('Unsupported POS payment method.');
         }
+        if ($paymentSplit === []) $paymentSplit = null;
         $requestFingerprint = null;
         if ($clientOrderRef !== null) {
             if (!preg_match('/^P-[a-f0-9]{26}$/', $clientOrderRef)) throw new \InvalidArgumentException('POS client order reference is invalid.');
@@ -112,7 +113,7 @@ final class ProcessPOSSaleUseCase {
                 $this->adjustStock->execute($item['product_id'], $locationId, -$item['quantity'], MovementType::Sale, "POS sale {$order->orderRef}", 'pos_order', $order->orderRef, false);
             }
 
-            $session->recordSale($order->totalPkr, $paymentMethod);
+            $session->recordSale($order->totalPkr, $paymentMethod, $paymentSplit);
             $this->sessionRepo->update($session);
 
             $savedOrder = $this->orderRepo->findById($orderId);
@@ -231,7 +232,7 @@ final class ProcessPOSSaleUseCase {
             'customer_phone' => $customerPhone,
             'customer_name' => $customerName,
             'discount_pkr' => $discountPkr,
-            'payment_split' => $paymentSplit ?: null,
+            'payment_split' => $paymentSplit ? (static function (array $split): array { ksort($split); return $split; })($paymentSplit) : null,
         ];
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
