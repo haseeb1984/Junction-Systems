@@ -690,6 +690,26 @@ if (!is_string($migrationRunnerSource)
     throw new \RuntimeException('Fresh-install backup gating and version-aware migration schema checks must remain intact.');
 }
 
+$purchaseReceiptMigrationChecks = [
+    "'2.0.15' => [InventoryInstaller::class, 'installPurchaseReceiptTables']",
+    "version_compare(\$version, '2.0.15', '>=')",
+    "'idx_receipt_reference', ['receipt_reference']",
+    "'idx_receipt_item', ['receipt_id', 'item_id']",
+];
+$purchaseReceiptInstallerSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
+if (!is_string($purchaseReceiptInstallerSource)
+    || strpos($purchaseReceiptInstallerSource, 'public static function installPurchaseReceiptTables(): void') === false
+    || strpos($purchaseReceiptInstallerSource, 'UNIQUE INDEX idx_receipt_reference (receipt_reference)') === false
+    || strpos($purchaseReceiptInstallerSource, 'UNIQUE INDEX idx_receipt_item (receipt_id,item_id)') === false) {
+    throw new \\RuntimeException('Purchase receipt tables must be installed on fresh installs and upgraded stores with unique idempotency constraints.');
+}
+foreach ($purchaseReceiptMigrationChecks as $requiredMigrationCheck) {
+    if (strpos($migrationRunnerSource, $requiredMigrationCheck) === false) {
+        throw new \\RuntimeException('Purchase receipt migration must verify its version, columns and unique indexes.');
+    }
+}
+
+
 
 $inventoryMappingMigrationSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
 if (!is_string($inventoryMappingMigrationSource)
