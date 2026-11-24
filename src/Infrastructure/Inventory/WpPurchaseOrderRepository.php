@@ -44,7 +44,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             }
             if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit purchase order: '.$this->db->last_error);
             return $id;
-        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); InventoryProductLock::release($productLocks); throw $e; }
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
     }
     public function findById(int $id): ?PurchaseOrder {
         $r=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d",$id),ARRAY_A);
@@ -123,7 +123,7 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
             if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to commit purchase receipt: '.$this->db->last_error);
             InventoryProductLock::release($productLocks);
             $productLocks=[];
-        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); throw $e; }
+        } catch(\Throwable $e) { $this->db->query('ROLLBACK'); InventoryProductLock::release($productLocks); throw $e; }
     }
     private function hydrate(array $r): PurchaseOrder {
         return new PurchaseOrder((int)$r['id'],$r['po_number'],(int)$r['supplier_id'],(int)$r['location_id'],POStatus::from($r['status']),(int)$r['total_pkr'],$r['received_at']?new \DateTimeImmutable($r['received_at']):null,$r['notes'],(int)$r['created_by'],new \DateTimeImmutable($r['created_at']));
