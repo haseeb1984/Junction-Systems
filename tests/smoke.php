@@ -1872,7 +1872,8 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($products)') !== 2
-    || substr_count($onlineSaleLockSource, 'InventoryProductLock::release($productLocks)') !== 4) {
+    || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($lockProductIds)') !== 2
+    || substr_count($onlineSaleLockSource, 'InventoryProductLock::release($productLocks)') !== 8) {
     throw new \RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
 }
 
