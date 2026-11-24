@@ -333,8 +333,10 @@ final class InventoryController {
                 sanitize_textarea_field($req->get_param('notes') ?? '')
             );
             return new \WP_REST_Response(['success'=>true,'purchase_order_id'=>$id,'message'=>'Purchase order created.'],201);
-        } catch (\Throwable $e) {
+        } catch (\InvalidArgumentException | \DomainException $e) {
             return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422);
+        } catch (\Throwable $e) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Purchase order could not be created.'],500);
         }
     }
 
@@ -362,8 +364,10 @@ final class InventoryController {
                 $purchaseOrderId, $items, $reference
             );
             return new \WP_REST_Response(['success'=>true,'message'=>'Purchase receipt processed.','receipt_reference'=>$reference],200);
-        } catch (\Throwable $e) {
+        } catch (\InvalidArgumentException | \DomainException $e) {
             return new \WP_REST_Response(['success'=>false,'message'=>$e->getMessage()],422);
+        } catch (\Throwable $e) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Purchase receipt could not be processed.'],500);
         }
     }
 }
