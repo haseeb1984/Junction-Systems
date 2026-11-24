@@ -248,6 +248,17 @@ if ($splitSession->getTotalSalesPkr() !== 1000
     || $splitSession->getTotalEasypaisaPkr() !== 250) {
     throw new \RuntimeException('POS split tender did not reconcile to the cashier session totals.');
 }
+$splitFingerprintA = \PkStore\Application\POS\ProcessPOSSaleUseCase::requestFingerprint(
+    3, 9, [['product_id'=>12,'quantity'=>1]], 'cash', '', 'Walk-in', 0,
+    ['cash'=>300,'card'=>700]
+);
+$splitFingerprintB = \PkStore\Application\POS\ProcessPOSSaleUseCase::requestFingerprint(
+    3, 9, [['product_id'=>12,'quantity'=>1]], 'cash', '', 'Walk-in', 0,
+    ['card'=>700,'cash'=>300]
+);
+if (!hash_equals($splitFingerprintA, $splitFingerprintB)) {
+    throw new \RuntimeException('POS split-tender fingerprint must ignore associative key ordering.');
+}
 $beforeRejectedSplit = $splitSession->getTotalSalesPkr();
 try {
     $splitSession->recordSale(1000, 'cash', ['cash'=>999, 'card'=>2]);
