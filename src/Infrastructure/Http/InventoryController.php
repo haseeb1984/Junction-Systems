@@ -31,6 +31,7 @@ final class InventoryController {
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'GET','callback'=>[$this,'listPurchaseOrders'],'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>$manageAuth]);
             register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>$manageAuth]);
@@ -302,6 +303,15 @@ final class InventoryController {
         ]);
         if ($ok === false) return new \WP_REST_Response(['success'=>false,'message'=>'Unable to create supplier.'],500);
         return new \WP_REST_Response(['success'=>true,'supplier_id'=>(int)$wpdb->insert_id],201);
+    }
+
+    public function listPurchaseOrders(\WP_REST_Request $req): \WP_REST_Response {
+        $limit = min(500, max(1, (int)($req->get_param('limit') ?? 100)));
+        $orders = $this->c->make(\PkStore\Domain\Inventory\Repository\PurchaseOrderRepositoryInterface::class)->findAll($limit);
+        return new \WP_REST_Response(['success'=>true,'purchase_orders'=>array_map(
+            static fn($po)=>['id'=>$po->id,'po_number'=>$po->poNumber,'supplier_id'=>$po->supplierId,'location_id'=>$po->locationId,'status'=>$po->getStatus()->value,'total_pkr'=>$po->totalPkr,'created_at'=>$po->createdAt->format('Y-m-d H:i:s')],
+            $orders
+        )],200);
     }
 
     public function createPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
