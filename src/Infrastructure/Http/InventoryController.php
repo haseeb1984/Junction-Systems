@@ -16,6 +16,7 @@ final class InventoryController {
                 && FeatureManager::getInstance()->isEnabled('inventory');
             $manageAuth = fn()=>$schemaReady() && current_user_can('manage_woocommerce')
                 && FeatureManager::getInstance()->isEnabled('inventory');
+            $purchaseOrderAuth = fn()=>$manageAuth() && version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.15', '>=');
             $barcodeAuth = fn()=>$manageAuth() && FeatureManager::getInstance()->isEnabled('barcode_labels');
             register_rest_route($ns, '/inventory/products',         ['methods'=>'GET', 'callback'=>[$this,'listProducts'],     'permission_callback'=>$readAuth]);
             register_rest_route($ns, '/inventory/products',         ['methods'=>'POST','callback'=>[$this,'createProduct'],    'permission_callback'=>$manageAuth]);
@@ -29,12 +30,12 @@ final class InventoryController {
                 register_rest_route($ns, '/inventory/barcode/generate/(?P<id>\d+)', ['methods'=>'POST','callback'=>[$this,'generateBarcode'],'permission_callback'=>$barcodeAuth]);
             }
             register_rest_route($ns, '/inventory/low-stock',        ['methods'=>'GET', 'callback'=>[$this,'lowStock'],         'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'GET','callback'=>[$this,'listPurchaseOrders'],'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>$manageAuth]);
-            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>$manageAuth]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'GET','callback'=>[$this,'listSuppliers'],'permission_callback'=>$purchaseOrderAuth]);
+            register_rest_route($ns, '/inventory/suppliers', ['methods'=>'POST','callback'=>[$this,'createSupplier'],'permission_callback'=>$purchaseOrderAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'GET','callback'=>[$this,'listPurchaseOrders'],'permission_callback'=>$purchaseOrderAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders', ['methods'=>'POST','callback'=>[$this,'createPurchaseOrder'],'permission_callback'=>$purchaseOrderAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)', ['methods'=>'GET','callback'=>[$this,'getPurchaseOrder'],'permission_callback'=>$purchaseOrderAuth]);
+            register_rest_route($ns, '/inventory/purchase-orders/(?P<id>\\d+)/receive', ['methods'=>'POST','callback'=>[$this,'receivePurchaseOrder'],'permission_callback'=>$purchaseOrderAuth]);
         });
     }
     public function listProducts(\WP_REST_Request $req): \WP_REST_Response {
