@@ -79,7 +79,7 @@
 </tbody></table>
 </div>
 
-<?php if(FeatureManager::getInstance()->isEnabled('multi_location') && count($locations)>1): ?>
+<?php if($canTransfer): ?>
 <div class="card" style="padding:20px;margin:20px 0;">
 <h2>Transfer Stock Between Locations</h2>
 <form method="POST"><?php wp_nonce_field('pkstore_inventory_action'); ?>
