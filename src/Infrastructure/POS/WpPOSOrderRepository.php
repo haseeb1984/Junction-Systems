@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 
-namespace PkStore\\Infrastructure\\POS;
+namespace PkStore\Infrastructure\POS;
 
-use PkStore\\Domain\\POS\\Entity\\{POSOrder, SyncStatus};
-use PkStore\\Domain\\POS\\Repository\\POSOrderRepositoryInterface;
+use PkStore\Domain\POS\Entity\{POSOrder, SyncStatus};
+use PkStore\Domain\POS\Repository\POSOrderRepositoryInterface;
 
 final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
-    public function __construct(private readonly \\wpdb $db) {}
+    public function __construct(private readonly \wpdb $db) {}
 
     private function t(): string { return $this->db->prefix . 'pkstore_pos_orders'; }
     private function ti(): string { return $this->db->prefix . 'pkstore_pos_order_items'; }
@@ -32,7 +32,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             'synced_at' => null,
         ]);
         if ($inserted === false || (int) $this->db->insert_id < 1) {
-            throw new \\RuntimeException('Unable to persist POS order.');
+            throw new \RuntimeException('Unable to persist POS order.');
         }
         return (int) $this->db->insert_id;
     }
@@ -44,7 +44,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             'synced_at' => $order->getSyncStatus() === SyncStatus::Synced ? current_time('mysql') : null,
         ], ['id' => $order->id]);
         if ($updated !== 1) {
-            throw new \\RuntimeException('Unable to persist POS WooCommerce sync state.');
+            throw new \RuntimeException('Unable to persist POS WooCommerce sync state.');
         }
     }
 
@@ -97,7 +97,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
                 'total_pkr' => $item['unit_price_pkr'] * $item['quantity'],
             ]);
             if ($inserted === false) {
-                throw new \\RuntimeException('Unable to persist POS order line item.');
+                throw new \RuntimeException('Unable to persist POS order line item.');
             }
         }
     }
@@ -118,7 +118,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
             (bool) $row['receipt_sent'],
             SyncStatus::from($row['sync_status']),
             $row['wc_order_id'] ? (int) $row['wc_order_id'] : null,
-            new \\DateTimeImmutable($row['created_at']),
+            new \DateTimeImmutable($row['created_at']),
             $row['request_fingerprint'] ?? null
         );
         $items = $this->db->get_results(
@@ -136,7 +136,7 @@ final class WpPOSOrderRepository implements POSOrderRepositoryInterface {
 
     private function assertReadSucceeded(string $operation): void {
         if ($this->db->last_error !== '') {
-            throw new \\RuntimeException('Database error during ' . $operation . '.');
+            throw new \RuntimeException('Database error during ' . $operation . '.');
         }
     }
 }
