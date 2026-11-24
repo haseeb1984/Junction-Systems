@@ -293,13 +293,18 @@ final class InventoryController {
         global $wpdb;
         $name = sanitize_text_field($req->get_param('name') ?? '');
         $email = sanitize_email($req->get_param('email') ?? '');
-        if ($name === '') return new \WP_REST_Response(['success'=>false,'message'=>'Supplier name is required.'],422);
-        if ($email !== '' && !is_email($email)) return new \WP_REST_Response(['success'=>false,'message'=>'Supplier email is invalid.'],422);
+        $contact = sanitize_text_field($req->get_param('contact') ?? '');
+        $phone = sanitize_text_field($req->get_param('phone') ?? '');
+        $address = sanitize_textarea_field($req->get_param('address') ?? '');
+        if ($name === '' || strlen($name) > 150 || strlen($contact) > 100 || strlen($phone) > 20
+            || strlen($email) > 150 || strlen($address) > 65000 || ($email !== '' && !is_email($email))) {
+            return new \WP_REST_Response(['success'=>false,'message'=>'Supplier details exceed allowed lengths or the email is invalid.'],422);
+        }
         $table = $wpdb->prefix . 'pkstore_inventory_suppliers';
         $ok = $wpdb->insert($table, [
-            'name'=>$name,'contact'=>sanitize_text_field($req->get_param('contact') ?? ''),
-            'phone'=>sanitize_text_field($req->get_param('phone') ?? ''),'email'=>$email,
-            'address'=>sanitize_textarea_field($req->get_param('address') ?? ''),
+            'name'=>$name,'contact'=>$contact,
+            'phone'=>$phone,'email'=>$email,
+            'address'=>$address,
             'is_active'=>1,'created_at'=>current_time('mysql'),
         ]);
         if ($ok === false) return new \WP_REST_Response(['success'=>false,'message'=>'Unable to create supplier.'],500);
@@ -318,9 +323,13 @@ final class InventoryController {
     public function createPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
         try {
             $items = $req->get_param('items');
-            if (!is_array($items)) return new \WP_REST_Response(['success'=>false,'message'=>'items must be an array.'],422);
+            $supplierId = filter_var($req->get_param('supplier_id'), FILTER_VALIDATE_INT);
+            $locationId = filter_var($req->get_param('location_id'), FILTER_VALIDATE_INT);
+            if (!is_array($items) || $supplierId === false || $locationId === false || $supplierId < 1 || $locationId < 1) {
+                return new \WP_REST_Response(['success'=>false,'message'=>'Valid supplier, location and items are required.'],422);
+            }
             $id = $this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
-                (int)$req->get_param('supplier_id'), (int)$req->get_param('location_id'), $items,
+                $supplierId, $locationId, $items,
                 sanitize_textarea_field($req->get_param('notes') ?? '')
             );
             return new \WP_REST_Response(['success'=>true,'purchase_order_id'=>$id,'message'=>'Purchase order created.'],201);
@@ -330,7 +339,9 @@ final class InventoryController {
     }
 
     public function getPurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
-        $po = $this->c->make(\PkStore\Domain\Inventory\Repository\PurchaseOrderRepositoryInterface::class)->findById((int)$req->get_param('id'));
+        $id = filter_var($req->get_param('id'), FILTER_VALIDATE_INT);
+        if ($id === false || $id < 1) return new \WP_REST_Response(['success'=>false,'message'=>'Invalid purchase order ID.'],422);
+        $po = $this->c->make(\PkStore\Domain\Inventory\Repository\PurchaseOrderRepositoryInterface::class)->findById($id);
         if (!$po) return new \WP_REST_Response(['success'=>false,'message'=>'Purchase order not found.'],404);
         return new \WP_REST_Response(['success'=>true,'purchase_order'=>[
             'id'=>$po->id,'po_number'=>$po->poNumber,'supplier_id'=>$po->supplierId,
@@ -342,12 +353,13 @@ final class InventoryController {
     public function receivePurchaseOrder(\WP_REST_Request $req): \WP_REST_Response {
         try {
             $items = $req->get_param('items');
+            $purchaseOrderId = filter_var($req->get_param('id'), FILTER_VALIDATE_INT);
             $reference = sanitize_text_field($req->get_param('receipt_reference') ?? '');
-            if (!is_array($items) || $reference === '') {
-                return new \WP_REST_Response(['success'=>false,'message'=>'items and a stable receipt_reference are required.'],422);
+            if (!is_array($items) || $purchaseOrderId === false || $purchaseOrderId < 1 || $reference === '') {
+                return new \WP_REST_Response(['success'=>false,'message'=>'A valid purchase order ID, items and stable receipt reference are required.'],422);
             }
             $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute(
-                (int)$req->get_param('id'), $items, $reference
+                $purchaseOrderId, $items, $reference
             );
             return new \WP_REST_Response(['success'=>true,'message'=>'Purchase receipt processed.','receipt_reference'=>$reference],200);
         } catch (\Throwable $e) {
