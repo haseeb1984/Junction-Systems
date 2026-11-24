@@ -701,7 +701,7 @@ if (!is_string($purchaseReceiptInstallerSource)
     || strpos($purchaseReceiptInstallerSource, 'public static function installPurchaseReceiptTables(): void') === false
     || strpos($purchaseReceiptInstallerSource, 'UNIQUE INDEX idx_receipt_reference (receipt_reference)') === false
     || strpos($purchaseReceiptInstallerSource, 'UNIQUE INDEX idx_receipt_item (receipt_id,item_id)') === false) {
-    throw new \\RuntimeException('Purchase receipt tables must be installed on fresh installs and upgraded stores with unique idempotency constraints.');
+    throw new \RuntimeException('Purchase receipt tables must be installed on fresh installs and upgraded stores with unique idempotency constraints.');
 }
 foreach ($purchaseReceiptMigrationChecks as $requiredMigrationCheck) {
     if (strpos($migrationRunnerSource, $requiredMigrationCheck) === false) {
