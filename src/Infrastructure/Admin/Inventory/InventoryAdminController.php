@@ -41,7 +41,9 @@ final class InventoryAdminController {
         }
         add_submenu_page('pkstore-operations','Stock Movements','📊 Stock Log',self::CAP,'pkstore-stock-log',[$this,'stockLog']);
         add_submenu_page('pkstore-operations','Inventory Event Health','🔄 Sync Health',self::CAP,'pkstore-inventory-events',[$this,'inventoryEvents']);
-        add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders','manage_options','pkstore-purchase-orders',[$this,'purchaseOrders']);
+        if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.15', '>=')) {
+            add_submenu_page('pkstore-operations','Purchase Orders','🚚 Purchase Orders','manage_options','pkstore-purchase-orders',[$this,'purchaseOrders']);
+        }
         if ($features->isEnabled('multi_location')) {
             add_submenu_page('pkstore-operations','Inventory Locations','📍 Locations',self::CAP,'pkstore-locations',[$this,'locations']);
         }
@@ -56,11 +58,18 @@ final class InventoryAdminController {
     public function handleForms(): void {
         if (!isset($_POST['pkstore_inventory_action'])) return;
         $this->requireSchemaReady();
-        if (!current_user_can(self::CAP)) wp_die('Unauthorized.');
+        $action = sanitize_key($_POST['pkstore_inventory_action']);
+        $purchaseActions = ['create_supplier', 'create_purchase_order', 'receive_purchase_order'];
+        if (in_array($action, $purchaseActions, true)) {
+            if (!current_user_can('manage_options')) wp_die('Unauthorized.');
+            if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.15', '<')) wp_die('Purchase receiving schema migration is not complete.');
+        } elseif (!current_user_can(self::CAP)) {
+            wp_die('Unauthorized.');
+        }
         $features = FeatureManager::getInstance();
         if (!$features->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
+        if ($action === 'transfer_stock' && !$features->isEnabled('multi_location')) wp_die('Multi-location inventory is not available on the current package.');
         check_admin_referer('pkstore_inventory_action');
-        $action = sanitize_key($_POST['pkstore_inventory_action']);
         if ($action === 'generate_barcodes' && !$features->isEnabled('barcode_labels')) {
             wp_die('Barcode labels are not available on the current package.');
         }
@@ -75,6 +84,10 @@ final class InventoryAdminController {
             'add_product'     => $this->handleAddProduct(),
             'add_location'    => $this->handleAddLocation(),
             'adjust_stock'    => $this->handleAdjustStock(),
+            'transfer_stock'  => $this->handleTransferStock(),
+            'create_supplier' => $this->handleCreateSupplier(),
+            'create_purchase_order' => $this->handleCreatePurchaseOrder(),
+            'receive_purchase_order' => $this->handleReceivePurchaseOrder(),
             'generate_barcodes' => $this->handleGenerateBarcodes(),
             'sync_woocommerce'  => $this->handleSyncWooCommerce(),
             default            => null,
@@ -285,6 +298,91 @@ final class InventoryAdminController {
         $this->redirect('pkstore-inventory','synced',"Synced {$count} products to WooCommerce.");
     }
 
+
+    private function handleTransferStock(): void {
+        try {
+            $reference = sanitize_text_field($_POST['reference_id'] ?? '');
+            $this->c->make(\PkStore\Application\Inventory\TransferStockUseCase::class)->execute(
+                (int) ($_POST['product_id'] ?? 0),
+                (int) ($_POST['from_location_id'] ?? 0),
+                (int) ($_POST['to_location_id'] ?? 0),
+                (int) ($_POST['quantity'] ?? 0),
+                $reference,
+                sanitize_text_field($_POST['note'] ?? '')
+            );
+            $this->redirect('pkstore-inventory', 'transferred', 'Stock transfer completed.');
+        } catch (\Throwable $error) {
+            $this->redirect('pkstore-inventory', 'error', 'Stock transfer failed. Verify source stock, locations and transfer reference.');
+        }
+    }
+
+    private function handleCreateSupplier(): void {
+        global $wpdb;
+        $name = sanitize_text_field($_POST['supplier_name'] ?? '');
+        $email = sanitize_email($_POST['supplier_email'] ?? '');
+        if ($name === '' || ($email !== '' && !is_email($email))) {
+            $this->redirect('pkstore-purchase-orders', 'error', 'Supplier name or email is invalid.');
+            return;
+        }
+        $inserted = $wpdb->insert($wpdb->prefix . 'pkstore_inventory_suppliers', [
+            'name'=>$name,
+            'contact'=>sanitize_text_field($_POST['supplier_contact'] ?? ''),
+            'phone'=>sanitize_text_field($_POST['supplier_phone'] ?? ''),
+            'email'=>$email,
+            'address'=>sanitize_textarea_field($_POST['supplier_address'] ?? ''),
+            'is_active'=>1,
+            'created_at'=>current_time('mysql'),
+        ]);
+        $this->redirect('pkstore-purchase-orders', $inserted === false ? 'error' : 'supplier_added',
+            $inserted === false ? 'Unable to create supplier.' : 'Supplier created.');
+    }
+
+    private function handleCreatePurchaseOrder(): void {
+        try {
+            $raw = $_POST['items'] ?? [];
+            if (!is_array($raw)) throw new \InvalidArgumentException('Purchase order items are invalid.');
+            $items = [];
+            foreach ($raw as $item) {
+                if (!is_array($item)) throw new \InvalidArgumentException('Purchase order item is invalid.');
+                $items[] = [
+                    'product_id'=>$item['product_id'] ?? null,
+                    'quantity'=>$item['quantity'] ?? null,
+                    'unit_cost_pkr'=>$item['unit_cost_pkr'] ?? null,
+                ];
+            }
+            $id = $this->c->make(\PkStore\Application\Inventory\CreatePurchaseOrderUseCase::class)->execute(
+                (int) ($_POST['supplier_id'] ?? 0),
+                (int) ($_POST['location_id'] ?? 0),
+                $items,
+                sanitize_textarea_field($_POST['notes'] ?? '')
+            );
+            $this->redirect('pkstore-purchase-orders', 'po_created', 'Purchase order #' . $id . ' created.');
+        } catch (\Throwable $error) {
+            $this->redirect('pkstore-purchase-orders', 'error', 'Purchase order could not be created. Check supplier, location, products, quantities and costs.');
+        }
+    }
+
+    private function handleReceivePurchaseOrder(): void {
+        try {
+            $raw = $_POST['receive_qty'] ?? [];
+            if (!is_array($raw)) throw new \InvalidArgumentException('Receipt quantities are invalid.');
+            $items = [];
+            foreach ($raw as $itemId => $quantity) {
+                if (filter_var($quantity, FILTER_VALIDATE_INT) === false || (int) $quantity < 0) {
+                    throw new \InvalidArgumentException('Receipt quantities must be whole non-negative numbers.');
+                }
+                if ((int) $quantity > 0) $items[] = ['item_id'=>$itemId, 'quantity'=>$quantity];
+            }
+            $reference = sanitize_text_field($_POST['receipt_reference'] ?? '');
+            $this->c->make(\PkStore\Application\Inventory\ReceivePurchaseOrderUseCase::class)->execute(
+                (int) ($_POST['purchase_order_id'] ?? 0), $items, $reference
+            );
+            $this->redirect('pkstore-purchase-orders', 'received', 'Purchase receipt saved.');
+        } catch (\Throwable $error) {
+            $this->redirect('pkstore-purchase-orders', 'error', 'Purchase receipt could not be saved. Verify remaining quantities and receipt reference.');
+        }
+    }
+
     private function redirect(string $page, string $status, string $msg): void {
         wp_safe_redirect(add_query_arg(['page'=>$page,'status'=>$status,'msg'=>urlencode($msg)],admin_url('admin.php'))); exit;
     }
@@ -430,7 +528,9 @@ final class InventoryAdminController {
     }
 
     public function purchaseOrders(): void {
-        $this->requireSchemaReady();
+        if (version_compare((string) get_option('pkstore_db_version', '0.0.0'), '2.0.15', '<')) {
+            wp_die('Purchase receiving is paused until the protected database migration and backup confirmation are complete.');
+        }
         if (!current_user_can('manage_options')) wp_die('Unauthorized.');
         if (!FeatureManager::getInstance()->isEnabled('inventory')) wp_die('Inventory is not available on the current package.');
         global $wpdb;
@@ -442,6 +542,25 @@ final class InventoryAdminController {
              ORDER BY po.created_at DESC LIMIT 100",
             ARRAY_A
         ) ?: [];
-        include PKSTORE_DIR.'/templates/admin/inventory/purchase-orders.php';
+        $suppliers = $wpdb->get_results("SELECT id,name FROM {$wpdb->prefix}pkstore_inventory_suppliers WHERE is_active=1 ORDER BY name", ARRAY_A) ?: [];
+        $locations = $this->c->make(LocationRepositoryInterface::class)->findAll();
+        $products = $this->c->make(InventoryProductRepositoryInterface::class)->findAll(500, 0, '');
+        $poItems = [];
+        if ($pos) {
+            $ids = array_map(static fn(array $po): int => (int) $po['id'], $pos);
+            $idList = implode(',', array_map('intval', $ids));
+            $lines = $wpdb->get_results(
+                "SELECT i.id AS item_id,i.po_id,i.product_id,i.quantity_ordered,i.quantity_received,i.unit_cost_pkr,p.name AS product_name,p.sku
+                 FROM {$wpdb->prefix}pkstore_purchase_order_items i
+                 LEFT JOIN {$wpdb->prefix}pkstore_inventory_products p ON p.id=i.product_id
+                 WHERE i.po_id IN ({$idList}) ORDER BY i.id",
+                ARRAY_A
+            ) ?: [];
+            foreach ($lines as $line) $poItems[(int) $line['po_id']][] = $line;
+        }
+        $msg = sanitize_text_field($_GET['msg'] ?? '');
+        $status = sanitize_key($_GET['status'] ?? '');
+        include PKSTORE_DIR . '/templates/admin/inventory/purchase-orders.php';
     }
+
 }
