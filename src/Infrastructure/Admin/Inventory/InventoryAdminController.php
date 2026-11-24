@@ -406,6 +406,7 @@ final class InventoryAdminController {
         $repo      = $this->c->make(InventoryProductRepositoryInterface::class);
         $stockRepo = $this->c->make(StockRepositoryInterface::class);
         $locations = $this->c->make(LocationRepositoryInterface::class)->findAll();
+        $canTransfer = FeatureManager::getInstance()->isEnabled('multi_location') && count($locations) > 1;
         $search    = sanitize_text_field($_GET['s']??''  );
         $products  = $repo->findAll(50, 0, $search);
         $lowStock  = $repo->findBelowReorderPoint();
