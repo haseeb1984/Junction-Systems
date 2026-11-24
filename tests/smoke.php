@@ -989,6 +989,15 @@ if (!is_string($posSaleSource) || !is_string($orderInventoryQueueSource)
     throw new \RuntimeException('Online stock must reach the shared ledger before checkout returns, and POS must pause while online reductions remain unresolved.');
 }
 
+$purchaseOrderRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpPurchaseOrderRepository.php');
+if (!is_string($purchaseOrderRepositorySource)
+    || substr_count($purchaseOrderRepositorySource, 'assertReadSucceeded(') < 8
+    || strpos($purchaseOrderRepositorySource, "assertReadSucceeded('receipt idempotency lookup')") === false
+    || strpos($purchaseOrderRepositorySource, "assertReadSucceeded('locked purchase stock lookup')") === false
+    || strpos($purchaseOrderRepositorySource, "throw new \\RuntimeException('Database error during '.$operation.'.')") === false) {
+    throw new \RuntimeException('Purchase order repository reads must fail closed instead of presenting database failures as missing orders, suppliers, or receipt data.');
+}
+
 if (strpos($posSyncSource, "replaceWooCommerceOrderItems(") === false
     || strpos($posSyncSource, "_pkstore_inventory_product_id") === false
     || strpos($posSyncSource, "get_discount_total()") === false
