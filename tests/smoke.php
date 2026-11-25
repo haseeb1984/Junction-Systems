@@ -1872,7 +1872,8 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || substr_count($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') !== 4
     || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 4
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
-    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany(array_map') === false
+    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany($productIds)') === false
+    || strpos($purchaseReceiptLockSource, 'InventoryProductLock::acquireMany($productIds)') > strpos($purchaseReceiptLockSource, "query('START TRANSACTION')")
     || strpos($purchaseReceiptLockSource, 'InventoryProductLock::release($productLocks)') === false
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($products)') !== 2
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($lockProductIds)') !== 2
