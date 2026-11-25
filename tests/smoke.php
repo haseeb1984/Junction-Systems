@@ -1856,6 +1856,8 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryLockSource, 'sort($ids, SORT_NUMERIC)') === false
     || strpos($inventoryLockSource, 'array_reverse($lockNames)') === false
     || strpos($inventoryLockSource, 'self::$held[$name]++') === false
+    || strpos($inventoryLockSource, 'SELECT CONNECTION_ID()') === false
+    || strpos($inventoryLockSource, 'self::$held = [];') === false
     || strpos($posLockSource, 'InventoryProductLock::acquireMany(array_column($enriched, \'product_id\'))') === false
     || strpos($posLockSource, 'InventoryProductLock::release($productLocks)') === false
     || strpos($posLockSource, 'pkstore_wc_return_inventory_queue') === false
