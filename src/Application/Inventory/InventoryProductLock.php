@@ -16,7 +16,7 @@ final class InventoryProductLock {
         global $wpdb;
         $connectionId = $wpdb->get_var('SELECT CONNECTION_ID()');
         if (!is_numeric($connectionId) || (int) $connectionId < 1) {
-            throw new \\RuntimeException('Unable to identify the active database connection for inventory locking.');
+            throw new \RuntimeException('Unable to identify the active database connection for inventory locking.');
         }
         $connectionId = (string) (int) $connectionId;
         if (self::$connectionId !== $connectionId) {
@@ -35,6 +35,8 @@ final class InventoryProductLock {
         if (!$wpdb instanceof \wpdb) {
             throw new \RuntimeException('Inventory product locking requires an active database connection.');
         }
+
+        self::syncConnectionIdentity();
 
         $ids = array_values(array_unique(array_filter(
             array_map('intval', $productIds),
@@ -76,6 +78,11 @@ final class InventoryProductLock {
     public static function release(array $lockNames): void {
         global $wpdb;
         if (!$wpdb instanceof \wpdb) return;
+        try {
+            self::syncConnectionIdentity();
+        } catch (\Throwable $error) {
+            return;
+        }
 
         foreach (array_reverse($lockNames) as $name) {
             if (!isset(self::$held[$name])) continue;
