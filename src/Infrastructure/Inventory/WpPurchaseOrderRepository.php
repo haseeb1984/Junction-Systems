@@ -64,8 +64,23 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
     }
     public function receive(int $purchaseOrderId,array $items,string $receiptReference,int $userId): void {
         if($purchaseOrderId<=0 || $receiptReference==='' || strlen($receiptReference)>64 || !$items) throw new \InvalidArgumentException('Invalid receipt identity.');
-        if($this->db->query('START TRANSACTION')===false) throw new \RuntimeException('Unable to start receiving transaction: '.$this->db->last_error);
-        $productLocks=[];
+        // Acquire product mutexes before opening a DB transaction or taking row locks.
+        // Purchase-order lines are immutable after creation, so the complete product set
+        // can be read safely before the receipt transaction begins.
+        $productRows=$this->db->get_results($this->db->prepare("SELECT product_id FROM {$this->ti()} WHERE po_id=%d ORDER BY product_id",$purchaseOrderId),ARRAY_A);
+        $this->assertReadSucceeded('purchase order product lock lookup');
+        if(!is_array($productRows) || !$productRows) throw new \RuntimeException('Purchase order has no receivable product lines.');
+        $productIds=[];
+        foreach($productRows as $productRow) {
+            $productId=(int)($productRow['product_id']??0);
+            if($productId<=0) throw new \RuntimeException('Purchase order contains an invalid inventory product.');
+            $productIds[]=$productId;
+        }
+        $productLocks=InventoryProductLock::acquireMany($productIds);
+        if($this->db->query('START TRANSACTION')===false) {
+            InventoryProductLock::release($productLocks);
+            throw new \RuntimeException('Unable to start receiving transaction: '.$this->db->last_error);
+        }
         try {
             $po=$this->db->get_row($this->db->prepare("SELECT * FROM {$this->t()} WHERE id=%d FOR UPDATE",$purchaseOrderId),ARRAY_A);
             $this->assertReadSucceeded('locked purchase order lookup');
@@ -95,9 +110,8 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 if($qty>$remaining) throw new \DomainException("Received quantity exceeds remaining quantity for purchase order line {$itemId}.");
                 $receiptLines[$itemId]=['item'=>$item,'quantity'=>$qty];
             }
-            // Lock and update shared stock rows in a stable product order.
+            // Product mutexes were acquired in sorted order before the transaction.
             uasort($receiptLines, static fn(array $a, array $b): int => (int)$a['item']['product_id'] <=> (int)$b['item']['product_id']);
-            $productLocks=InventoryProductLock::acquireMany(array_map(static fn(array $line): int => (int)$line['item']['product_id'], array_values($receiptLines)));
             $ok=$this->db->insert($this->tr(),['receipt_reference'=>$receiptReference,'po_id'=>$purchaseOrderId,'received_by'=>$userId,'received_at'=>current_time('mysql')]);
             if($ok===false) throw new \RuntimeException('Unable to create receipt record: '.$this->db->last_error);
             $receiptId=(int)$this->db->insert_id;
