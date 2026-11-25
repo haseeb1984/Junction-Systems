@@ -10,6 +10,22 @@ namespace PkStore\Application\Inventory;
 final class InventoryProductLock {
     /** @var array<string, int> Re-entrant reference counts for this DB connection. */
     private static array $held = [];
+    private static ?string $connectionId = null;
+
+    private static function syncConnectionIdentity(): void {
+        global $wpdb;
+        $connectionId = $wpdb->get_var('SELECT CONNECTION_ID()');
+        if (!is_numeric($connectionId) || (int) $connectionId < 1) {
+            throw new \\RuntimeException('Unable to identify the active database connection for inventory locking.');
+        }
+        $connectionId = (string) (int) $connectionId;
+        if (self::$connectionId !== $connectionId) {
+            // MySQL releases advisory locks when a connection is replaced.
+            // Never treat references held by the old session as re-entrant.
+            self::$held = [];
+            self::$connectionId = $connectionId;
+        }
+    }
     /**
      * @param int[] $productIds
      * @return string[] Acquired lock names, in acquisition order.
