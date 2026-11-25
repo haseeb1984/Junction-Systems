@@ -96,6 +96,8 @@ final class WpPurchaseOrderRepository implements PurchaseOrderRepositoryInterfac
                 if(count($stored)!==count($expected)) throw new \DomainException('Receipt reference replay does not match the original receipt payload.');
                 foreach($stored as $i=>$line) if((int)$line['item_id']!==(int)$expected[$i]['item_id'] || (int)$line['quantity']!==(int)$expected[$i]['quantity']) throw new \DomainException('Receipt reference replay does not match the original receipt payload.');
                 if($this->db->query('COMMIT')===false) throw new \RuntimeException('Unable to finish duplicate receipt check: '.$this->db->last_error);
+                InventoryProductLock::release($productLocks);
+                $productLocks=[];
                 return;
             }
             if($po['status']==='cancelled' || $po['status']==='received') throw new \DomainException('This purchase order cannot receive further stock.');
