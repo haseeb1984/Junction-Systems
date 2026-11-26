@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="wrap pkstore-admin">
     <h1>🔄 Inventory Sync Health</h1>
-    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events, plus the immutable stock-cycle event trail. Review-state sale and return events can be retried or ignored with a mandatory reason and an audit record. Cycle-event records are read-only; stock-sync actions remain disabled pending lease-fencing.</p>
+    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events, plus the immutable stock-cycle event trail. Review-state sale and legacy return events can be retried or ignored with a mandatory reason and an audit record. Cycle-bound returns can be retried but not ignored until cycle reconciliation is supported. Cycle-event records are read-only; stock-sync actions remain disabled pending lease-fencing.</p>
 
     <?php if (!empty($missingQueues)): ?>
         <div class="notice notice-warning"><p>
@@ -78,7 +78,7 @@
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason for retry" style="max-width:180px;">
                                     <button type="submit" class="button button-secondary">Retry</button>
                                 </form>
-                                <?php if ($allowIgnore): ?>
+                                <?php if ($allowIgnore && ($queueType !== 'returns' || empty($event['cycle_uuid']))): ?>
                                 <form method="post">
                                     <?php wp_nonce_field('pkstore_inventory_action'); ?>
                                     <input type="hidden" name="pkstore_inventory_action" value="ignore_inventory_event">
@@ -163,5 +163,5 @@
         <?php if (empty($operatorAudit)): ?><tr><td colspan="7">No operator actions recorded.</td></tr><?php endif; ?>
         </tbody>
     </table>
-    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale/return events. Ignore does not change stock; it requires explicit confirmation that the event is not Junction-managed or is a duplicate, and records the operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
+    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale events and legacy returns; cycle-bound returns are retry-only. Ignore does not change stock; it requires explicit confirmation that the event is not Junction-managed or is a duplicate, and records the operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
 </div>
