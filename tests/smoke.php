@@ -776,6 +776,10 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'recoverUnqueuedCycleEvents') === false
     || strpos($returnQueueSource, 'Verify it instead of trusting the key.') === false
     || strpos($returnQueueSource, 'return event key conflicts with a different persisted payload') === false
+    || strpos($returnQueueSource, 'clearReturnFailureMarkerIfReconciled') === false
+    || strpos($returnQueueSource, 'Unable to verify outstanding return queue work.') === false
+    || strpos($returnQueueSource, 'Unable to verify outstanding return cycle events.') === false
+    || strpos($returnQueueSource, '_pkstore_wc_cycle_return_capture_failed_') === false
     || strpos($returnQueueSource, 'Unable to verify persisted WooCommerce return inventory event.') === false
     || strpos($returnQueueSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($returnQueueSource, 'claimBatch(') === false
