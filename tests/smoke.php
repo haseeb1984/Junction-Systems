@@ -1874,6 +1874,9 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($inventoryHooksLockSource, 'releaseOrderRestoreLocks') === false
     || strpos($inventoryHooksLockSource, 'releaseRefundRestockLocks') === false
     || strpos($inventoryHooksLockSource, 'releaseAllLifecycleLocks') === false
+    || strpos($inventoryHooksLockSource, "_pkstore_wc_return_capture_failed") === false
+    || strpos($posLockSource, "'key' => '_pkstore_wc_return_capture_failed'") === false
+    || strpos($posLockSource, 'wc_get_orders([') === false
     || substr_count($adjustStockLockSource, 'InventoryProductLock::acquireMany([$productId])') !== 4
     || substr_count($adjustStockLockSource, 'InventoryProductLock::release($locks)') !== 4
     || strpos($transferLockSource, 'InventoryProductLock::acquireMany([$productId])') === false
