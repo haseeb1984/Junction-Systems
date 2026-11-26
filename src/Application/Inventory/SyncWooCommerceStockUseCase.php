@@ -16,16 +16,14 @@ final class SyncWooCommerceStockUseCase {
         if ($orderId < 1 || ($cycleUuid !== null && !preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid))) {
             throw new \InvalidArgumentException('Invalid WooCommerce order or stock-cycle identity.');
         }
-        $this->withOrderLock($orderId, function () use ($orderId, $cycleUuid): void {
-            if ($cycleUuid !== null) {
-                $order = wc_get_order($orderId);
-                if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
-                $this->applyWooCommerceSaleCycle($order, $cycleUuid);
-                return;
-            }
-
-            $order = wc_get_order($orderId);
-            if ($order instanceof \WC_Order) {
+        $order = wc_get_order($orderId);
+        if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable for inventory ingestion.');
+        $this->withOrderProductLocks($order, function () use ($orderId, $cycleUuid, $order): void {
+            $this->withOrderLock($orderId, function () use ($orderId, $cycleUuid, $order): void {
+                if ($cycleUuid !== null) {
+                    $this->applyWooCommerceSaleCycle($order, $cycleUuid);
+                    return;
+                }
                 $snapshotVersion = (string) $order->get_meta('_pkstore_wc_reduction_snapshot_version', true);
                 if ($snapshotVersion !== '' && $snapshotVersion !== '1') {
                     throw new \RuntimeException('WooCommerce stock-reduction snapshot capture is incomplete and must be reviewed before ledger ingestion.');
@@ -33,9 +31,8 @@ final class SyncWooCommerceStockUseCase {
                 if ($snapshotVersion === '1') {
                     throw new \RuntimeException('Cycle-aware WooCommerce sale must be bound to a cycle UUID by its durable queue worker.');
                 }
-            }
-
-            $this->applyWooCommerceSale($orderId);
+                $this->applyWooCommerceSale($orderId);
+            });
         });
     }
 
@@ -716,8 +713,10 @@ final class SyncWooCommerceStockUseCase {
     public function onWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce restore event is malformed.');
         $orderId = (int) $order->get_id();
-        return $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order, $cycleUuid): bool {
-            return $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order, $cycleUuid);
+        return $this->withOrderProductLocks($order, function () use ($orderId, $item, $newStock, $oldStock, $order, $cycleUuid): bool {
+            return $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order, $cycleUuid): bool {
+                return $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order, $cycleUuid);
+            });
         });
     }
 
@@ -836,8 +835,10 @@ final class SyncWooCommerceStockUseCase {
     public function onWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null, ?string $cycleUuid = null): bool {
         if (!($order instanceof \WC_Order)) throw new \InvalidArgumentException('WooCommerce refund restock event is malformed.');
         $orderId = (int) $order->get_id();
-        return $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid): bool {
-            return $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid);
+        return $this->withOrderProductLocks($order, function () use ($orderId, $wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid): bool {
+            return $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid): bool {
+                return $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid);
+            });
         });
     }
 
@@ -1513,6 +1514,36 @@ final class SyncWooCommerceStockUseCase {
             throw new \RuntimeException('WooCommerce variation resolved to an unexpected stock-owning product.');
         }
         return $stockManagedId;
+    }
+
+    /**
+     * Acquire product mutexes before the per-order mutex. Live WooCommerce hooks
+     * and background queue workers must use the same ordering to avoid deadlocks.
+     */
+    private function withOrderProductLocks(\WC_Order $order, callable $callback): mixed {
+        $inventoryProductIds = [];
+        foreach ($order->get_items('line_item') as $item) {
+            $inventoryProductId = (int) $item->get_meta('_pkstore_inventory_product_id', true);
+            if ($inventoryProductId > 0) {
+                $inventoryProductIds[] = $inventoryProductId;
+                continue;
+            }
+            $wcProduct = $item->get_product();
+            if (!$wcProduct instanceof \WC_Product || !$wcProduct->managing_stock()) continue;
+            $stockOwnerId = method_exists($wcProduct, 'get_stock_managed_by_id')
+                ? (int) $wcProduct->get_stock_managed_by_id()
+                : (int) $wcProduct->get_id();
+            if ($stockOwnerId < 1) throw new \RuntimeException('WooCommerce stock owner could not be resolved for order locking.');
+            $inventoryProduct = $this->productRepo->findByWcProductId($stockOwnerId);
+            if ($inventoryProduct) $inventoryProductIds[] = (int) $inventoryProduct->id;
+        }
+        if (!$inventoryProductIds) return $callback();
+        $locks = InventoryProductLock::acquireMany($inventoryProductIds);
+        try {
+            return $callback();
+        } finally {
+            InventoryProductLock::release($locks);
+        }
     }
 
     /**
