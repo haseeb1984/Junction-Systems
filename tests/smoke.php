@@ -711,6 +711,14 @@ foreach ($purchaseReceiptMigrationChecks as $requiredMigrationCheck) {
 
 
 
+$stockSyncUseCaseSource = file_get_contents($src . '/Application/Inventory/SyncWooCommerceStockUseCase.php');
+if (!is_string($stockSyncUseCaseSource)
+    || strpos($stockSyncUseCaseSource, '$pageSize = 500;') === false
+    || strpos($stockSyncUseCaseSource, 'findAll($pageSize, $offset)') === false
+    || strpos($stockSyncUseCaseSource, 'if (count($products) < $pageSize) break;') === false) {
+    throw new \RuntimeException('Hourly WooCommerce stock reconciliation must page through the complete active inventory catalogue.');
+}
+
 $inventoryMappingMigrationSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
 if (!is_string($inventoryMappingMigrationSource)
     || strpos($inventoryMappingMigrationSource, 'GROUP BY wc_product_id HAVING COUNT(*) > 1') === false
