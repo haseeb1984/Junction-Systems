@@ -1371,6 +1371,15 @@ if (!is_string($themeBootstrapperSource)
     throw new \RuntimeException('GA4 order attribution must use WooCommerce CRUD so it works with HPOS.');
 }
 
+
+$inventoryCronSource = file_get_contents($src . '/Bootstrap/ThemeBootstrapper.php');
+if (!is_string($inventoryCronSource)
+    || strpos($inventoryCronSource, "WooCommerce stock sync queue worker failed") === false
+    || strpos($inventoryCronSource, "WooCommerce order inventory queue worker failed") === false
+    || strpos($inventoryCronSource, "WooCommerce return inventory queue worker failed") === false) {
+    throw new \\RuntimeException('Each WooCommerce inventory cron worker must isolate and log its own failures.');
+}
+
 $codOtpControllerSource = file_get_contents($src . '/Infrastructure/Http/CodOtpController.php');
 $otpRepositorySource = file_get_contents($src . '/Infrastructure/Verification/WpOtpRepository.php');
 $otpSendUseCaseSource = file_get_contents($src . '/Application/Verification/SendCodOtpUseCase.php');
