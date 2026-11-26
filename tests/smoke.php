@@ -792,6 +792,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'claimBatch(') === false
     || strpos($returnQueueSource, 'DATE_SUB(%s, INTERVAL 10 MINUTE)') === false
     || strpos($returnQueueSource, "next_attempt_at=IF(%s='needs_review',%s,DATE_ADD") === false
+    || strpos($returnQueueSource, "SET status=%s,claimed_at=NULL,claim_token=NULL,") === false
     || strpos($returnQueueSource, 'Cancellation return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'Refund return is waiting for its matching sale movement.') === false
     || strpos($returnQueueSource, 'if (!$applied)') === false
