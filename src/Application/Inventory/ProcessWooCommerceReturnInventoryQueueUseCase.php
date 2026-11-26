@@ -41,7 +41,29 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
              VALUES (%s,%s,%d,NULLIF(%d,0),%d,NULLIF(%s,''),%d,%d,'pending',0,%s,NULL,'',%s,%s)",
             $key, $kind, $orderId, $itemId ?? 0, $productId, $cycleUuid ?? '', $quantity, $cumulative, $now, $now, $now
         ));
-        if ($result === false) throw new \RuntimeException('Unable to persist WooCommerce return inventory event.');
+        if ($result === false) throw new \\RuntimeException('Unable to persist WooCommerce return inventory event.');
+
+        // INSERT IGNORE is idempotent only when a duplicate key carries the
+        // same immutable event payload. Verify it instead of trusting the key.
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT event_kind,wc_order_id,wc_order_item_id,wc_product_id,cycle_uuid,quantity,cumulative_quantity
+             FROM {$table} WHERE event_key=%s",
+            $key
+        ), ARRAY_A);
+        if ($wpdb->last_error !== '' || !is_array($existing)) {
+            throw new \\RuntimeException('Unable to verify persisted WooCommerce return inventory event.');
+        }
+        $storedItemId = $existing['wc_order_item_id'] !== null ? (int) $existing['wc_order_item_id'] : null;
+        $storedCycleUuid = $existing['cycle_uuid'] !== null ? (string) $existing['cycle_uuid'] : null;
+        if ((string) $existing['event_kind'] !== $kind
+            || (int) $existing['wc_order_id'] !== $orderId
+            || $storedItemId !== $itemId
+            || (int) $existing['wc_product_id'] !== $productId
+            || $storedCycleUuid !== $cycleUuid
+            || (int) $existing['quantity'] !== $quantity
+            || (int) $existing['cumulative_quantity'] !== $cumulative) {
+            throw new \\RuntimeException('WooCommerce return event key conflicts with a different persisted payload.');
+        }
         return $key;
     }
 
