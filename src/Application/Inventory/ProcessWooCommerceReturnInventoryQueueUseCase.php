@@ -67,6 +67,37 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         return $key;
     }
 
+    private function clearReturnFailureMarkerIfReconciled(int $orderId): void {
+        if ($orderId < 1) throw new \InvalidArgumentException('A valid WooCommerce order is required for return marker recovery.');
+        $order = wc_get_order($orderId);
+        if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable while recovering its return marker.');
+
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable while recovering return marker.');
+        $queueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+        $pendingQueue = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$queueTable} WHERE wc_order_id=%d AND status IN ('pending','processing','needs_review')",
+            $orderId
+        ));
+        if ($wpdb->last_error !== '' || !is_numeric($pendingQueue)) throw new \RuntimeException('Unable to verify outstanding return queue work.');
+        $pendingEvents = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$eventsTable} WHERE wc_order_id=%d AND event_kind IN ('cancellation','refund') AND status IN ('pending','processing','needs_review','failed','review')",
+            $orderId
+        ));
+        if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) throw new \RuntimeException('Unable to verify outstanding return cycle events.');
+        if ((int) $pendingQueue > 0 || (int) $pendingEvents > 0) return;
+
+        foreach ($order->get_meta_data() as $meta) {
+            $key = is_object($meta) && isset($meta->key) ? (string) $meta->key : '';
+            if (strpos($key, '_pkstore_wc_cycle_return_capture_failed_') === 0) return;
+        }
+        if ($order->get_meta('_pkstore_wc_return_capture_failed', true) === 'yes') {
+            $order->delete_meta_data('_pkstore_wc_return_capture_failed');
+            if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear reconciled WooCommerce return safety marker.');
+        }
+    }
+
     public function acknowledgeCompleted(string $eventKey): void {
         if ($eventKey === '' || strlen($eventKey) > 191) {
             throw new \InvalidArgumentException('A valid WooCommerce return event key is required.');
@@ -251,9 +282,12 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
     private function complete(int $id, string $claimToken): void {
         global $wpdb;
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $orderId = (int) $wpdb->get_var($wpdb->prepare("SELECT wc_order_id FROM {$table} WHERE id=%d AND status='processing' AND claim_token=%s", $id, $claimToken));
+        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to resolve WooCommerce return order before acknowledgement.');
         $deleted = $wpdb->delete($table, ['id' => $id, 'status' => 'processing', 'claim_token' => $claimToken], ['%d', '%s', '%s']);
         if ($deleted === false) throw new \RuntimeException('Unable to acknowledge WooCommerce return event.');
         // A stale worker must never acknowledge a job reclaimed by another worker.
+        if ($deleted === 1 && $orderId > 0) $this->clearReturnFailureMarkerIfReconciled($orderId);
     }
 
     private function retry(int $id, string $claimToken, int $attempt, string $errorClass): void {
