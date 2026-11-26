@@ -1884,7 +1884,10 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || strpos($onlineSaleLockSource, 'InventoryProductLock::acquireMany($inventoryProductIds)') === false
     || strpos($onlineSaleLockSource, '$this->withOrderProductLocks($order') > strpos($onlineSaleLockSource, '$this->withOrderLock($orderId')
     || strpos($onlineSaleLockSource, '}, [(int) $item->get_id()]);') === false
-    || strpos($onlineSaleLockSource, '$wcProductId);') === false) {
+    || strpos($onlineSaleLockSource, '$wcProductId);') === false
+    || strpos($onlineSaleLockSource, 'public function onWooCommerceOrderItemRestored') > strpos($onlineSaleLockSource, 'withOrderLock(', strpos($onlineSaleLockSource, 'public function onWooCommerceOrderItemRestored'))
+    || strpos($onlineSaleLockSource, 'public function onWooCommerceRefundItemRestocked') > strpos($onlineSaleLockSource, 'withOrderLock(', strpos($onlineSaleLockSource, 'public function onWooCommerceRefundItemRestocked'))
+    || substr_count($onlineSaleLockSource, 'return $this->withOrderProductLocks($order, function') !== 2) {
     throw new \RuntimeException('POS, WooCommerce order/return hooks, manual adjustments, transfers and purchase receipts must share the same product advisory locks.');
 }
 
