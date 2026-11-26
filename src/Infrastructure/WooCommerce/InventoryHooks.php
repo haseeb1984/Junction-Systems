@@ -349,6 +349,13 @@ final class InventoryHooks {
         }
     }
 
+    private function markReturnCaptureFailed(\\WC_Order $order): void {
+        $order->update_meta_data('_pkstore_wc_return_capture_failed', 'yes');
+        if ((int) $order->save() !== (int) $order->get_id()) {
+            throw new \\RuntimeException('Unable to persist the WooCommerce return reconciliation safety marker.');
+        }
+    }
+
     public function onOrderItemRestored($item, $newStock, $oldStock, $order): void {
         try {
             if (!($order instanceof \WC_Order) || !is_object($item) || !method_exists($item, 'get_id')) {
@@ -371,6 +378,7 @@ final class InventoryHooks {
                 } catch (\Throwable $captureError) {
                     $order->update_meta_data('_pkstore_wc_cycle_return_capture_failed_' . $cycleUuid, '1');
                     $order->save();
+                    $this->markReturnCaptureFailed($order);
                     error_log('[PKStore Inventory] WooCommerce cancellation cycle capture failed; queued return needs review ('.get_class($captureError).').');
                 }
             }
