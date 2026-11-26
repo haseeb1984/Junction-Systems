@@ -425,6 +425,16 @@ if (!is_string($posCapabilitySource)
     throw new \RuntimeException('Cashier role, assigned POS location and POS-only session access must be enforced.');
 }
 
+$closeSessionStart = strpos($posHttpSource, 'public function closeSession(');
+$currentSessionStart = strpos($posHttpSource, 'public function currentSession(', $closeSessionStart === false ? 0 : $closeSessionStart);
+$closeSessionSource = ($closeSessionStart !== false && $currentSessionStart !== false)
+    ? substr($posHttpSource, $closeSessionStart, $currentSessionStart - $closeSessionStart)
+    : '';
+if ($closeSessionSource === ''
+    || strpos($closeSessionSource, '$this->canAccessLocation($session->locationId)') === false) {
+    throw new \RuntimeException('Closing a POS session must revalidate the cashier location assignment.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('payment_easypaisa'))") === false
