@@ -92,9 +92,10 @@ final class POSController {
                 $wpdb->query('ROLLBACK');
                 return new \WP_REST_Response(['success'=>false,'message'=>'Session not found or already closed.'],404);
             }
-            if ($session->cashierId !== get_current_user_id() && !current_user_can('manage_options')) {
+            if (($session->cashierId !== get_current_user_id() && !current_user_can('manage_options'))
+                || !$this->canAccessLocation($session->locationId)) {
                 $wpdb->query('ROLLBACK');
-                return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session.'],403);
+                return new \WP_REST_Response(['success'=>false,'message'=>'You are not assigned to this POS session or location.'],403);
             }
             $session->close($closingCash);
             $sessionRepo->update($session);
