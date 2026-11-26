@@ -347,7 +347,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         $delay = min(21600, 30 * (2 ** min(10, max(0, $attempt - 1))));
         $now = current_time('mysql');
         $updated = $wpdb->query($wpdb->prepare(
-            "UPDATE {$table} SET status=%s,claimed_at=NULL,
+            "UPDATE {$table} SET status=%s,claimed_at=NULL,claim_token=NULL,
              next_attempt_at=IF(%s='needs_review',%s,DATE_ADD(%s,INTERVAL %d SECOND)),last_error=%s
              WHERE id=%d AND status='processing' AND claim_token=%s",
             $needsReview ? 'needs_review' : 'pending', $needsReview ? 'needs_review' : 'pending',
