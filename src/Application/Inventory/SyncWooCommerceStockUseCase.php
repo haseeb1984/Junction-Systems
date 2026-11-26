@@ -1577,23 +1577,28 @@ final class SyncWooCommerceStockUseCase {
     }
 
     public function syncAllToWooCommerce(): int {
-        $products = $this->productRepo->findAll(500, 0);
         $synced = 0;
-        foreach ($products as $product) {
-            if (!$product->wcProductId) continue;
-            // Keep the reconciliation retryable and use the same per-product lock
-            // as POS, manual adjustments and the background queue worker.
-            $this->stockRepo->enqueueWooCommerceSync($product->id);
-            try {
-                $this->adjustStock->syncProductToWooCommerce($product->id);
-                $synced++;
-            } catch (\Throwable $error) {
-                $this->log->error('Hourly WooCommerce stock reconciliation remains queued.', [
-                    'product_id' => $product->id,
-                    'error_class' => get_class($error),
-                ]);
+        $pageSize = 500;
+        for ($offset = 0; ; $offset += $pageSize) {
+            // findAll() is capped at 1,000 rows; page through the full active
+            // catalogue so products after the first page are not starved forever.
+            $products = $this->productRepo->findAll($pageSize, $offset);
+            foreach ($products as $product) {
+                if (!$product->wcProductId) continue;
+                // Keep the reconciliation retryable and use the same per-product lock
+                // as POS, manual adjustments and the background queue worker.
+                $this->stockRepo->enqueueWooCommerceSync($product->id);
+                try {
+                    $this->adjustStock->syncProductToWooCommerce($product->id);
+                    $synced++;
+                } catch (\Throwable $error) {
+                    $this->log->error('Hourly WooCommerce stock reconciliation remains queued.', [
+                        'product_id' => $product->id,
+                        'error_class' => get_class($error),
+                    ]);
+                }
             }
+            if (count($products) < $pageSize) break;
         }
         return $synced;
-    }
-}
+    }}
