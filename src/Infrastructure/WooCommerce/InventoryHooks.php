@@ -469,7 +469,7 @@ final class InventoryHooks {
             }
         } catch (\Throwable $e) {
             if (isset($order) && $order instanceof \WC_Order) {
-                try { $this->markReturnCaptureFailed($order); }
+                try { $this->markReturnCaptureFailed($order, true); }
                 catch (\Throwable $markerError) { error_log('[PKStore Inventory] Refund safety marker could not be persisted ('.get_class($markerError).').'); }
             }
             error_log('[PKStore Inventory] Unable to persist refund restock event ('.get_class($e).').');
