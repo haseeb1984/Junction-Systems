@@ -717,7 +717,7 @@ final class SyncWooCommerceStockUseCase {
             return $this->withOrderLock($orderId, function () use ($item, $newStock, $oldStock, $order, $cycleUuid): bool {
                 return $this->applyWooCommerceOrderItemRestored($item, $newStock, $oldStock, $order, $cycleUuid);
             });
-        });
+        }, [(int) $item->get_id()]);
     }
 
     private function applyWooCommerceOrderItemRestored($item, int $newStock, int $oldStock, $order, ?string $cycleUuid = null): bool {
@@ -839,7 +839,7 @@ final class SyncWooCommerceStockUseCase {
             return $this->withOrderLock($orderId, function () use ($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid): bool {
                 return $this->applyWooCommerceRefundItemRestocked($wcProductId, $newStock, $oldStock, $order, $product, $orderItemId, $cumulativeRestocked, $cycleUuid);
             });
-        });
+        }, $orderItemId !== null ? [$orderItemId] : null, $wcProductId);
     }
 
     private function applyWooCommerceRefundItemRestocked(int $wcProductId, int $newStock, int $oldStock, $order, $product, ?int $orderItemId = null, ?int $cumulativeRestocked = null, ?string $cycleUuid = null): bool {
@@ -1520,20 +1520,28 @@ final class SyncWooCommerceStockUseCase {
      * Acquire product mutexes before the per-order mutex. Live WooCommerce hooks
      * and background queue workers must use the same ordering to avoid deadlocks.
      */
-    private function withOrderProductLocks(\WC_Order $order, callable $callback): mixed {
+    private function withOrderProductLocks(\\WC_Order $order, callable $callback, ?array $selectedItemIds = null, ?int $wcProductId = null): mixed {
+        $selectedItemIds = $selectedItemIds !== null ? array_fill_keys(array_map('intval', $selectedItemIds), true) : null;
         $inventoryProductIds = [];
         foreach ($order->get_items('line_item') as $item) {
+            $itemId = (int) $item->get_id();
+            if ($selectedItemIds !== null && !isset($selectedItemIds[$itemId])) continue;
+            if ($wcProductId !== null) {
+                $parentId = (int) $item->get_product_id();
+                $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+                if ($wcProductId !== $parentId && $wcProductId !== $variationId) continue;
+            }
             $inventoryProductId = (int) $item->get_meta('_pkstore_inventory_product_id', true);
             if ($inventoryProductId > 0) {
                 $inventoryProductIds[] = $inventoryProductId;
                 continue;
             }
             $wcProduct = $item->get_product();
-            if (!$wcProduct instanceof \WC_Product || !$wcProduct->managing_stock()) continue;
+            if (!$wcProduct instanceof \\WC_Product || !$wcProduct->managing_stock()) continue;
             $stockOwnerId = method_exists($wcProduct, 'get_stock_managed_by_id')
                 ? (int) $wcProduct->get_stock_managed_by_id()
                 : (int) $wcProduct->get_id();
-            if ($stockOwnerId < 1) throw new \RuntimeException('WooCommerce stock owner could not be resolved for order locking.');
+            if ($stockOwnerId < 1) throw new \\RuntimeException('WooCommerce stock owner could not be resolved for order locking.');
             $inventoryProduct = $this->productRepo->findByWcProductId($stockOwnerId);
             if ($inventoryProduct) $inventoryProductIds[] = (int) $inventoryProduct->id;
         }
@@ -1545,6 +1553,7 @@ final class SyncWooCommerceStockUseCase {
             InventoryProductLock::release($locks);
         }
     }
+
 
     /**
      * Serialize sale ingestion and all return callbacks for one WooCommerce
