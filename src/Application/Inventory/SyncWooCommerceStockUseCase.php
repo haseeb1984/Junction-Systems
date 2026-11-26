@@ -1601,4 +1601,5 @@ final class SyncWooCommerceStockUseCase {
             if (count($products) < $pageSize) break;
         }
         return $synced;
-    }}
+    }
+}
