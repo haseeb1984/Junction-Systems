@@ -1520,7 +1520,7 @@ final class SyncWooCommerceStockUseCase {
      * Acquire product mutexes before the per-order mutex. Live WooCommerce hooks
      * and background queue workers must use the same ordering to avoid deadlocks.
      */
-    private function withOrderProductLocks(\\WC_Order $order, callable $callback, ?array $selectedItemIds = null, ?int $wcProductId = null): mixed {
+    private function withOrderProductLocks(\WC_Order $order, callable $callback, ?array $selectedItemIds = null, ?int $wcProductId = null): mixed {
         $selectedItemIds = $selectedItemIds !== null ? array_fill_keys(array_map('intval', $selectedItemIds), true) : null;
         $inventoryProductIds = [];
         foreach ($order->get_items('line_item') as $item) {
@@ -1537,11 +1537,11 @@ final class SyncWooCommerceStockUseCase {
                 continue;
             }
             $wcProduct = $item->get_product();
-            if (!$wcProduct instanceof \\WC_Product || !$wcProduct->managing_stock()) continue;
+            if (!$wcProduct instanceof \WC_Product || !$wcProduct->managing_stock()) continue;
             $stockOwnerId = method_exists($wcProduct, 'get_stock_managed_by_id')
                 ? (int) $wcProduct->get_stock_managed_by_id()
                 : (int) $wcProduct->get_id();
-            if ($stockOwnerId < 1) throw new \\RuntimeException('WooCommerce stock owner could not be resolved for order locking.');
+            if ($stockOwnerId < 1) throw new \RuntimeException('WooCommerce stock owner could not be resolved for order locking.');
             $inventoryProduct = $this->productRepo->findByWcProductId($stockOwnerId);
             if ($inventoryProduct) $inventoryProductIds[] = (int) $inventoryProduct->id;
         }
