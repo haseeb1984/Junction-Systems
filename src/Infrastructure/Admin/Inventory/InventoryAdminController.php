@@ -134,6 +134,21 @@ final class InventoryAdminController {
                     ));
                 }
             } else {
+                if ($queueType === 'returns') {
+                    // Cycle-bound returns have a second durable lifecycle record.
+                    // Ignoring only the queue row would strand its cycle event and
+                    // keep the order's stock-safety marker active indefinitely.
+                    $cycleEvent = $wpdb->get_row($wpdb->prepare(
+                        "SELECT cycle_uuid,status FROM {$table} WHERE id=%d AND status='needs_review' FOR UPDATE",
+                        $queueId
+                    ), ARRAY_A);
+                    if ($wpdb->last_error !== '' || !is_array($cycleEvent)) {
+                        throw new \\RuntimeException('Return queue event is no longer available for operator review.');
+                    }
+                    if (!empty($cycleEvent['cycle_uuid'])) {
+                        throw new \\RuntimeException('Cycle-bound returns cannot be ignored until a dedicated cycle reconciliation workflow is available. Retry the event or reconcile it outside this action.');
+                    }
+                }
                 $updated = $wpdb->query($wpdb->prepare(
                     "UPDATE {$table} SET status='ignored', claimed_at=NULL, claim_token=NULL, updated_at=%s
                      WHERE id=%d AND status='needs_review'",
