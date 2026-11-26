@@ -517,7 +517,7 @@ final class InventoryAdminController {
             "SELECT id, CONCAT('WooCommerce ',event_kind,' restock') AS event,
                     CONCAT('#',wc_order_id) AS reference,
                     CONCAT('Cycle ',LEFT(COALESCE(cycle_uuid,'legacy'),8),' · Item ',COALESCE(wc_order_item_id,'—'),' · Product ',wc_product_id,' · Qty ',quantity) AS details,
-                    status, attempts, next_attempt_at, claimed_at, last_error, created_at
+                    cycle_uuid, status, attempts, next_attempt_at, claimed_at, last_error, created_at
              FROM {$tables['returns']} ORDER BY updated_at DESC LIMIT 100",
             ARRAY_A
         ) ?: []) : [];
