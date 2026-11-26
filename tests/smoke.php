@@ -810,7 +810,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnHooks, "'pkstore_wc_order_' . \$orderId") === false
     || strpos($returnHooks, 'Unable to acquire WooCommerce order lock for return safety marker.') === false
     || strpos($returnHooks, 'bool $requiresManualReview = false') === false
-    || strpos($returnHooks, 'markReturnCaptureFailed($order, true)') === false) {
+    || substr_count($returnHooks, 'markReturnCaptureFailed($order, true)') !== 2) {
     throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
 
