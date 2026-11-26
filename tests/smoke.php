@@ -1377,7 +1377,7 @@ if (!is_string($inventoryCronSource)
     || strpos($inventoryCronSource, "WooCommerce stock sync queue worker failed") === false
     || strpos($inventoryCronSource, "WooCommerce order inventory queue worker failed") === false
     || strpos($inventoryCronSource, "WooCommerce return inventory queue worker failed") === false) {
-    throw new \\RuntimeException('Each WooCommerce inventory cron worker must isolate and log its own failures.');
+    throw new \RuntimeException('Each WooCommerce inventory cron worker must isolate and log its own failures.');
 }
 
 $codOtpControllerSource = file_get_contents($src . '/Infrastructure/Http/CodOtpController.php');
