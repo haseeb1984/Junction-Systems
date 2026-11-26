@@ -149,6 +149,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
                AND q.wc_order_id=e.wc_order_id
                AND q.wc_order_item_id=e.wc_order_item_id
                AND q.event_kind=e.event_kind
+               AND q.wc_product_id=COALESCE(NULLIF(CAST(JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(e.source_metadata) THEN e.source_metadata ELSE '{}' END,'$.wc_product_id')) AS UNSIGNED),0),NULLIF(i.wc_variation_id,0),i.wc_parent_product_id)
                AND q.quantity=e.quantity
                AND (
                     (e.event_kind='cancellation' AND q.cumulative_quantity=0)
