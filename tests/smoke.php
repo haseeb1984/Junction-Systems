@@ -849,6 +849,9 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "confirm_ignore") === false
     || strpos($queueOperatorTemplate, "confirm_ignore") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
+    || strpos($queueOperatorSource, 'Cycle-bound returns cannot be ignored') === false
+    || strpos($queueOperatorSource, 'FOR UPDATE') === false
+    || strpos($queueOperatorTemplate, "empty(\$event['cycle_uuid'])") === false
     || strpos($queueOperatorSource, "pkstore_inventory_queue_audit") === false
     || strpos($queueOperatorSource, "'previous_status' => 'needs_review'") === false
     || strpos($queueOperatorSource, "'resulting_status' =>") === false
