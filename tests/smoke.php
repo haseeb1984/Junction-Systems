@@ -719,6 +719,13 @@ if (!is_string($stockSyncUseCaseSource)
     throw new \RuntimeException('Hourly WooCommerce stock reconciliation must page through the complete active inventory catalogue.');
 }
 
+
+$inventoryProductRepositorySource = file_get_contents($src . '/Infrastructure/Inventory/WpInventoryProductRepository.php');
+if (!is_string($inventoryProductRepositorySource)
+    || substr_count($inventoryProductRepositorySource, 'ORDER BY name, id LIMIT %d OFFSET %d') !== 2) {
+    throw new \RuntimeException('Inventory product pagination must use a stable unique secondary sort key.');
+}
+
 $inventoryMappingMigrationSource = file_get_contents($src . '/Infrastructure/Database/InventoryInstaller.php');
 if (!is_string($inventoryMappingMigrationSource)
     || strpos($inventoryMappingMigrationSource, 'GROUP BY wc_product_id HAVING COUNT(*) > 1') === false
