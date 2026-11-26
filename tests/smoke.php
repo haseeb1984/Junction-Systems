@@ -774,6 +774,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'enqueueRefund(int $orderId, int $productId, int $quantity, int $cumulativeQuantity, ?int $itemId = null, ?string $cycleUuid = null): string') === false
     || strpos($returnQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($returnQueueSource, 'recoverUnqueuedCycleEvents') === false
+    || strpos($returnQueueSource, 'q.wc_product_id=COALESCE') === false
     || strpos($returnQueueSource, 'Verify it instead of trusting the key.') === false
     || strpos($returnQueueSource, 'return event key conflicts with a different persisted payload') === false
     || strpos($returnQueueSource, 'clearReturnFailureMarkerIfReconciled') === false
