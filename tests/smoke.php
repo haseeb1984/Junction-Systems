@@ -1880,7 +1880,7 @@ if (!is_string($inventoryLockSource) || !is_string($posLockSource) || !is_string
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($products)') !== 2
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::acquireMany($lockProductIds)') !== 2
     || substr_count($onlineSaleLockSource, 'InventoryProductLock::release($productLocks)') !== 8
-    || strpos($onlineSaleLockSource, 'private function withOrderProductLocks(\\\\WC_Order') === false
+    || strpos($onlineSaleLockSource, 'private function withOrderProductLocks(\\WC_Order') === false
     || strpos($onlineSaleLockSource, 'InventoryProductLock::acquireMany($inventoryProductIds)') === false
     || strpos($onlineSaleLockSource, '$this->withOrderProductLocks($order') > strpos($onlineSaleLockSource, '$this->withOrderLock($orderId')
     || strpos($onlineSaleLockSource, '}, [(int) $item->get_id()]);') === false
