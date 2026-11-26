@@ -169,11 +169,43 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         }
     }
 
+    private function recoverStaleReturnFailureMarkers(int $limit): void {
+        if (!function_exists('wc_get_orders')) throw new \RuntimeException('WooCommerce order lookup is unavailable for return marker recovery.');
+        $orders = wc_get_orders([
+            'limit' => max(1, min(100, $limit)),
+            'return' => 'ids',
+            'status' => array_keys(wc_get_order_statuses()),
+            'meta_query' => [[
+                'key' => '_pkstore_wc_return_capture_failed',
+                'value' => 'yes',
+                'compare' => '=',
+            ]],
+        ]);
+        if (!is_array($orders)) throw new \RuntimeException('Unable to find WooCommerce orders requiring return marker recovery.');
+        foreach ($orders as $orderId) {
+            try {
+                $this->clearReturnFailureMarkerIfReconciled((int) $orderId);
+            } catch (\Throwable $error) {
+                $this->log->warning('WooCommerce return safety marker remains set because reconciliation could not be verified.', [
+                    'order_id' => (int) $orderId,
+                    'error_class' => get_class($error),
+                ]);
+            }
+        }
+    }
+
     public function execute(int $limit = 20): array {
         try {
             $this->recoverUnqueuedCycleEvents($limit);
         } catch (\Throwable $recoveryError) {
             $this->log->critical('WooCommerce cycle return queue recovery failed; pending cycle events remain durable.', [
+                'error_class' => get_class($recoveryError),
+            ]);
+        }
+        try {
+            $this->recoverStaleReturnFailureMarkers($limit);
+        } catch (\Throwable $recoveryError) {
+            $this->log->critical('WooCommerce return safety marker recovery failed; POS remains fail-closed.', [
                 'error_class' => get_class($recoveryError),
             ]);
         }
