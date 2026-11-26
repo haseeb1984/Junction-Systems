@@ -175,6 +175,29 @@ final class ProcessPOSSaleUseCase {
             throw new OnlineStockReconciliationPendingException('Online store inventory reconciliation is unavailable; POS sales are paused to prevent overselling.');
         }
 
+        // Legacy orders may not have a cycle-event row when WooCommerce's
+        // return hook could not persist its queue event. Query through the
+        // WooCommerce CRUD API so this also works with HPOS order storage.
+        if (!function_exists('wc_get_orders')) {
+            throw new OnlineStockReconciliationPendingException('WooCommerce return safety markers cannot be verified; POS sales are paused.');
+        }
+        $failedReturnOrders = wc_get_orders([
+            'limit' => 1,
+            'return' => 'ids',
+            'status' => array_keys(wc_get_order_statuses()),
+            'meta_query' => [[
+                'key' => '_pkstore_wc_return_capture_failed',
+                'value' => 'yes',
+                'compare' => '=',
+            ]],
+        ]);
+        if (!is_array($failedReturnOrders)) {
+            throw new OnlineStockReconciliationPendingException('WooCommerce return safety markers could not be verified; POS sales are paused.');
+        }
+        if ($failedReturnOrders) {
+            throw new OnlineStockReconciliationPendingException('A WooCommerce return event needs manual inventory reconciliation; POS sales are paused.');
+        }
+
         $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
         $queueTable = $wpdb->prefix . 'pkstore_wc_order_inventory_queue';
         $cyclesTable = $wpdb->prefix . 'pkstore_wc_stock_cycles';
