@@ -350,9 +350,22 @@ final class InventoryHooks {
     }
 
     private function markReturnCaptureFailed(\WC_Order $order): void {
-        $order->update_meta_data('_pkstore_wc_return_capture_failed', 'yes');
-        if ((int) $order->save() !== (int) $order->get_id()) {
-            throw new \RuntimeException('Unable to persist the WooCommerce return reconciliation safety marker.');
+        $orderId = (int) $order->get_id();
+        if ($orderId < 1) throw new \RuntimeException('Unable to persist a return safety marker without a valid order ID.');
+        global $wpdb;
+        if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for return safety marker.');
+        $lockName = 'pkstore_wc_order_' . $orderId;
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ((int) $acquired !== 1) throw new \RuntimeException('Unable to acquire WooCommerce order lock for return safety marker.');
+        try {
+            $freshOrder = wc_get_order($orderId);
+            if (!($freshOrder instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable for return safety marker.');
+            $freshOrder->update_meta_data('_pkstore_wc_return_capture_failed', 'yes');
+            if ((int) $freshOrder->save() !== $orderId) {
+                throw new \RuntimeException('Unable to persist the WooCommerce return reconciliation safety marker.');
+            }
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
     }
 
