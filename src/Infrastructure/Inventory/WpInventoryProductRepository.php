@@ -130,12 +130,12 @@ final class WpInventoryProductRepository implements InventoryProductRepositoryIn
         if ($search !== '') {
             $like = '%' . $this->db->esc_like($search) . '%';
             $query = $this->db->prepare(
-                "SELECT * FROM {$this->t()} WHERE is_active=1 AND (name LIKE %s OR sku LIKE %s OR barcode LIKE %s) ORDER BY name LIMIT %d OFFSET %d",
+                "SELECT * FROM {$this->t()} WHERE is_active=1 AND (name LIKE %s OR sku LIKE %s OR barcode LIKE %s) ORDER BY name, id LIMIT %d OFFSET %d",
                 $like, $like, $like, $limit, $offset
             );
         } else {
             $query = $this->db->prepare(
-                "SELECT * FROM {$this->t()} WHERE is_active=1 ORDER BY name LIMIT %d OFFSET %d",
+                "SELECT * FROM {$this->t()} WHERE is_active=1 ORDER BY name, id LIMIT %d OFFSET %d",
                 $limit, $offset
             );
         }
