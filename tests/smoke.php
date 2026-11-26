@@ -940,6 +940,7 @@ if (!is_string($orderQueueSource)
     || strpos($orderQueueSource, 'ensureActiveCycleMeta(') === false
     || strpos($orderQueueSource, '_pkstore_wc_active_cycle_uuid') === false
     || strpos($orderQueueSource, 'recoverUnqueuedCycleSales') === false
+    || strpos($orderQueueSource, "q.id IS NULL OR q.status='ignored'") === false
     || strpos($orderQueueSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($orderQueueSource, 'CaptureWooCommerceStockCycleUseCase') === false
     || strpos($inventoryInstallerSource, 'cycle_uuid CHAR(36) NOT NULL DEFAULT') === false
