@@ -143,10 +143,10 @@ final class InventoryAdminController {
                         $queueId
                     ), ARRAY_A);
                     if ($wpdb->last_error !== '' || !is_array($cycleEvent)) {
-                        throw new \\RuntimeException('Return queue event is no longer available for operator review.');
+                        throw new \RuntimeException('Return queue event is no longer available for operator review.');
                     }
                     if (!empty($cycleEvent['cycle_uuid'])) {
-                        throw new \\RuntimeException('Cycle-bound returns cannot be ignored until a dedicated cycle reconciliation workflow is available. Retry the event or reconcile it outside this action.');
+                        throw new \RuntimeException('Cycle-bound returns cannot be ignored until a dedicated cycle reconciliation workflow is available. Retry the event or reconcile it outside this action.');
                     }
                 }
                 $updated = $wpdb->query($wpdb->prepare(
