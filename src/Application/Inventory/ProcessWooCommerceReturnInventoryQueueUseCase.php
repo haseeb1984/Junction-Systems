@@ -69,32 +69,42 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
 
     private function clearReturnFailureMarkerIfReconciled(int $orderId): void {
         if ($orderId < 1) throw new \InvalidArgumentException('A valid WooCommerce order is required for return marker recovery.');
-        $order = wc_get_order($orderId);
-        if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable while recovering its return marker.');
-
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable while recovering return marker.');
-        $queueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
-        $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
-        $pendingQueue = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$queueTable} WHERE wc_order_id=%d AND status IN ('pending','processing','needs_review')",
-            $orderId
-        ));
-        if ($wpdb->last_error !== '' || !is_numeric($pendingQueue)) throw new \RuntimeException('Unable to verify outstanding return queue work.');
-        $pendingEvents = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$eventsTable} WHERE wc_order_id=%d AND event_kind IN ('cancellation','refund') AND status IN ('pending','processing','needs_review','failed','review')",
-            $orderId
-        ));
-        if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) throw new \RuntimeException('Unable to verify outstanding return cycle events.');
-        if ((int) $pendingQueue > 0 || (int) $pendingEvents > 0) return;
+        $lockName = 'pkstore_wc_order_' . $orderId;
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lockName, 10));
+        if ((int) $acquired !== 1) throw new \RuntimeException('Unable to acquire WooCommerce order lock while recovering return marker.');
 
-        foreach ($order->get_meta_data() as $meta) {
-            $key = is_object($meta) && isset($meta->key) ? (string) $meta->key : '';
-            if (strpos($key, '_pkstore_wc_cycle_return_capture_failed_') === 0) return;
-        }
-        if ($order->get_meta('_pkstore_wc_return_capture_failed', true) === 'yes') {
-            $order->delete_meta_data('_pkstore_wc_return_capture_failed');
-            if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear reconciled WooCommerce return safety marker.');
+        try {
+            // Refresh only after taking the same order mutex used by sale/return
+            // processing and failure-marker writers. This prevents a successful
+            // sibling return from clearing a concurrent legacy capture failure.
+            $order = wc_get_order($orderId);
+            if (!($order instanceof \WC_Order)) throw new \RuntimeException('WooCommerce order is unavailable while recovering its return marker.');
+            $queueTable = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+            $eventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+            $pendingQueue = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$queueTable} WHERE wc_order_id=%d AND status IN ('pending','processing','needs_review')",
+                $orderId
+            ));
+            if ($wpdb->last_error !== '' || !is_numeric($pendingQueue)) throw new \RuntimeException('Unable to verify outstanding return queue work.');
+            $pendingEvents = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$eventsTable} WHERE wc_order_id=%d AND event_kind IN ('cancellation','refund') AND status IN ('pending','processing','needs_review','failed','review')",
+                $orderId
+            ));
+            if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) throw new \RuntimeException('Unable to verify outstanding return cycle events.');
+            if ((int) $pendingQueue > 0 || (int) $pendingEvents > 0) return;
+
+            foreach ($order->get_meta_data() as $meta) {
+                $key = is_object($meta) && isset($meta->key) ? (string) $meta->key : '';
+                if (strpos($key, '_pkstore_wc_cycle_return_capture_failed_') === 0) return;
+            }
+            if ($order->get_meta('_pkstore_wc_return_capture_failed', true) === 'yes') {
+                $order->delete_meta_data('_pkstore_wc_return_capture_failed');
+                if ((int) $order->save() !== $orderId) throw new \RuntimeException('Unable to clear reconciled WooCommerce return safety marker.');
+            }
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
         }
     }
 
