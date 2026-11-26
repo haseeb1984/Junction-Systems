@@ -777,6 +777,7 @@ if (!is_string($returnQueueSource)
     || strpos($returnQueueSource, 'Verify it instead of trusting the key.') === false
     || strpos($returnQueueSource, 'return event key conflicts with a different persisted payload') === false
     || strpos($returnQueueSource, 'clearReturnFailureMarkerIfReconciled') === false
+    || strpos($returnQueueSource, "get_meta('_pkstore_wc_return_capture_failed_manual', true)") === false
     || strpos($returnQueueSource, "'pkstore_wc_order_' . \$orderId") === false
     || strpos($returnQueueSource, 'Unable to acquire WooCommerce order lock while recovering return marker.') === false
     || strpos($returnQueueSource, 'recoverStaleReturnFailureMarkers') === false
@@ -806,7 +807,9 @@ if (!is_string($returnQueueSource)
     || strpos($returnHooks, 'acknowledgeCompleted($eventKey)') === false
     || strpos($returnHooks, '_pkstore_wc_active_cycle_uuid') === false
     || strpos($returnHooks, "'pkstore_wc_order_' . \$orderId") === false
-    || strpos($returnHooks, 'Unable to acquire WooCommerce order lock for return safety marker.') === false) {
+    || strpos($returnHooks, 'Unable to acquire WooCommerce order lock for return safety marker.') === false
+    || strpos($returnHooks, 'bool $requiresManualReview = false') === false
+    || strpos($returnHooks, "markReturnCaptureFailed($order, true)") === false) {
     throw new \RuntimeException('WooCommerce cancellation/refund callbacks must persist durable retryable return events.');
 }
 
