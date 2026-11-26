@@ -349,10 +349,10 @@ final class InventoryHooks {
         }
     }
 
-    private function markReturnCaptureFailed(\\WC_Order $order): void {
+    private function markReturnCaptureFailed(\WC_Order $order): void {
         $order->update_meta_data('_pkstore_wc_return_capture_failed', 'yes');
         if ((int) $order->save() !== (int) $order->get_id()) {
-            throw new \\RuntimeException('Unable to persist the WooCommerce return reconciliation safety marker.');
+            throw new \RuntimeException('Unable to persist the WooCommerce return reconciliation safety marker.');
         }
     }
 
@@ -395,6 +395,10 @@ final class InventoryHooks {
                 error_log('[PKStore Inventory] Synchronous cancellation restock deferred to durable queue ('.get_class($syncError).').');
             }
         } catch (\Throwable $e) {
+            if (isset($order) && $order instanceof \WC_Order) {
+                try { $this->markReturnCaptureFailed($order); }
+                catch (\Throwable $markerError) { error_log('[PKStore Inventory] Cancellation safety marker could not be persisted ('.get_class($markerError).').'); }
+            }
             error_log('[PKStore Inventory] Unable to persist cancellation restock event ('.get_class($e).').');
         }
     }
@@ -450,6 +454,10 @@ final class InventoryHooks {
                 }
             }
         } catch (\Throwable $e) {
+            if (isset($order) && $order instanceof \WC_Order) {
+                try { $this->markReturnCaptureFailed($order); }
+                catch (\Throwable $markerError) { error_log('[PKStore Inventory] Refund safety marker could not be persisted ('.get_class($markerError).').'); }
+            }
             error_log('[PKStore Inventory] Unable to persist refund restock event ('.get_class($e).').');
         }
     }
