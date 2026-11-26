@@ -95,6 +95,7 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
             if ($wpdb->last_error !== '' || !is_numeric($pendingEvents)) throw new \RuntimeException('Unable to verify outstanding return cycle events.');
             if ((int) $pendingQueue > 0 || (int) $pendingEvents > 0) return;
 
+            if ($order->get_meta('_pkstore_wc_return_capture_failed_manual', true) === 'yes') return;
             foreach ($order->get_meta_data() as $meta) {
                 $key = is_object($meta) && isset($meta->key) ? (string) $meta->key : '';
                 if (strpos($key, '_pkstore_wc_cycle_return_capture_failed_') === 0) return;
