@@ -87,7 +87,7 @@ final class ProcessWooCommerceOrderInventoryQueueUseCase {
              LEFT JOIN {$queueTable} q
                 ON q.wc_order_id=e.wc_order_id AND q.cycle_uuid=e.cycle_uuid
              WHERE e.event_kind='reduction' AND e.status='pending'
-               AND e.next_attempt_at<=%s AND q.id IS NULL
+               AND e.next_attempt_at<=%s AND (q.id IS NULL OR q.status='ignored')
              ORDER BY e.created_at ASC LIMIT %d",
             current_time('mysql'),
             max(1, min(100, $limit))
