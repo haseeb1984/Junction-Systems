@@ -105,12 +105,18 @@ final class ProcessWooCommerceReturnInventoryQueueUseCase {
         global $wpdb;
         if (!$wpdb instanceof \wpdb) throw new \RuntimeException('WordPress database is unavailable for WooCommerce return queue.');
         $table = $wpdb->prefix . 'pkstore_wc_return_inventory_queue';
+        $orderId = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT wc_order_id FROM {$table} WHERE event_key=%s AND status IN ('pending','needs_review') AND claimed_at IS NULL",
+            $eventKey
+        ));
+        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to resolve synchronously completed WooCommerce return order.');
         $deleted = $wpdb->query($wpdb->prepare(
             "DELETE FROM {$table}
              WHERE event_key=%s AND status IN ('pending','needs_review') AND claimed_at IS NULL",
             $eventKey
         ));
         if ($deleted === false) throw new \RuntimeException('Unable to acknowledge synchronously completed WooCommerce return event.');
+        if ($deleted === 1 && $orderId > 0) $this->clearReturnFailureMarkerIfReconciled($orderId);
     }
 
     private function recoverUnqueuedCycleEvents(int $limit): void {
