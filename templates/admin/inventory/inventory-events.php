@@ -78,7 +78,10 @@
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason for retry" style="max-width:180px;">
                                     <button type="submit" class="button button-secondary">Retry</button>
                                 </form>
-                                <?php if ($allowIgnore && ($queueType !== 'returns' || empty($event['cycle_uuid']))): ?>
+                                <?php if ($allowIgnore
+                                    && ($queueType === 'sales'
+                                        ? (($event['cycle_uuid'] ?? '') === '00000000-0000-0000-0000-000000000000')
+                                        : ($queueType !== 'returns' || empty($event['cycle_uuid'])))): ?>
                                 <form method="post">
                                     <?php wp_nonce_field('pkstore_inventory_action'); ?>
                                     <input type="hidden" name="pkstore_inventory_action" value="ignore_inventory_event">
@@ -163,5 +166,5 @@
         <?php if (empty($operatorAudit)): ?><tr><td colspan="7">No operator actions recorded.</td></tr><?php endif; ?>
         </tbody>
     </table>
-    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to sale events and legacy returns; cycle-bound returns are retry-only. Ignore does not change stock; it requires explicit confirmation that the event is not Junction-managed or is a duplicate, and records the operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
+    <p class="description">Retry is available for retained sale, return and lease-fenced stock-sync events in needs_review; Ignore remains limited to legacy sale events and legacy returns; cycle-bound sales and returns are retry-only. Ignore does not change stock; it requires explicit confirmation that the event is not Junction-managed or is a duplicate, and records the operator decision. Stock-sync queue actions and force-complete remain unavailable.</p>
 </div>
