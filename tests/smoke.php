@@ -940,7 +940,9 @@ if (!is_string($inventoryEventsSource)
     || strpos($inventoryEventsSource, 'wc_stock_cycle_return') === false
     || strpos($inventoryEventsSource, 'sale_verified') === false
     || strpos($inventoryEventsSource, 'returnEvidence') === false
+    || strpos($inventoryEventsSource, 'reconciliation_ok') === false
     || strpos($inventoryEventsTemplate, 'Return reconciliation evidence') === false
+    || strpos($inventoryEventsTemplate, 'Retry disabled: original sale/return ledger evidence') === false
     || strpos($inventoryEventsTemplate, "esc_html(") === false) {
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
 }
@@ -956,6 +958,9 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "confirm_ignore") === false
     || strpos($queueOperatorTemplate, "confirm_ignore") === false
     || strpos($queueOperatorSource, "confirm_reconciliation") === false
+    || strpos($queueOperatorSource, 'assertCycleReturnLedgerEvidence') === false
+    || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
+    || strpos($queueOperatorSource, 'Refund retry would skip or duplicate a cumulative return quantity') === false
     || strpos($queueOperatorTemplate, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
     || strpos($queueOperatorSource, 'Cycle-bound returns cannot be ignored') === false
