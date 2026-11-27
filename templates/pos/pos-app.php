@@ -561,7 +561,14 @@ const POS = {
                         item.status = 'needs_review';
                         item.last_error = String(e.message || 'Sale rejected by server').slice(0, 240);
                         await DB.put('queue', item);
-                        if (item.local_stock_decremented) await this.applyLocalStockDelta(item.items || [], 1);
+                        if (item.local_stock_decremented) {
+                            await this.applyLocalStockDelta(item.items || [], 1);
+                            // The optimistic decrement has now been rolled back.
+                            // Persist this fact so a later operator retry cannot
+                            // add the same quantity back into the local cache twice.
+                            item.local_stock_decremented = false;
+                            await DB.put('queue', item);
+                        }
                     }
                     // Network, timeout, throttling and 5xx failures remain pending
                     // and retry with the same idempotency reference.
