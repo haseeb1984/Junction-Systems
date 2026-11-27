@@ -69,7 +69,8 @@
                     <td><?= esc_html($event['created_at'] ?? '') ?></td>
                     <?php if ($queueType !== null): ?>
                         <td>
-                            <?php if (($event['status'] ?? '') === 'needs_review'): ?>
+                            <?php if (($event['status'] ?? '') === 'needs_review'
+                                && ($queueType !== 'returns' || empty($event['cycle_uuid']) || !empty($event['reconciliation_ok']))): ?>
                                 <form method="post" style="margin-bottom:8px;">
                                     <?php wp_nonce_field('pkstore_inventory_action'); ?>
                                     <input type="hidden" name="pkstore_inventory_action" value="retry_inventory_event">
@@ -95,6 +96,8 @@
                                     <button type="submit" class="button button-secondary">Ignore</button>
                                 </form>
                                 <?php endif; ?>
+                            <?php elseif (($event['status'] ?? '') === 'needs_review' && $queueType === 'returns' && !empty($event['cycle_uuid'])): ?>
+                                <span class="description">Retry disabled: original sale/return ledger evidence is missing or inconsistent.</span>
                             <?php else: ?>
                                 <span class="description">Available only for needs_review</span>
                             <?php endif; ?>
