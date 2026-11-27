@@ -145,17 +145,31 @@ final class InventoryAdminController {
                     $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
                     if ($updated === 1 && $cycleUuid !== '') {
                         $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
-                        $cycleUpdated = $wpdb->query($wpdb->prepare(
-                            "UPDATE {$cycleEventsTable}
-                             SET status='pending', attempts=0, next_attempt_at=%s,
-                                 claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
-                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d
-                               AND event_kind=%s AND status IN ('needs_review','failed','review')",
-                            $now, $now, $cycleUuid, (int) $returnRow['wc_order_id'],
+                        $cycleEvent = $wpdb->get_row($wpdb->prepare(
+                            "SELECT id,status FROM {$cycleEventsTable}
+                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d AND event_kind=%s",
+                            $cycleUuid, (int) $returnRow['wc_order_id'],
                             (int) $returnRow['wc_order_item_id'], (string) $returnRow['event_kind']
-                        ));
-                        if ($cycleUpdated !== 1) {
-                            throw new \RuntimeException('Matching stock-cycle return event is not in a recoverable review state.');
+                        ), ARRAY_A);
+                        if ($wpdb->last_error !== '' || !is_array($cycleEvent)) {
+                            throw new \RuntimeException('Matching stock-cycle return event is unavailable.');
+                        }
+                        // A pending event is already eligible; a processed event
+                        // means the ledger work committed and only queue acknowledgement
+                        // needs replay. Never rewind processed state or steal a live claim.
+                        if (in_array((string) $cycleEvent['status'], ['needs_review','failed','review'], true)) {
+                            $cycleUpdated = $wpdb->query($wpdb->prepare(
+                                "UPDATE {$cycleEventsTable}
+                                 SET status='pending', attempts=0, next_attempt_at=%s,
+                                     claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
+                                 WHERE id=%d AND status IN ('needs_review','failed','review')",
+                                $now, $now, (int) $cycleEvent['id']
+                            ));
+                            if ($cycleUpdated !== 1) {
+                                throw new \RuntimeException('Matching stock-cycle return event changed during recovery.');
+                            }
+                        } elseif (!in_array((string) $cycleEvent['status'], ['pending','processed'], true)) {
+                            throw new \RuntimeException('Matching stock-cycle return event is not safely retryable.');
                         }
                     }
                 }
