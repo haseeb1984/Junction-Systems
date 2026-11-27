@@ -94,6 +94,103 @@ final class InventoryAdminController {
         };
     }
 
+    private function assertCycleReturnLedgerEvidence(array $returnRow, array $cycleEvent): void {
+        global $wpdb;
+        $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
+        $orderId = (int) ($returnRow['wc_order_id'] ?? 0);
+        $itemId = (int) ($returnRow['wc_order_item_id'] ?? 0);
+        if (!preg_match('/^[a-f0-9-]{36}$/i', $cycleUuid) || $orderId < 1 || $itemId < 1) {
+            throw new \RuntimeException('Cycle return identity is incomplete; manual reconciliation is required.');
+        }
+        $cycleItem = $wpdb->get_row($wpdb->prepare(
+            "SELECT reduced_quantity,refund_cumulative_baseline,cancellation_restored_quantity,
+                    refund_restored_quantity,allocation_snapshot
+             FROM {$wpdb->prefix}pkstore_wc_stock_cycle_items
+             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d FOR UPDATE",
+            $cycleUuid, $orderId, $itemId
+        ), ARRAY_A);
+        if ($wpdb->last_error !== '' || !is_array($cycleItem)) {
+            throw new \RuntimeException('Original stock-cycle allocation is unavailable for verification.');
+        }
+        $reduced = (int) $cycleItem['reduced_quantity'];
+        $returned = (int) $cycleItem['cancellation_restored_quantity'] + (int) $cycleItem['refund_restored_quantity'];
+        $allocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
+        if ($reduced < 1 || $returned < 0 || $returned > $reduced || !is_array($allocations) || !$allocations) {
+            throw new \RuntimeException('Original stock-cycle allocation snapshot is invalid.');
+        }
+        $allocated = 0;
+        $cursor = 0;
+        foreach ($allocations as $allocation) {
+            $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
+            $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
+            $quantity = is_array($allocation) ? (int) ($allocation['quantity'] ?? 0) : 0;
+            if ($productId < 1 || $locationId < 1 || $quantity < 1) {
+                throw new \RuntimeException('Original stock-cycle allocation contains an invalid line.');
+            }
+            $sale = $wpdb->get_row($wpdb->prepare(
+                "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle'
+                   AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
+                $productId, $locationId, $cycleUuid . ':' . $locationId
+            ), ARRAY_A);
+            if ($wpdb->last_error !== '' || !is_array($sale) || (int) $sale['quantity_delta'] !== -$quantity) {
+                throw new \RuntimeException('Original sale movement does not match the captured stock allocation.');
+            }
+            $returns = $wpdb->get_var($wpdb->prepare(
+                "SELECT COALESCE(SUM(quantity_delta),0) FROM {$wpdb->prefix}pkstore_inventory_movements
+                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
+                   AND movement_type='online_return' AND note LIKE %s",
+                $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
+            ));
+            if ($wpdb->last_error !== '' || !is_numeric($returns)) {
+                throw new \RuntimeException('Existing return movements could not be verified.');
+            }
+            $expected = max(0, min($returned, $cursor + $quantity) - $cursor);
+            if ((int) $returns !== $expected) {
+                throw new \RuntimeException('Existing return movements do not reconcile to the stock-cycle counters.');
+            }
+            $allocated += $quantity;
+            $cursor += $quantity;
+        }
+        if ($allocated !== $reduced) {
+            throw new \RuntimeException('Captured stock allocations do not equal the original sale quantity.');
+        }
+
+        if ((int) ($cycleEvent['quantity'] ?? 0) !== (int) ($returnRow['quantity'] ?? 0)) {
+            throw new \RuntimeException('Return queue quantity does not match its immutable cycle event.');
+        }
+        $kind = (string) ($returnRow['event_kind'] ?? '');
+        $eventCumulative = (int) ($cycleEvent['cumulative_quantity'] ?? -1);
+        if ($kind === 'refund') {
+            $expectedCumulative = (int) ($returnRow['cumulative_quantity'] ?? 0) - (int) $cycleItem['refund_cumulative_baseline'];
+            if ($expectedCumulative < 1 || $eventCumulative !== $expectedCumulative
+                || $expectedCumulative > $reduced) {
+                throw new \RuntimeException('Refund cumulative quantity does not match its captured stock cycle.');
+            }
+            if (($cycleEvent['status'] ?? '') === 'processed') {
+                if ((int) $cycleItem['refund_restored_quantity'] < $expectedCumulative) {
+                    throw new \RuntimeException('Processed refund event is not reflected in the cycle counters.');
+                }
+            } elseif ((int) $cycleItem['refund_restored_quantity'] + (int) $returnRow['quantity'] !== $expectedCumulative) {
+                throw new \RuntimeException('Refund retry would skip or duplicate a cumulative return quantity.');
+            }
+        } elseif ($kind === 'cancellation') {
+            if ($eventCumulative !== $reduced) {
+                throw new \RuntimeException('Cancellation event cumulative quantity does not match the original reduction.');
+            }
+            if (($cycleEvent['status'] ?? '') === 'processed') {
+                if ((int) $cycleItem['cancellation_restored_quantity'] < (int) $returnRow['quantity']) {
+                    throw new \RuntimeException('Processed cancellation is not reflected in the cycle counters.');
+                }
+            } elseif ((int) $cycleItem['cancellation_restored_quantity'] > 0
+                || (int) $returnRow['quantity'] !== $reduced - $returned) {
+                throw new \RuntimeException('Cancellation retry does not match the remaining cycle quantity.');
+            }
+        } else {
+            throw new \RuntimeException('Unknown return kind cannot be reconciled safely.');
+        }
+    }
+
     private function handleInventoryEventAction(string $action): void {
         global $wpdb;
         $queueType = sanitize_key($_POST['queue_type'] ?? '');
@@ -131,7 +228,7 @@ final class InventoryAdminController {
                     // Reopen the matching immutable cycle event atomically with
                     // its queue row; otherwise markReturnPending() rejects it.
                     $returnRow = $wpdb->get_row($wpdb->prepare(
-                        "SELECT cycle_uuid,wc_order_id,wc_order_item_id,event_kind
+                        "SELECT cycle_uuid,wc_order_id,wc_order_item_id,event_kind,quantity,cumulative_quantity
                          FROM {$table} WHERE id=%d AND status='needs_review' FOR UPDATE",
                         $queueId
                     ), ARRAY_A);
@@ -148,7 +245,7 @@ final class InventoryAdminController {
                     if ($updated === 1 && $cycleUuid !== '') {
                         $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
                         $cycleEvent = $wpdb->get_row($wpdb->prepare(
-                            "SELECT id,status FROM {$cycleEventsTable}
+                            "SELECT id,status,quantity,cumulative_quantity FROM {$cycleEventsTable}
                              WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d AND event_kind=%s",
                             $cycleUuid, (int) $returnRow['wc_order_id'],
                             (int) $returnRow['wc_order_item_id'], (string) $returnRow['event_kind']
@@ -156,6 +253,7 @@ final class InventoryAdminController {
                         if ($wpdb->last_error !== '' || !is_array($cycleEvent)) {
                             throw new \RuntimeException('Matching stock-cycle return event is unavailable.');
                         }
+                        $this->assertCycleReturnLedgerEvidence($returnRow, $cycleEvent);
                         // A pending event is already eligible; a processed event
                         // means the ledger work committed and only queue acknowledgement
                         // needs replay. Never rewind processed state or steal a live claim.
