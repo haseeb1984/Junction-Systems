@@ -23,8 +23,21 @@ final class SyncPOSQueueUseCase {
         private readonly LoggerInterface $log,
     ) {}
 
-    public function execute(): array {
-        $pending = $this->orderRepo->findPending();
+    public function retryFailedOrder(int $orderId): array {
+        if ($orderId < 1) throw new \\InvalidArgumentException('A valid POS order ID is required.');
+        $order = $this->orderRepo->findById($orderId);
+        if (!$order || $order->getSyncStatus() !== SyncStatus::Failed) {
+            throw new \\DomainException('Only an existing failed POS sync can be retried.');
+        }
+        $order->markPendingForRetry();
+        $this->orderRepo->update($order);
+        return $this->execute($orderId);
+    }
+
+    public function execute(?int $onlyOrderId = null): array {
+        $pending = $onlyOrderId !== null
+            ? array_filter([$this->orderRepo->findById($onlyOrderId)])
+            : $this->orderRepo->findPending();
         $synced = 0;
         $failed = 0;
         $errors = [];
@@ -117,6 +130,18 @@ final class SyncPOSQueueUseCase {
             } catch (\Throwable $error) {
                 $failed++;
                 $errors[] = 'POS order ' . $candidate->orderRef . ' could not be synchronized.';
+                try {
+                    $order ??= $this->orderRepo->findById($candidate->id);
+                    if ($order && $order->getSyncStatus() !== SyncStatus::Synced) {
+                        $order->markFailed();
+                        $this->orderRepo->update($order);
+                    }
+                } catch (\\Throwable $stateError) {
+                    $this->log->critical('Unable to persist failed POS sync state.', [
+                        'pos_order_id' => $candidate->id,
+                        'error_class' => get_class($stateError),
+                    ]);
+                }
                 $this->log->error('POS to WooCommerce order sync failed.', [
                     'pos_order_id' => $candidate->id,
                     'order_ref' => $candidate->orderRef,
