@@ -37,6 +37,15 @@ body{background:var(--bg);color:var(--dark);height:100vh;overflow:hidden}
 .pos-search-input{flex:1;padding:10px 14px;border:2px solid var(--border);border-radius:var(--radius);font-size:15px}
 .pos-search-input:focus{outline:none;border-color:var(--blue)}
 .pos-scan-btn{background:var(--blue);color:#fff;border:none;padding:10px 16px;border-radius:var(--radius);cursor:pointer;font-size:18px}
+.pos-offline-review{max-height:180px;overflow-y:auto;padding:10px 12px;background:#fff8e5;border-bottom:1px solid #e5c46b;font-size:12px}
+.pos-offline-review[hidden]{display:none}
+.pos-offline-review h3{font-size:13px;margin-bottom:6px;color:#7a4b00}
+.pos-offline-review-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #ead9ae}
+.pos-offline-review-item:first-of-type{border-top:0}
+.pos-offline-review-detail{min-width:0;overflow-wrap:anywhere}
+.pos-offline-review-error{color:#8a2424;margin-top:2px}
+.pos-offline-review-action{flex:none;border:1px solid var(--blue);border-radius:5px;background:#fff;color:var(--blue);padding:5px 9px;font-weight:600;cursor:pointer}
+.pos-offline-review-action:disabled{opacity:.45;cursor:not-allowed}
 .pos-product-grid{flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;align-content:start}
 .pos-product-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .15s}
 .pos-product-card:hover{border-color:var(--blue);box-shadow:0 2px 8px rgba(0,115,170,.15)}
@@ -115,6 +124,7 @@ body{background:var(--bg);color:var(--dark);height:100vh;overflow:hidden}
       <input type="text" class="pos-search-input" id="pos-search" placeholder="Search product or scan barcode..." autocomplete="off">
       <button class="pos-scan-btn" onclick="POS.openScanner()" title="Scan barcode with camera">📷</button>
     </div>
+    <section id="pos-offline-review" class="pos-offline-review" aria-live="polite" hidden></section>
     <div class="pos-product-grid" id="pos-product-grid"></div>
   </div>
   <div id="pos-right">
@@ -235,6 +245,11 @@ const POS = {
         }, 30000);
         document.getElementById('pos-search').addEventListener('input', e => this.searchProducts(e.target.value));
         document.getElementById('pos-search').addEventListener('keydown', e => { if(e.key==='Enter') this.handleBarcodeInput(e.target.value.trim()); });
+        document.getElementById('pos-offline-review').addEventListener('click', e => {
+            const button = e.target.closest('[data-retry-offline-ref]');
+            if (button && !button.disabled) this.retryOfflineSale(button.dataset.retryOfflineRef);
+        });
+        await this.renderOfflineQueue();
     },
 
     async loadLocations() {
@@ -256,6 +271,7 @@ const POS = {
             document.getElementById('pos-session-label').textContent = `Session #${r.session_id}`;
             await this.loadProducts();
             await this.flushOfflineQueue(true);
+            await this.renderOfflineQueue();
             this.toast(r.resumed ? 'Session resumed.' : `Register opened with PKR ${openingCash.toLocaleString()} cash.`);
         } catch(e) { alert('Failed to open session: ' + e.message); }
     },
@@ -575,6 +591,7 @@ const POS = {
                 }
             }
             const remaining = await DB.getAll('queue');
+            await this.renderOfflineQueue(remaining);
             if (this.sessionId) await this.loadProducts();
             const review = remaining.filter(item => item.status === 'needs_review').length;
             const stillPending = remaining.length - review;
@@ -584,7 +601,64 @@ const POS = {
             }
         } finally {
             this.isFlushingQueue = false;
+            await this.renderOfflineQueue();
         }
+    },
+
+    async renderOfflineQueue(queue = null) {
+        const panel = document.getElementById('pos-offline-review');
+        if (!panel) return;
+        const items = (queue || await DB.getAll('queue'))
+            .filter(item => item.status === 'needs_review')
+            .sort((a, b) => Number(a.queued_at || 0) - Number(b.queued_at || 0));
+        if (!items.length) {
+            panel.hidden = true;
+            panel.innerHTML = '';
+            return;
+        }
+        panel.hidden = false;
+        panel.innerHTML = '<h3>Offline sales needing review (' + items.length + ')</h3>' + items.map(item => {
+            const sameSession = this.sessionId !== null
+                && String(item.session_id) === String(this.sessionId);
+            const total = Number(item.total || 0);
+            const ref = this.esc(item.ref);
+            const error = this.esc(item.last_error || 'Server rejected this sale.');
+            const action = sameSession
+                ? '<button type="button" class="pos-offline-review-action" data-retry-offline-ref="' + ref + '">Retry sale</button>'
+                : '<span>Supervisor review required</span>';
+            return '<div class="pos-offline-review-item"><div class="pos-offline-review-detail"><strong>' + ref
+                + '</strong> · PKR ' + total.toLocaleString()
+                + '<div class="pos-offline-review-error">' + error + '</div>'
+                + (sameSession ? '' : '<div>Sale belongs to a different or closed register session; it will not be resent here.</div>')
+                + '</div>' + action + '</div>';
+        }).join('');
+    },
+
+    async retryOfflineSale(ref) {
+        if (!navigator.onLine) {
+            this.toast('Connect to the internet before retrying this sale.');
+            return;
+        }
+        if (!this.sessionId) {
+            this.toast('Open the original POS session before retrying this sale.');
+            return;
+        }
+        const item = (await DB.getAll('queue')).find(entry => entry.ref === ref);
+        if (!item || item.status !== 'needs_review') {
+            await this.renderOfflineQueue();
+            return;
+        }
+        if (String(item.session_id) !== String(this.sessionId)) {
+            this.toast('This sale belongs to another register session; supervisor review is required.');
+            await this.renderOfflineQueue();
+            return;
+        }
+        item.status = 'pending';
+        item.last_error = '';
+        await DB.put('queue', item);
+        await this.renderOfflineQueue();
+        this.toast('Retrying the original offline sale reference...');
+        await this.flushOfflineQueue();
     },
 
     async applyLocalStockDelta(items, direction) {
