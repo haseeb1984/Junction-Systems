@@ -24,10 +24,10 @@ final class SyncPOSQueueUseCase {
     ) {}
 
     public function retryFailedOrder(int $orderId): array {
-        if ($orderId < 1) throw new \\InvalidArgumentException('A valid POS order ID is required.');
+        if ($orderId < 1) throw new \InvalidArgumentException('A valid POS order ID is required.');
         $order = $this->orderRepo->findById($orderId);
         if (!$order || $order->getSyncStatus() !== SyncStatus::Failed) {
-            throw new \\DomainException('Only an existing failed POS sync can be retried.');
+            throw new \DomainException('Only an existing failed POS sync can be retried.');
         }
         $order->markPendingForRetry();
         $this->orderRepo->update($order);
@@ -136,7 +136,7 @@ final class SyncPOSQueueUseCase {
                         $order->markFailed();
                         $this->orderRepo->update($order);
                     }
-                } catch (\\Throwable $stateError) {
+                } catch (\Throwable $stateError) {
                     $this->log->critical('Unable to persist failed POS sync state.', [
                         'pos_order_id' => $candidate->id,
                         'error_class' => get_class($stateError),
