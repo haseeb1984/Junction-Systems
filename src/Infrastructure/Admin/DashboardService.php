@@ -152,6 +152,25 @@ final class DashboardService {
         return is_array($rows) ? $rows : [];
     }
 
+    /** Return return/restock events that exhausted automatic retries for operator investigation. */
+    public function getReturnInventoryReviews(int $limit = 20): array {
+        $limit = max(1, min(50, $limit));
+        $table = $this->db->prefix . 'pkstore_wc_return_inventory_queue';
+        $rows = $this->db->get_results(
+            $this->db->prepare(
+                "SELECT id,event_kind,wc_order_id,wc_order_item_id,wc_product_id,quantity,attempts,last_error,updated_at
+                 FROM {$table}
+                 WHERE status IN ('needs_review','failed')
+                 ORDER BY updated_at ASC,id ASC
+                 LIMIT %d",
+                $limit
+            ),
+            ARRAY_A
+        );
+        if ($this->db->last_error !== '') return [];
+        return is_array($rows) ? $rows : [];
+    }
+
     public function getOtpSummary(): array {
         $cached = get_transient('pkstore_dash_otp');
         if ($cached !== false) return $cached;
