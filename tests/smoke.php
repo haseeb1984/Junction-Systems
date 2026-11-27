@@ -961,6 +961,8 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, 'assertCycleReturnLedgerEvidence') === false
     || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
     || strpos($queueOperatorSource, 'Refund retry would skip or duplicate a cumulative return quantity') === false
+    || strpos($queueOperatorSource, 'Matching immutable stock-cycle return event is unavailable') === false
+    || strpos($queueOperatorSource, 'AND quantity=%d AND cumulative_quantity=%d') === false
     || strpos($queueOperatorTemplate, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
     || strpos($queueOperatorSource, 'Cycle-bound returns cannot be ignored') === false
