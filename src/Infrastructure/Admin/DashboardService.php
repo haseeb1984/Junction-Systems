@@ -119,7 +119,7 @@ final class DashboardService {
         }
 
         $oldestPending = !empty($row['oldest_pending']) ? (string) $row['oldest_pending'] : null;
-        $oldestTimestamp = $oldestPending ? (new \\DateTimeImmutable($oldestPending, wp_timezone()))->getTimestamp() : false;
+        $oldestTimestamp = $oldestPending ? (new \DateTimeImmutable($oldestPending, wp_timezone()))->getTimestamp() : false;
         $summary = [
             'available' => true,
             'pending' => (int) ($row['pending'] ?? 0),
