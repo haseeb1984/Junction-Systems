@@ -167,7 +167,9 @@ final class DashboardService {
             ),
             ARRAY_A
         );
-        if ($this->db->last_error !== '') return [];
+        if ($this->db->last_error !== '') {
+            throw new \RuntimeException('Unable to read WooCommerce return inventory events requiring review.');
+        }
         return is_array($rows) ? $rows : [];
     }
 
