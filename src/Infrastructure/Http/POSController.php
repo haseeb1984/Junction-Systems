@@ -225,7 +225,7 @@ final class POSController {
             'errors' => $result['errors'] ?? [],
             'message' => $available
                 ? 'No pending POS orders require synchronization.'
-                : 'POS orders are safely retained as pending; WooCommerce synchronization is not yet available.',
+                : 'Unresolved POS orders remain recorded; inspect failed syncs and use the administrator recovery action where appropriate.',
         ], $available ? 200 : 501);
     }
     public function listOrders(\WP_REST_Request $req): \WP_REST_Response {
