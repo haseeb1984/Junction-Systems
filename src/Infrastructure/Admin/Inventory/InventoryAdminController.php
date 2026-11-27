@@ -123,7 +123,7 @@ final class InventoryAdminController {
                  ORDER BY updated_at ASC,id ASC LIMIT 50",
                 ARRAY_A
             );
-            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to load return reconciliation evidence.');
+            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to load return reconciliation evidence.');
             foreach ((array) $reviewReturns as $reviewReturn) {
                 $cycleUuid = (string) $reviewReturn['cycle_uuid'];
                 $itemId = (int) $reviewReturn['wc_order_item_id'];
@@ -134,7 +134,7 @@ final class InventoryAdminController {
                      WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d",
                     $cycleUuid, (int) $reviewReturn['wc_order_id'], $itemId
                 ), ARRAY_A);
-                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to inspect original stock-cycle allocation.');
+                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect original stock-cycle allocation.');
                 $evidence = [
                     'queue_id' => (int) $reviewReturn['id'],
                     'order_id' => (int) $reviewReturn['wc_order_id'],
@@ -168,7 +168,7 @@ final class InventoryAdminController {
                                    AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
                                 $productId, $locationId, $cycleUuid . ':' . $locationId
                             ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify original sale stock movement.');
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify original sale stock movement.');
                             $returnMovement = $wpdb->get_row($wpdb->prepare(
                                 "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
                                  FROM {$wpdb->prefix}pkstore_inventory_movements
@@ -176,7 +176,7 @@ final class InventoryAdminController {
                                    AND movement_type='online_return' AND note LIKE %s",
                                 $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
                             ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify existing return stock movements.');
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify existing return stock movements.');
                             $expectedReturn = max(0, min($returned, $cursor + $allocationQuantity) - $cursor);
                             $evidence['allocations'][] = [
                                 'product_id' => $productId,
