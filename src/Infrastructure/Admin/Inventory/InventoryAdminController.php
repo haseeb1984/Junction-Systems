@@ -126,12 +126,38 @@ final class InventoryAdminController {
                         wp_generate_uuid4(), $now, $now, $queueId
                     ));
                 } else {
+                    // Reopen the matching immutable cycle event atomically with
+                    // its queue row; otherwise markReturnPending() rejects it.
+                    $returnRow = $wpdb->get_row($wpdb->prepare(
+                        "SELECT cycle_uuid,wc_order_id,wc_order_item_id,event_kind
+                         FROM {$table} WHERE id=%d AND status='needs_review' FOR UPDATE",
+                        $queueId
+                    ), ARRAY_A);
+                    if ($wpdb->last_error !== '' || !is_array($returnRow)) {
+                        throw new \RuntimeException('Return queue event is no longer available for operator retry.');
+                    }
                     $updated = $wpdb->query($wpdb->prepare(
                         "UPDATE {$table} SET status='pending', attempts=0,
                          next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
                          WHERE id=%d AND status='needs_review'",
                         $now, $now, $queueId
                     ));
+                    $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
+                    if ($updated === 1 && $cycleUuid !== '') {
+                        $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+                        $cycleUpdated = $wpdb->query($wpdb->prepare(
+                            "UPDATE {$cycleEventsTable}
+                             SET status='pending', attempts=0, next_attempt_at=%s,
+                                 claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
+                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d
+                               AND event_kind=%s AND status IN ('needs_review','failed','review')",
+                            $now, $now, $cycleUuid, (int) $returnRow['wc_order_id'],
+                            (int) $returnRow['wc_order_item_id'], (string) $returnRow['event_kind']
+                        ));
+                        if ($cycleUpdated !== 1) {
+                            throw new \RuntimeException('Matching stock-cycle return event is not in a recoverable review state.');
+                        }
+                    }
                 }
             } else {
                 if ($queueType === 'sales' || $queueType === 'returns') {
