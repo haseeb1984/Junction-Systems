@@ -452,6 +452,8 @@ if (!is_string($posOrderEntitySource)
     || strpos($posOrderEntitySource, 'markPendingForRetry()') === false
     || strpos($posSyncUseCaseSource, 'retryFailedOrder(int $orderId)') === false
     || strpos($posSyncUseCaseSource, '$order->markFailed();') === false
+    || strpos($posSyncUseCaseSource, '$order = null;') === false
+    || strpos($dashboardControllerSource, 'retryFailedOrder($orderId)') === false
     || strpos($dashboardServiceSource, 'getRecentFailedPosSyncs') === false
     || strpos($dashboardControllerSource, 'admin_post_pkstore_retry_pos_sync') === false
     || strpos($dashboardControllerSource, 'check_admin_referer(\'pkstore_retry_pos_sync_\'.$orderId)') === false
