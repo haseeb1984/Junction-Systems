@@ -445,6 +445,21 @@ if (!is_string($dashboardServiceSource)
     throw new \RuntimeException('Operations dashboard must expose POS-to-WooCommerce pending, failed and sync-age health.');
 }
 
+$posOrderEntitySource = file_get_contents($src . '/Domain/POS/Entity/POSOrder.php');
+$posSyncUseCaseSource = file_get_contents($src . '/Application/POS/SyncPOSQueueUseCase.php');
+if (!is_string($posOrderEntitySource)
+    || !is_string($posSyncUseCaseSource)
+    || strpos($posOrderEntitySource, 'markPendingForRetry()') === false
+    || strpos($posSyncUseCaseSource, 'retryFailedOrder(int $orderId)') === false
+    || strpos($posSyncUseCaseSource, '$order->markFailed();') === false
+    || strpos($dashboardServiceSource, 'getRecentFailedPosSyncs') === false
+    || strpos($dashboardControllerSource, 'admin_post_pkstore_retry_pos_sync') === false
+    || strpos($dashboardControllerSource, 'check_admin_referer(\'pkstore_retry_pos_sync_\'.$orderId)') === false
+    || strpos($dashboardTemplateSource, 'Retry safely') === false
+    || strpos($posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php'), 'retrySyncOrder') === false) {
+    throw new \\RuntimeException('Failed POS-to-WooCommerce syncs must be visible and eligible for nonce/capability-protected targeted recovery.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabilityManager.php');
 if (!is_string($posCapabilitySource)
