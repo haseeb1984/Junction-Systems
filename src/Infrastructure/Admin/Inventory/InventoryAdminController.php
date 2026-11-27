@@ -244,14 +244,32 @@ final class InventoryAdminController {
                     $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
                     if ($updated === 1 && $cycleUuid !== '') {
                         $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
+                        $cycleItemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
+                        $cycleItemIdentity = $wpdb->get_row($wpdb->prepare(
+                            "SELECT reduced_quantity,refund_cumulative_baseline FROM {$cycleItemsTable}
+                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d FOR UPDATE",
+                            $cycleUuid, (int) $returnRow['wc_order_id'], (int) $returnRow['wc_order_item_id']
+                        ), ARRAY_A);
+                        if ($wpdb->last_error !== '' || !is_array($cycleItemIdentity)) {
+                            throw new \RuntimeException('Matching stock-cycle return item is unavailable.');
+                        }
+                        $expectedCycleCumulative = (string) $returnRow['event_kind'] === 'refund'
+                            ? (int) $returnRow['cumulative_quantity'] - (int) $cycleItemIdentity['refund_cumulative_baseline']
+                            : (int) $cycleItemIdentity['reduced_quantity'];
+                        if ($expectedCycleCumulative < 1) {
+                            throw new \RuntimeException('Return cumulative quantity cannot be reconciled to its stock cycle.');
+                        }
                         $cycleEvent = $wpdb->get_row($wpdb->prepare(
                             "SELECT id,status,quantity,cumulative_quantity FROM {$cycleEventsTable}
-                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d AND event_kind=%s",
+                             WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d
+                               AND event_kind=%s AND quantity=%d AND cumulative_quantity=%d
+                             FOR UPDATE",
                             $cycleUuid, (int) $returnRow['wc_order_id'],
-                            (int) $returnRow['wc_order_item_id'], (string) $returnRow['event_kind']
+                            (int) $returnRow['wc_order_item_id'], (string) $returnRow['event_kind'],
+                            (int) $returnRow['quantity'], $expectedCycleCumulative
                         ), ARRAY_A);
                         if ($wpdb->last_error !== '' || !is_array($cycleEvent)) {
-                            throw new \RuntimeException('Matching stock-cycle return event is unavailable.');
+                            throw new \RuntimeException('Matching immutable stock-cycle return event is unavailable.');
                         }
                         $this->assertCycleReturnLedgerEvidence($returnRow, $cycleEvent);
                         // A pending event is already eligible; a processed event
