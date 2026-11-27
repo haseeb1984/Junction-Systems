@@ -62,6 +62,7 @@ final class SyncPOSQueueUseCase {
                 continue;
             }
 
+            $order = null;
             try {
                 $order = $this->orderRepo->findById($candidate->id);
                 if (!$order) {
