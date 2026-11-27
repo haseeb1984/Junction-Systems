@@ -24,7 +24,7 @@ final class AdminMenuController {
         check_admin_referer('pkstore_retry_pos_sync_'.$orderId);
         $result='failed';
         try{
-            $sync=$this->c->make(\\PkStore\\Application\\POS\\SyncPOSQueueUseCase::class)->retryFailedOrder($orderId);
+            $sync=$this->c->make(\PkStore\Application\POS\SyncPOSQueueUseCase::class)->retryFailedOrder($orderId);
             $result=($sync['failed']??1)===0?'success':'failed';
         }catch(\\Throwable $error){
             error_log('[PK Store POS] Admin sync retry failed: '.get_class($error));
