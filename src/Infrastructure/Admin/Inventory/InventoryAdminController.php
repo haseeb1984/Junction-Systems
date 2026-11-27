@@ -111,100 +111,6 @@ final class InventoryAdminController {
         $table = $wpdb->prefix . ($queueType === 'sales'
             ? 'pkstore_wc_order_inventory_queue'
             : ($queueType === 'returns' ? 'pkstore_wc_return_inventory_queue' : 'pkstore_wc_stock_sync'));
-        // Build a read-only reconciliation snapshot for cycle-bound returns.
-        // It compares each captured allocation with the original sale movement and
-        // the cumulative return movements already recorded for that exact cycle.
-        $returnEvidence = [];
-        if ($available['returns'] && $cycleEventsAvailable) {
-            $reviewReturns = $wpdb->get_results(
-                "SELECT id,event_kind,wc_order_id,wc_order_item_id,wc_product_id,cycle_uuid,quantity,cumulative_quantity
-                 FROM {$tables['returns']}
-                 WHERE status IN ('needs_review','failed') AND cycle_uuid IS NOT NULL AND cycle_uuid<>''
-                 ORDER BY updated_at ASC,id ASC LIMIT 50",
-                ARRAY_A
-            );
-            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to load return reconciliation evidence.');
-            foreach ((array) $reviewReturns as $reviewReturn) {
-                $cycleUuid = (string) $reviewReturn['cycle_uuid'];
-                $itemId = (int) $reviewReturn['wc_order_item_id'];
-                $cycleItem = $wpdb->get_row($wpdb->prepare(
-                    "SELECT inventory_product_id,reduced_quantity,refund_cumulative_baseline,
-                            cancellation_restored_quantity,refund_restored_quantity,allocation_snapshot
-                     FROM {$wpdb->prefix}pkstore_wc_stock_cycle_items
-                     WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d",
-                    $cycleUuid, (int) $reviewReturn['wc_order_id'], $itemId
-                ), ARRAY_A);
-                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect original stock-cycle allocation.');
-                $evidence = [
-                    'queue_id' => (int) $reviewReturn['id'],
-                    'order_id' => (int) $reviewReturn['wc_order_id'],
-                    'item_id' => $itemId,
-                    'cycle_uuid' => $cycleUuid,
-                    'kind' => (string) $reviewReturn['event_kind'],
-                    'quantity' => (int) $reviewReturn['quantity'],
-                    'cumulative_quantity' => (int) $reviewReturn['cumulative_quantity'],
-                    'state' => 'Allocation snapshot unavailable',
-                    'allocations' => [],
-                ];
-                if (is_array($cycleItem)) {
-                    $reduced = (int) $cycleItem['reduced_quantity'];
-                    $returned = (int) $cycleItem['cancellation_restored_quantity'] + (int) $cycleItem['refund_restored_quantity'];
-                    $allocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
-                    if (is_array($allocations) && $allocations && $reduced > 0 && $returned <= $reduced) {
-                        $allocated = 0;
-                        $valid = true;
-                        $cursor = 0;
-                        foreach ($allocations as $allocation) {
-                            $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
-                            $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
-                            $allocationQuantity = is_array($allocation) ? (int) ($allocation['quantity'] ?? 0) : 0;
-                            if ($productId < 1 || $locationId < 1 || $allocationQuantity < 1) {
-                                $valid = false;
-                                break;
-                            }
-                            $saleMovement = $wpdb->get_row($wpdb->prepare(
-                                "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
-                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle'
-                                   AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
-                                $productId, $locationId, $cycleUuid . ':' . $locationId
-                            ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify original sale stock movement.');
-                            $returnMovement = $wpdb->get_row($wpdb->prepare(
-                                "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
-                                 FROM {$wpdb->prefix}pkstore_inventory_movements
-                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
-                                   AND movement_type='online_return' AND note LIKE %s",
-                                $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
-                            ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify existing return stock movements.');
-                            $expectedReturn = max(0, min($returned, $cursor + $allocationQuantity) - $cursor);
-                            $evidence['allocations'][] = [
-                                'product_id' => $productId,
-                                'location_id' => $locationId,
-                                'quantity' => $allocationQuantity,
-                                'sale_verified' => is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity,
-                                'expected_returned' => $expectedReturn,
-                                'actual_returned' => (int) ($returnMovement['restored_quantity'] ?? 0),
-                                'return_movement_count' => (int) ($returnMovement['movement_count'] ?? 0),
-                            ];
-                            if (!is_array($saleMovement) || (int) $saleMovement['quantity_delta'] !== -$allocationQuantity
-                                || (int) ($returnMovement['restored_quantity'] ?? -1) !== $expectedReturn) {
-                                $valid = false;
-                            }
-                            $allocated += $allocationQuantity;
-                            $cursor += $allocationQuantity;
-                        }
-                        if ($allocated !== $reduced) $valid = false;
-                        $evidence['state'] = $valid ? 'Ledger evidence reconciles' : 'Ledger mismatch — do not retry';
-                        $evidence['reduced_quantity'] = $reduced;
-                        $evidence['returned_quantity'] = $returned;
-                        $evidence['refund_baseline'] = (int) $cycleItem['refund_cumulative_baseline'];
-                    }
-                }
-                $returnEvidence[] = $evidence;
-            }
-        }
-
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $now = current_time('mysql');
         if ($wpdb->query('START TRANSACTION') === false) {
@@ -685,6 +591,100 @@ final class InventoryAdminController {
              FROM {$cycleEventsTable} ORDER BY updated_at DESC LIMIT 100",
             ARRAY_A
         ) ?: []) : [];
+
+        // Build a read-only reconciliation snapshot for cycle-bound returns.
+        // It compares each captured allocation with the original sale movement and
+        // the cumulative return movements already recorded for that exact cycle.
+        $returnEvidence = [];
+        if ($available['returns'] && $cycleEventsAvailable) {
+            $reviewReturns = $wpdb->get_results(
+                "SELECT id,event_kind,wc_order_id,wc_order_item_id,wc_product_id,cycle_uuid,quantity,cumulative_quantity
+                 FROM {$tables['returns']}
+                 WHERE status IN ('needs_review','failed') AND cycle_uuid IS NOT NULL AND cycle_uuid<>''
+                 ORDER BY updated_at ASC,id ASC LIMIT 50",
+                ARRAY_A
+            );
+            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to load return reconciliation evidence.');
+            foreach ((array) $reviewReturns as $reviewReturn) {
+                $cycleUuid = (string) $reviewReturn['cycle_uuid'];
+                $itemId = (int) $reviewReturn['wc_order_item_id'];
+                $cycleItem = $wpdb->get_row($wpdb->prepare(
+                    "SELECT inventory_product_id,reduced_quantity,refund_cumulative_baseline,
+                            cancellation_restored_quantity,refund_restored_quantity,allocation_snapshot
+                     FROM {$wpdb->prefix}pkstore_wc_stock_cycle_items
+                     WHERE cycle_uuid=%s AND wc_order_id=%d AND wc_order_item_id=%d",
+                    $cycleUuid, (int) $reviewReturn['wc_order_id'], $itemId
+                ), ARRAY_A);
+                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect original stock-cycle allocation.');
+                $evidence = [
+                    'queue_id' => (int) $reviewReturn['id'],
+                    'order_id' => (int) $reviewReturn['wc_order_id'],
+                    'item_id' => $itemId,
+                    'cycle_uuid' => $cycleUuid,
+                    'kind' => (string) $reviewReturn['event_kind'],
+                    'quantity' => (int) $reviewReturn['quantity'],
+                    'cumulative_quantity' => (int) $reviewReturn['cumulative_quantity'],
+                    'state' => 'Allocation snapshot unavailable',
+                    'allocations' => [],
+                ];
+                if (is_array($cycleItem)) {
+                    $reduced = (int) $cycleItem['reduced_quantity'];
+                    $returned = (int) $cycleItem['cancellation_restored_quantity'] + (int) $cycleItem['refund_restored_quantity'];
+                    $allocations = json_decode((string) $cycleItem['allocation_snapshot'], true);
+                    if (is_array($allocations) && $allocations && $reduced > 0 && $returned <= $reduced) {
+                        $allocated = 0;
+                        $valid = true;
+                        $cursor = 0;
+                        foreach ($allocations as $allocation) {
+                            $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
+                            $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
+                            $allocationQuantity = is_array($allocation) ? (int) ($allocation['quantity'] ?? 0) : 0;
+                            if ($productId < 1 || $locationId < 1 || $allocationQuantity < 1) {
+                                $valid = false;
+                                break;
+                            }
+                            $saleMovement = $wpdb->get_row($wpdb->prepare(
+                                "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle'
+                                   AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
+                                $productId, $locationId, $cycleUuid . ':' . $locationId
+                            ), ARRAY_A);
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify original sale stock movement.');
+                            $returnMovement = $wpdb->get_row($wpdb->prepare(
+                                "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
+                                 FROM {$wpdb->prefix}pkstore_inventory_movements
+                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
+                                   AND movement_type='online_return' AND note LIKE %s",
+                                $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
+                            ), ARRAY_A);
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify existing return stock movements.');
+                            $expectedReturn = max(0, min($returned, $cursor + $allocationQuantity) - $cursor);
+                            $evidence['allocations'][] = [
+                                'product_id' => $productId,
+                                'location_id' => $locationId,
+                                'quantity' => $allocationQuantity,
+                                'sale_verified' => is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity,
+                                'expected_returned' => $expectedReturn,
+                                'actual_returned' => (int) ($returnMovement['restored_quantity'] ?? 0),
+                                'return_movement_count' => (int) ($returnMovement['movement_count'] ?? 0),
+                            ];
+                            if (!is_array($saleMovement) || (int) $saleMovement['quantity_delta'] !== -$allocationQuantity
+                                || (int) ($returnMovement['restored_quantity'] ?? -1) !== $expectedReturn) {
+                                $valid = false;
+                            }
+                            $allocated += $allocationQuantity;
+                            $cursor += $allocationQuantity;
+                        }
+                        if ($allocated !== $reduced) $valid = false;
+                        $evidence['state'] = $valid ? 'Ledger evidence reconciles' : 'Ledger mismatch — do not retry';
+                        $evidence['reduced_quantity'] = $reduced;
+                        $evidence['returned_quantity'] = $returned;
+                        $evidence['refund_baseline'] = (int) $cycleItem['refund_cumulative_baseline'];
+                    }
+                }
+                $returnEvidence[] = $evidence;
+            }
+        }
 
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $auditExists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($auditTable))) === $auditTable;
