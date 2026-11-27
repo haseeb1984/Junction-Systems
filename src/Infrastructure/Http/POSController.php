@@ -27,6 +27,7 @@ final class POSController {
             register_rest_route($ns,'/pos/session/current',   ['methods'=>'GET', 'callback'=>[$this,'currentSession'],'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/sale',              ['methods'=>'POST','callback'=>[$this,'processSale'],  'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/sync',              ['methods'=>'POST','callback'=>[$this,'syncQueue'],    'permission_callback'=>$managerAuth]);
+            register_rest_route($ns,'/pos/orders/(?P<id>\\d+)/retry-sync', ['methods'=>'POST','callback'=>[$this,'retrySyncOrder'], 'permission_callback'=>$managerAuth]);
             register_rest_route($ns,'/pos/orders',            ['methods'=>'GET', 'callback'=>[$this,'listOrders'],   'permission_callback'=>$auth]);
             register_rest_route($ns,'/pos/receipt/whatsapp',  ['methods'=>'POST','callback'=>[$this,'sendWhatsApp'], 'permission_callback'=>$auth]);
         });
@@ -195,6 +196,22 @@ final class POSController {
         } catch (\Throwable $error) {
             error_log('[PK Store POS] Sale processing failed: ' . get_class($error));
             return new \WP_REST_Response(['success' => false, 'message' => 'Sale could not be completed. Please retry or contact support.'], 422);
+        }
+    }
+
+    public function retrySyncOrder(\WP_REST_Request $req): \WP_REST_Response {
+        $orderId = (int) $req->get_param('id');
+        if ($orderId < 1) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'A valid POS order ID is required.'], 422);
+        }
+        try {
+            $result = $this->c->make(SyncPOSQueueUseCase::class)->retryFailedOrder($orderId);
+            return new \WP_REST_Response(['success' => $result['failed'] === 0, 'result' => $result], $result['failed'] === 0 ? 200 : 502);
+        } catch (\DomainException $error) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'This POS order is not eligible for manual retry.'], 409);
+        } catch (\Throwable $error) {
+            error_log('[PK Store POS] Manual sync retry failed: ' . get_class($error));
+            return new \WP_REST_Response(['success' => false, 'message' => 'POS sync retry could not be completed.'], 500);
         }
     }
 
