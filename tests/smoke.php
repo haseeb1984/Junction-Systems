@@ -406,6 +406,18 @@ $adminInventorySource = file_get_contents($src . '/Infrastructure/Admin/Inventor
 $adminAffiliateSource = file_get_contents($src . '/Infrastructure/Admin/Affiliate/AffiliateAdminController.php');
 $inventoryHttpSource = file_get_contents($src . '/Infrastructure/Http/InventoryController.php');
 $barcodeLabelSource = file_get_contents($src . '/Infrastructure/Barcode/BarcodeLabel.php');
+
+if (!is_string($posAppSource)
+    || strpos($posAppSource, 'id="pos-offline-review"') === false
+    || strpos($posAppSource, 'async renderOfflineQueue(') === false
+    || strpos($posAppSource, 'async retryOfflineSale(ref)') === false
+    || strpos($posAppSource, "String(item.session_id) !== String(this.sessionId)") === false
+    || strpos($posAppSource, "item.status = 'pending'") === false
+    || strpos($posAppSource, 'Supervisor review required') === false
+    || strpos($posAppSource, 'data-retry-offline-ref') === false) {
+    throw new \\RuntimeException('Rejected offline POS sales must be visible to operators, retry only in their original session, and remain available for supervisor reconciliation otherwise.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabilityManager.php');
 if (!is_string($posCapabilitySource)
