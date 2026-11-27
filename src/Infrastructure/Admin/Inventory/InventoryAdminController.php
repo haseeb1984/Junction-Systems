@@ -694,6 +694,7 @@ final class InventoryAdminController {
         // It compares each captured allocation with the original sale movement and
         // the cumulative return movements already recorded for that exact cycle.
         $returnEvidence = [];
+        $returnEvidenceByQueueId = [];
         if ($available['returns'] && $cycleEventsAvailable) {
             $reviewReturns = $wpdb->get_results(
                 "SELECT id,event_kind,wc_order_id,wc_order_item_id,wc_product_id,cycle_uuid,quantity,cumulative_quantity
@@ -781,8 +782,15 @@ final class InventoryAdminController {
                     }
                 }
                 $returnEvidence[] = $evidence;
+                $returnEvidenceByQueueId[(int) $evidence['queue_id']] = $evidence['state'] === 'Ledger evidence reconciles';
             }
         }
+        foreach ($returnEvents as &$returnEvent) {
+            $cycleUuid = (string) ($returnEvent['cycle_uuid'] ?? '');
+            $returnEvent['reconciliation_ok'] = $cycleUuid === ''
+                || ($returnEvidenceByQueueId[(int) ($returnEvent['id'] ?? 0)] ?? false);
+        }
+        unset($returnEvent);
 
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $auditExists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($auditTable))) === $auditTable;
