@@ -441,6 +441,11 @@ if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, "sync_status='pending'") === false
     || strpos($dashboardServiceSource, "'oldest_pending_minutes'") === false
     || strpos($dashboardControllerSource, '$posSync=$ds->getPosSyncSummary();') === false
+    || strpos($dashboardServiceSource, 'function getReturnInventoryReviews') === false
+    || strpos($dashboardServiceSource, "status IN ('needs_review','failed')") === false
+    || strpos($dashboardControllerSource, '$returnInventoryReviews=$ds->getReturnInventoryReviews();') === false
+    || strpos($dashboardTemplateSource, 'WooCommerce Return / Refund Inventory — Needs Review') === false
+    || strpos($dashboardTemplateSource, 'does not apply stock changes') === false
     || strpos($dashboardTemplateSource, 'POS → WooCommerce Sync') === false) {
     throw new \RuntimeException('Operations dashboard must expose POS-to-WooCommerce pending, failed and sync-age health.');
 }
