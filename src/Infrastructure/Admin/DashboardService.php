@@ -134,6 +134,24 @@ final class DashboardService {
         return $summary;
     }
 
+    public function getRecentFailedPosSyncs(int $limit = 20): array {
+        $limit = max(1, min(50, $limit));
+        $table = $this->db->prefix . 'pkstore_pos_orders';
+        $rows = $this->db->get_results(
+            $this->db->prepare(
+                "SELECT id, order_ref, session_id, location_id, created_at
+                 FROM {$table}
+                 WHERE sync_status='failed'
+                 ORDER BY created_at ASC, id ASC
+                 LIMIT %d",
+                $limit
+            ),
+            ARRAY_A
+        );
+        if ($this->db->last_error !== '') return [];
+        return is_array($rows) ? $rows : [];
+    }
+
     public function getOtpSummary(): array {
         $cached = get_transient('pkstore_dash_otp');
         if ($cached !== false) return $cached;
