@@ -464,6 +464,8 @@ if (!is_string($posOrderEntitySource)
     || strpos($dashboardControllerSource, 'admin_post_pkstore_retry_pos_sync') === false
     || strpos($dashboardControllerSource, 'check_admin_referer(\'pkstore_retry_pos_sync_\'.$orderId)') === false
     || strpos($dashboardTemplateSource, 'Retry safely') === false
+    || strpos(file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php'), 'Matching stock-cycle return event is not in a recoverable review state.') === false
+    || strpos(file_get_contents($src . '/Infrastructure/Admin/Inventory/InventoryAdminController.php'), "SET status='pending', attempts=0, next_attempt_at=%s") === false
     || strpos(file_get_contents($src . '/Infrastructure/Http/POSController.php'), 'retrySyncOrder') === false) {
     throw new \RuntimeException('Failed POS-to-WooCommerce syncs must be visible and eligible for nonce/capability-protected targeted recovery.');
 }
