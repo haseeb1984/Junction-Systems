@@ -936,6 +936,11 @@ if (!is_string($inventoryEventsSource)
     || strpos($inventoryEventsSource, 'pkstore_wc_stock_cycle_events') === false
     || strpos($inventoryEventsSource, '$cycleEvents') === false
     || strpos($inventoryEventsTemplate, 'WooCommerce stock-cycle events') === false
+    || strpos($inventoryEventsSource, 'allocation_snapshot') === false
+    || strpos($inventoryEventsSource, 'wc_stock_cycle_return') === false
+    || strpos($inventoryEventsSource, 'sale_verified') === false
+    || strpos($inventoryEventsSource, 'returnEvidence') === false
+    || strpos($inventoryEventsTemplate, 'Return reconciliation evidence') === false
     || strpos($inventoryEventsTemplate, "esc_html(") === false) {
     throw new \RuntimeException('Inventory queue health screen must be read-only, entitlement-protected and escape displayed queue data.');
 }
@@ -950,6 +955,8 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "ignore_inventory_event") === false
     || strpos($queueOperatorSource, "confirm_ignore") === false
     || strpos($queueOperatorTemplate, "confirm_ignore") === false
+    || strpos($queueOperatorSource, "confirm_reconciliation") === false
+    || strpos($queueOperatorTemplate, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, "WHERE id=%d AND status='needs_review'") === false
     || strpos($queueOperatorSource, 'Cycle-bound returns cannot be ignored') === false
     || strpos($queueOperatorSource, 'Cycle-bound sales cannot be ignored') === false
