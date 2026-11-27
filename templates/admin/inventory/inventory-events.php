@@ -76,6 +76,9 @@
                                     <input type="hidden" name="queue_type" value="<?= esc_attr($queueType) ?>">
                                     <input type="hidden" name="queue_id" value="<?= esc_attr((string) ($event['id'] ?? 0)) ?>">
                                     <input type="text" name="reason" required minlength="5" maxlength="1000" placeholder="Reason for retry" style="max-width:180px;">
+                                    <?php if ($queueType === 'returns'): ?>
+                                        <label><input type="checkbox" name="confirm_reconciliation" value="1" required> I reviewed the original sale and return-ledger evidence below</label>
+                                    <?php endif; ?>
                                     <button type="submit" class="button button-secondary">Retry</button>
                                 </form>
                                 <?php if ($allowIgnore
@@ -111,6 +114,44 @@
 
     <?php $renderQueue('Online store sale events', $salesEvents, 'sales'); ?>
     <?php $renderQueue('Cancellation and refund restock events', $returnEvents, 'returns'); ?>
+
+    <h2>Return reconciliation evidence</h2>
+    <p class="description">Read-only checks for cycle-bound returns in needs_review/failed. A retry is appropriate only when every original sale movement and cumulative return movement reconciles to the captured allocation. This panel never changes stock.</p>
+    <?php if (empty($returnEvidence)): ?>
+        <p>No cycle-bound return events currently require reconciliation.</p>
+    <?php else: ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead><tr><th>Queue / order / item</th><th>Cycle / event</th><th>Captured quantity</th><th>Allocation ledger evidence</th><th>Assessment</th></tr></thead>
+            <tbody>
+            <?php foreach ($returnEvidence as $evidence): ?>
+                <tr>
+                    <td>#<?= esc_html((string) $evidence['queue_id']) ?> / #<?= esc_html((string) $evidence['order_id']) ?><br>Item <?= esc_html((string) $evidence['item_id']) ?></td>
+                    <td><code><?= esc_html(substr((string) $evidence['cycle_uuid'], 0, 12)) ?></code><br><?= esc_html($evidence['kind']) ?></td>
+                    <td>Event qty: <?= esc_html((string) $evidence['quantity']) ?><br>Event cumulative: <?= esc_html((string) $evidence['cumulative_quantity']) ?>
+                        <?php if (isset($evidence['reduced_quantity'])): ?>
+                            <br>Sale reduced: <?= esc_html((string) $evidence['reduced_quantity']) ?>
+                            <br>Already returned: <?= esc_html((string) $evidence['returned_quantity']) ?>
+                            <br>Refund baseline: <?= esc_html((string) $evidence['refund_baseline']) ?>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if (empty($evidence['allocations'])): ?>
+                            Allocation snapshot unavailable
+                        <?php else: ?>
+                            <?php foreach ($evidence['allocations'] as $allocation): ?>
+                                Product #<?= esc_html((string) $allocation['product_id']) ?> / Location #<?= esc_html((string) $allocation['location_id']) ?>:
+                                sale <?= !empty($allocation['sale_verified']) ? 'verified' : 'MISSING/MISMATCH' ?>,
+                                returned <?= esc_html((string) $allocation['actual_returned']) ?>/<?= esc_html((string) $allocation['expected_returned']) ?>
+                                (<?= esc_html((string) $allocation['return_movement_count']) ?> movements)<br>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </td>
+                    <td><strong><?= esc_html($evidence['state']) ?></strong></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
 
     <h2>WooCommerce stock-cycle events</h2>
     <p class="description">Immutable reduction/return event records used to bind each real WooCommerce stock change to its own Junction ledger cycle. This table is read-only; retry actions operate on the linked durable sale/return queue rows above.</p>
