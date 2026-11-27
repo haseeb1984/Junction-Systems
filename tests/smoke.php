@@ -418,6 +418,18 @@ if (!is_string($posAppSource)
     throw new \RuntimeException('Rejected offline POS sales must be visible to operators, retry only in their original session, and remain available for supervisor reconciliation otherwise.');
 }
 
+
+$closePosUiStart = strpos($posAppSource, 'async closeSession()');
+$closePosUiEnd = strpos($posAppSource, 'async openScanner()', $closePosUiStart === false ? 0 : $closePosUiStart);
+$closePosUiSource = ($closePosUiStart !== false && $closePosUiEnd !== false)
+    ? substr($posAppSource, $closePosUiStart, $closePosUiEnd - $closePosUiStart)
+    : '';
+if ($closePosUiSource === ''
+    || strpos($closePosUiSource, '$this->renderOfflineQueue()') !== false
+    || strpos($closePosUiSource, 'await this.renderOfflineQueue();') === false) {
+    throw new \\RuntimeException('Closing a POS session must refresh offline review actions so old-session sales cannot appear retryable.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabilityManager.php');
 if (!is_string($posCapabilitySource)
