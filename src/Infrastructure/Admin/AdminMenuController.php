@@ -33,7 +33,7 @@ final class AdminMenuController {
         wp_safe_redirect(admin_url('admin.php?page='.self::SLUG.'&pos_sync_retry='.$result));
         exit;
     }
-    public function dashboard():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ds=$this->c->make(DashboardService::class);$logistics=$ds->getLogisticsSummary();$posSync=$ds->getPosSyncSummary();$failedPosSyncs=$ds->getRecentFailedPosSyncs();$otp=$ds->getOtpSummary();$ai=$ds->getAiSummary();$health=$ds->getDeliveryHealth();include PKSTORE_DIR.'/templates/admin/dashboard.php';}
+    public function dashboard():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ds=$this->c->make(DashboardService::class);$logistics=$ds->getLogisticsSummary();$posSync=$ds->getPosSyncSummary();$failedPosSyncs=$ds->getRecentFailedPosSyncs();$returnInventoryReviews=$ds->getReturnInventoryReviews();$otp=$ds->getOtpSummary();$ai=$ds->getAiSummary();$health=$ds->getDeliveryHealth();include PKSTORE_DIR.'/templates/admin/dashboard.php';}
     public function logistics():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';$table=new LogisticsListTable($GLOBALS['wpdb']);$table->prepare_items();include PKSTORE_DIR.'/templates/admin/logistics.php';}
     public function otp():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';$table=new OtpAuditTable($GLOBALS['wpdb']);$table->prepare_items();include PKSTORE_DIR.'/templates/admin/otp-audit.php';}
     public function ai():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ai=$this->c->make(DashboardService::class)->getAiSummary();include PKSTORE_DIR.'/templates/admin/ai-insights.php';}
