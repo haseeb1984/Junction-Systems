@@ -24,6 +24,21 @@
 <div class="card pkstore-stat-card"><h3>OTP Verification Rate</h3><span class="pkstore-stat-number"><?=$otp['verification_rate']?>%</span><p class="pkstore-stat-sub"><?=$otp['verified_24h']?> / <?=$otp['total_24h']?> in last 24h</p></div>
 <div class="card pkstore-stat-card"><h3>AI Sessions (24h)</h3><span class="pkstore-stat-number"><?=$ai['total_sessions_24h']?></span><p class="pkstore-stat-sub">Avg <?=$ai['avg_messages_per_session']?> msgs/session</p></div>
 </div>
+<?php if(!empty($_GET['pos_sync_retry'])):?>
+<div class="notice <?=sanitize_key(wp_unslash($_GET['pos_sync_retry']))==='success'?'notice-success':'notice-error'?> is-dismissible"><p><?=sanitize_key(wp_unslash($_GET['pos_sync_retry']))==='success'?'POS order sync retry completed.':'POS order sync retry failed; the order remains available for investigation.'?></p></div>
+<?php endif;?>
+<?php if(!empty($failedPosSyncs)):?>
+<h2>Failed POS Syncs — Manual Recovery</h2>
+<table class="widefat striped"><thead><tr><th>POS Reference</th><th>Session</th><th>Location</th><th>Created</th><th>Action</th></tr></thead><tbody>
+<?php foreach($failedPosSyncs as $failedOrder):?>
+<tr><td><code><?=esc_html($failedOrder['order_ref'])?></code></td><td><?=number_format((int)$failedOrder['session_id'])?></td><td><?=number_format((int)$failedOrder['location_id'])?></td><td><?=esc_html($failedOrder['created_at'])?></td><td>
+<form method="post" action="<?=esc_url(admin_url('admin-post.php'))?>">
+<input type="hidden" name="action" value="pkstore_retry_pos_sync"><input type="hidden" name="pos_order_id" value="<?=absint($failedOrder['id'])?>">
+<?php wp_nonce_field('pkstore_retry_pos_sync_'.absint($failedOrder['id']));?>
+<button type="submit" class="button button-secondary">Retry safely</button></form></td></tr>
+<?php endforeach;?>
+</tbody></table>
+<?php endif;?>
 <h2>Delivery Health (Last 30 Days)</h2>
 <div class="pkstore-courier-grid">
 <?php foreach($health as $code=>$data):?>
