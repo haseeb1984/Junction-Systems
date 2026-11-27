@@ -132,9 +132,13 @@ final class SyncPOSQueueUseCase {
                 $failed++;
                 $errors[] = 'POS order ' . $candidate->orderRef . ' could not be synchronized.';
                 try {
+                    // Keep transient WooCommerce/API/database failures pending so
+                    // the scheduled worker can retry them with its normal cadence.
+                    // Only an explicit operator action or a separately classified
+                    // permanent failure should move a record out of the retry queue.
                     $order ??= $this->orderRepo->findById($candidate->id);
-                    if ($order && $order->getSyncStatus() !== SyncStatus::Synced) {
-                        $order->markFailed();
+                    if ($order && $order->getSyncStatus() === SyncStatus::Failed) {
+                        // Preserve an existing failed state; do not silently reset it.
                         $this->orderRepo->update($order);
                     }
                 } catch (\Throwable $stateError) {
