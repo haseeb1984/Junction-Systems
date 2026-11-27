@@ -7,7 +7,7 @@ use PkStore\Settings\SetupWizard;
 final class AdminMenuController {
     private const SLUG='pkstore-operations'; private const CAP='manage_woocommerce';
     public function __construct(private readonly ServiceContainer $c){}
-    public function register():void{add_action('admin_menu',[$this,'menus']);add_action('admin_enqueue_scripts',[$this,'assets']);add_action('admin_post_pkstore_bust_dashboard_cache',[$this,'bustDashboardCache']);}
+    public function register():void{add_action('admin_menu',[$this,'menus']);add_action('admin_enqueue_scripts',[$this,'assets']);add_action('admin_post_pkstore_bust_dashboard_cache',[$this,'bustDashboardCache']);add_action('admin_post_pkstore_retry_pos_sync',[$this,'retryPosSync']);}
     public function menus():void{
         add_menu_page('Store Operations','🛒 Store Ops',self::CAP,self::SLUG,[$this,'dashboard'],'dashicons-store',56);
         add_submenu_page(self::SLUG,'Overview','Overview',self::CAP,self::SLUG,[$this,'dashboard']);
@@ -18,7 +18,22 @@ final class AdminMenuController {
     }
     public function assets(string $hook):void{$our=['toplevel_page_pkstore-operations','store-ops_page_pkstore-logistics','store-ops_page_pkstore-otp-audit','store-ops_page_pkstore-ai-insights','store-ops_page_pkstore-city-mapping','store-ops_page_pkstore-setup'];if(!in_array($hook,$our,true))return;wp_enqueue_style('pkstore-admin',PKSTORE_ASSETS.'/css/admin.css',[],PKSTORE_VERSION);if($hook==='toplevel_page_pkstore-operations')wp_enqueue_script('chartjs','https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',[],'4.4.1',true);}
     public function bustDashboardCache():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');check_admin_referer('pkstore_bust_dashboard_cache');$this->c->make(DashboardService::class)->bustAllCaches();wp_safe_redirect(admin_url('admin.php?page='.self::SLUG.'&cache_refreshed=1'));exit;}
-    public function dashboard():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ds=$this->c->make(DashboardService::class);$logistics=$ds->getLogisticsSummary();$posSync=$ds->getPosSyncSummary();$otp=$ds->getOtpSummary();$ai=$ds->getAiSummary();$health=$ds->getDeliveryHealth();include PKSTORE_DIR.'/templates/admin/dashboard.php';}
+    public function retryPosSync():void{
+        if(!current_user_can(self::CAP))wp_die('Unauthorized.');
+        $orderId=isset($_POST['pos_order_id'])?absint($_POST['pos_order_id']):0;
+        check_admin_referer('pkstore_retry_pos_sync_'.$orderId);
+        $result='failed';
+        try{
+            $sync=$this->c->make(\\PkStore\\Application\\POS\\SyncPOSQueueUseCase::class)->retryFailedOrder($orderId);
+            $result=($sync['failed']??1)===0?'success':'failed';
+        }catch(\\Throwable $error){
+            error_log('[PK Store POS] Admin sync retry failed: '.get_class($error));
+        }
+        $this->c->make(DashboardService::class)->bustAllCaches();
+        wp_safe_redirect(admin_url('admin.php?page='.self::SLUG.'&pos_sync_retry='.$result));
+        exit;
+    }
+    public function dashboard():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ds=$this->c->make(DashboardService::class);$logistics=$ds->getLogisticsSummary();$posSync=$ds->getPosSyncSummary();$failedPosSyncs=$ds->getRecentFailedPosSyncs();$otp=$ds->getOtpSummary();$ai=$ds->getAiSummary();$health=$ds->getDeliveryHealth();include PKSTORE_DIR.'/templates/admin/dashboard.php';}
     public function logistics():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';$table=new LogisticsListTable($GLOBALS['wpdb']);$table->prepare_items();include PKSTORE_DIR.'/templates/admin/logistics.php';}
     public function otp():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';$table=new OtpAuditTable($GLOBALS['wpdb']);$table->prepare_items();include PKSTORE_DIR.'/templates/admin/otp-audit.php';}
     public function ai():void{if(!current_user_can(self::CAP))wp_die('Unauthorized.');$ai=$this->c->make(DashboardService::class)->getAiSummary();include PKSTORE_DIR.'/templates/admin/ai-insights.php';}
