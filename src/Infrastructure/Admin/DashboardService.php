@@ -93,6 +93,47 @@ final class DashboardService {
         return $summary;
     }
 
+    public function getPosSyncSummary(): array {
+        $cached = get_transient('pkstore_dash_pos_sync');
+        if ($cached !== false) return $cached;
+
+        $table = $this->db->prefix . 'pkstore_pos_orders';
+        $row = $this->db->get_row(
+            "SELECT
+                SUM(sync_status='pending') AS pending,
+                SUM(sync_status='failed') AS failed,
+                SUM(sync_status='synced') AS synced,
+                MIN(CASE WHEN sync_status='pending' THEN created_at ELSE NULL END) AS oldest_pending
+             FROM {$table}",
+            ARRAY_A
+        );
+        if ($this->db->last_error !== '' || !is_array($row)) {
+            return [
+                'available' => false,
+                'pending' => 0,
+                'failed' => 0,
+                'synced' => 0,
+                'oldest_pending' => null,
+                'oldest_pending_minutes' => null,
+            ];
+        }
+
+        $oldestPending = !empty($row['oldest_pending']) ? (string) $row['oldest_pending'] : null;
+        $oldestTimestamp = $oldestPending ? strtotime($oldestPending . ' UTC') : false;
+        $summary = [
+            'available' => true,
+            'pending' => (int) ($row['pending'] ?? 0),
+            'failed' => (int) ($row['failed'] ?? 0),
+            'synced' => (int) ($row['synced'] ?? 0),
+            'oldest_pending' => $oldestPending,
+            'oldest_pending_minutes' => $oldestTimestamp !== false
+                ? max(0, (int) floor((time() - $oldestTimestamp) / 60))
+                : null,
+        ];
+        set_transient('pkstore_dash_pos_sync', $summary, self::TTL);
+        return $summary;
+    }
+
     public function getOtpSummary(): array {
         $cached = get_transient('pkstore_dash_otp');
         if ($cached !== false) return $cached;
@@ -136,7 +177,7 @@ final class DashboardService {
     }
 
     public function bustAllCaches(): void {
-        foreach (['pkstore_dash_health', 'pkstore_dash_logistics', 'pkstore_dash_otp', 'pkstore_dash_ai'] as $key) {
+        foreach (['pkstore_dash_health', 'pkstore_dash_logistics', 'pkstore_dash_otp', 'pkstore_dash_ai', 'pkstore_dash_pos_sync'] as $key) {
             delete_transient($key);
         }
     }
