@@ -20,6 +20,10 @@ final class POSOrder {
     public function getSyncStatus(): SyncStatus { return $this->syncStatus; }
     public function markSynced(int $wcOrderId): void { if ($wcOrderId < 1) throw new \InvalidArgumentException('WooCommerce order ID must be positive.'); $this->wcOrderId = $wcOrderId; $this->syncStatus = SyncStatus::Synced; }
     public function markFailed(): void { $this->syncStatus = SyncStatus::Failed; }
+    public function markPendingForRetry(): void {
+        if ($this->syncStatus !== SyncStatus::Failed) throw new \\LogicException('Only failed POS syncs can be retried manually.');
+        $this->syncStatus = SyncStatus::Pending;
+    }
     public static function create(int $sessionId, int $locationId, array $items, string $paymentMethod, string $customerPhone = '', string $customerName = 'Walk-in', int $discountPkr = 0, ?array $paymentSplit = null, ?string $clientOrderRef = null, ?string $requestFingerprint = null): self {
         $subtotal = array_sum(array_map(fn($i) => $i['unit_price_pkr'] * $i['quantity'], $items));
         $total    = max(0, $subtotal - $discountPkr);
