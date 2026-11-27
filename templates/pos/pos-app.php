@@ -635,6 +635,10 @@ const POS = {
     },
 
     async retryOfflineSale(ref) {
+        if (this.isFlushingQueue) {
+            this.toast('Offline sales are already syncing. Please wait.');
+            return;
+        }
         if (!navigator.onLine) {
             this.toast('Connect to the internet before retrying this sale.');
             return;
