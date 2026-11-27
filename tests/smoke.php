@@ -435,6 +435,17 @@ if ($closeSessionSource === ''
     throw new \RuntimeException('Closing a POS session must revalidate the cashier location assignment.');
 }
 
+$posAppSource = file_get_contents($root . '/templates/pos/pos-app.php');
+$offlineRejectStart = is_string($posAppSource) ? strpos($posAppSource, 'const definitiveClientError') : false;
+$offlineRejectEnd = is_string($posAppSource) ? strpos($posAppSource, '// Network, timeout, throttling and 5xx failures remain pending', $offlineRejectStart === false ? 0 : $offlineRejectStart) : false;
+$offlineRejectSource = ($offlineRejectStart !== false && $offlineRejectEnd !== false)
+    ? substr($posAppSource, $offlineRejectStart, $offlineRejectEnd - $offlineRejectStart)
+    : '';
+if ($offlineRejectSource === ''
+    || strpos($offlineRejectSource, 'item.local_stock_decremented = false;') === false) {
+    throw new \RuntimeException('Rejected offline POS sales must clear the local stock rollback marker after restoring cached stock.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 if (!is_string($bootstrapSource)
     || strpos($bootstrapSource, "if (\$this->fm->isEnabled('payment_easypaisa'))") === false
