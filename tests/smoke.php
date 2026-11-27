@@ -451,7 +451,7 @@ if (!is_string($posOrderEntitySource)
     || !is_string($posSyncUseCaseSource)
     || strpos($posOrderEntitySource, 'markPendingForRetry()') === false
     || strpos($posSyncUseCaseSource, 'retryFailedOrder(int $orderId)') === false
-    || strpos($posSyncUseCaseSource, 'Keep transient WooCommerce/API/database failures pending') === false
+    || strpos($posSyncUseCaseSource, 'Leave transient failures Pending') === false
     || strpos($posSyncUseCaseSource, '$order->markFailed();') !== false
     || strpos($posSyncUseCaseSource, '$order = null;') === false
     || strpos($dashboardControllerSource, 'retryFailedOrder($orderId)') === false
