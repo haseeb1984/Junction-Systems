@@ -442,7 +442,7 @@ if (!is_string($dashboardServiceSource)
     || strpos($dashboardServiceSource, "'oldest_pending_minutes'") === false
     || strpos($dashboardControllerSource, '$posSync=$ds->getPosSyncSummary();') === false
     || strpos($dashboardTemplateSource, 'POS → WooCommerce Sync') === false) {
-    throw new \\RuntimeException('Operations dashboard must expose POS-to-WooCommerce pending, failed and sync-age health.');
+    throw new \RuntimeException('Operations dashboard must expose POS-to-WooCommerce pending, failed and sync-age health.');
 }
 
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
