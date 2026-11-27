@@ -427,7 +427,7 @@ $closePosUiSource = ($closePosUiStart !== false && $closePosUiEnd !== false)
 if ($closePosUiSource === ''
     || strpos($closePosUiSource, '$this->renderOfflineQueue()') !== false
     || strpos($closePosUiSource, 'await this.renderOfflineQueue();') === false) {
-    throw new \\RuntimeException('Closing a POS session must refresh offline review actions so old-session sales cannot appear retryable.');
+    throw new \RuntimeException('Closing a POS session must refresh offline review actions so old-session sales cannot appear retryable.');
 }
 
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
