@@ -518,6 +518,7 @@ const POS = {
             document.getElementById('pos-endday-modal').classList.remove('active');
             alert(`Session closed.\nTotal Sales: PKR ${r.total_sales.toLocaleString()}\nCash Variance: PKR ${variance.toLocaleString()}${variance<0?' (SHORT)':variance>0?' (OVER)':' (EXACT)'}`);
             this.sessionId = null;
+            await this.renderOfflineQueue();
             document.getElementById('pos-session-label').textContent = 'Session closed';
             document.getElementById('pos-open-modal').classList.add('active');
         } catch(e) { alert('Error: '+e.message); }
