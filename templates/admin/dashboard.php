@@ -39,6 +39,15 @@
 <?php endforeach;?>
 </tbody></table>
 <?php endif;?>
+<?php if(!empty($returnInventoryReviews)):?>
+<h2>WooCommerce Return / Refund Inventory — Needs Review</h2>
+<p>These restock events exhausted automatic retries. Inventory remains fail-closed until each event is reconciled; this panel is read-only and does not apply stock changes.</p>
+<table class="widefat striped"><thead><tr><th>Event</th><th>WooCommerce Order</th><th>Order Item</th><th>Product</th><th>Quantity</th><th>Attempts</th><th>Last Error</th><th>Updated</th></tr></thead><tbody>
+<?php foreach($returnInventoryReviews as $review):?>
+<tr><td><?=esc_html(ucfirst((string)$review['event_kind']))?></td><td><?=number_format((int)$review['wc_order_id'])?></td><td><?= $review['wc_order_item_id']!==null ? number_format((int)$review['wc_order_item_id']) : 'Ambiguous' ?></td><td><?=number_format((int)$review['wc_product_id'])?></td><td><?=number_format((int)$review['quantity'])?></td><td><?=number_format((int)$review['attempts'])?></td><td><code><?=esc_html((string)$review['last_error'])?></code></td><td><?=esc_html((string)$review['updated_at'])?></td></tr>
+<?php endforeach;?>
+</tbody></table>
+<?php endif;?>
 <h2>Delivery Health (Last 30 Days)</h2>
 <div class="pkstore-courier-grid">
 <?php foreach($health as $code=>$data):?>
