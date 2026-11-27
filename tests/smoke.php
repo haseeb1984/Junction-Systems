@@ -430,6 +430,21 @@ if ($closePosUiSource === ''
     throw new \RuntimeException('Closing a POS session must refresh offline review actions so old-session sales cannot appear retryable.');
 }
 
+
+$dashboardServiceSource = file_get_contents($src . '/Infrastructure/Admin/DashboardService.php');
+$dashboardControllerSource = file_get_contents($src . '/Infrastructure/Admin/AdminMenuController.php');
+$dashboardTemplateSource = file_get_contents(dirname(__DIR__) . '/templates/admin/dashboard.php');
+if (!is_string($dashboardServiceSource)
+    || !is_string($dashboardControllerSource)
+    || !is_string($dashboardTemplateSource)
+    || strpos($dashboardServiceSource, 'function getPosSyncSummary()') === false
+    || strpos($dashboardServiceSource, "sync_status='pending'") === false
+    || strpos($dashboardServiceSource, "'oldest_pending_minutes'") === false
+    || strpos($dashboardControllerSource, '$posSync=$ds->getPosSyncSummary();') === false
+    || strpos($dashboardTemplateSource, 'POS → WooCommerce Sync') === false) {
+    throw new \\RuntimeException('Operations dashboard must expose POS-to-WooCommerce pending, failed and sync-age health.');
+}
+
 $posHttpSource = file_get_contents($src . '/Infrastructure/Http/POSController.php');
 $posCapabilitySource = file_get_contents($src . '/Infrastructure/Admin/PosCapabilityManager.php');
 if (!is_string($posCapabilitySource)
