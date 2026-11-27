@@ -435,7 +435,7 @@ if ($closeSessionSource === ''
     throw new \RuntimeException('Closing a POS session must revalidate the cashier location assignment.');
 }
 
-$posAppSource = file_get_contents($root . '/templates/pos/pos-app.php');
+$posAppSource = file_get_contents($src . '/../templates/pos/pos-app.php');
 $offlineRejectStart = is_string($posAppSource) ? strpos($posAppSource, 'const definitiveClientError') : false;
 $offlineRejectEnd = is_string($posAppSource) ? strpos($posAppSource, '// Network, timeout, throttling and 5xx failures remain pending', $offlineRejectStart === false ? 0 : $offlineRejectStart) : false;
 $offlineRejectSource = ($offlineRejectStart !== false && $offlineRejectEnd !== false)
