@@ -297,48 +297,66 @@ final class InventoryAdminController {
                                 $productId, $locationId, $orderId . ':' . $locationId
                             ), ARRAY_A);
                             if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy original sale movement.');
-                            $references = [];
                             $expectedRefund = max(0, min($refundReturned, $cursor + $allocationQuantity) - $cursor);
+                            $refundReferences = [];
                             for ($cumulative = 1; $cumulative <= $refundReturned; $cumulative++) {
                                 $before = max(0, min($cumulative - 1, $cursor + $allocationQuantity) - $cursor);
                                 $after = max(0, min($cumulative, $cursor + $allocationQuantity) - $cursor);
-                                if ($after > $before) $references[] = $orderId . ':' . $itemId . ':' . $cumulative . ':' . $locationId;
+                                if ($after > $before) {
+                                    $refundReferences[$orderId . ':' . $itemId . ':' . $cumulative . ':' . $locationId] = $after - $before;
+                                }
                             }
                             $expectedCancellation = $cancellationReturned > 0
                                 ? max(0, min($reduced, $cursor + $allocationQuantity) - max($returned - $cancellationReturned, $cursor))
                                 : 0;
-                            $cancellationReferences = $expectedCancellation > 0
-                                ? [$orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId]
-                                : [];
+                            $cancellationReference = $expectedCancellation > 0
+                                ? $orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId
+                                : '';
                             $movementCount = 0;
                             $restored = 0;
-                            if ($references) {
-                                $placeholders = implode(',', array_fill(0, count($references), '%s'));
-                                $sql = "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
-                                        FROM {$wpdb->prefix}pkstore_inventory_movements
+                            $returnsVerified = true;
+                            if ($refundReferences) {
+                                $referenceIds = array_keys($refundReferences);
+                                $placeholders = implode(',', array_fill(0, count($referenceIds), '%s'));
+                                $sql = "SELECT reference_id,quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
                                         WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
                                           AND reference_type='wc_refund_restock' AND reference_id IN ({$placeholders})";
-                                $args = array_merge([$productId, $locationId], $references);
-                                $movement = $wpdb->get_row($wpdb->prepare($sql, ...$args), ARRAY_A);
+                                $args = array_merge([$productId, $locationId], $referenceIds);
+                                $movements = $wpdb->get_results($wpdb->prepare($sql, ...$args), ARRAY_A);
                                 if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy refund movements.');
-                                $movementCount += (int) ($movement['movement_count'] ?? 0);
-                                $restored += (int) ($movement['restored_quantity'] ?? 0);
+                                $actualByReference = [];
+                                foreach ((array) $movements as $movement) {
+                                    $reference = (string) $movement['reference_id'];
+                                    $actualByReference[$reference] = ($actualByReference[$reference] ?? 0) + 1;
+                                    $movementCount++;
+                                    $restored += (int) $movement['quantity_delta'];
+                                    if (!isset($refundReferences[$reference])
+                                        || (int) $movement['quantity_delta'] !== $refundReferences[$reference]) {
+                                        $returnsVerified = false;
+                                    }
+                                }
+                                foreach ($refundReferences as $reference => $expectedDelta) {
+                                    if (($actualByReference[$reference] ?? 0) !== 1) $returnsVerified = false;
+                                }
                             }
-                            if ($cancellationReferences) {
-                                $movement = $wpdb->get_row($wpdb->prepare(
-                                    "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
-                                     FROM {$wpdb->prefix}pkstore_inventory_movements
+                            if ($cancellationReference !== '') {
+                                $movements = $wpdb->get_results($wpdb->prepare(
+                                    "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
                                      WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
                                        AND reference_type='wc_order_restore' AND reference_id=%s",
-                                    $productId, $locationId, $cancellationReferences[0]
+                                    $productId, $locationId, $cancellationReference
                                 ), ARRAY_A);
                                 if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy cancellation movements.');
-                                $movementCount += (int) ($movement['movement_count'] ?? 0);
-                                $restored += (int) ($movement['restored_quantity'] ?? 0);
+                                $movementCount += count((array) $movements);
+                                foreach ((array) $movements as $movement) {
+                                    $restored += (int) $movement['quantity_delta'];
+                                    if ((int) $movement['quantity_delta'] !== $expectedCancellation) $returnsVerified = false;
+                                }
+                                if (count((array) $movements) !== 1) $returnsVerified = false;
                             }
                             $expectedRestored = $expectedRefund + $expectedCancellation;
                             $saleVerified = is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity;
-                            $allocationVerified = $saleVerified && $restored === $expectedRestored;
+                            $allocationVerified = $saleVerified && $returnsVerified && $restored === $expectedRestored;
                             $evidence['allocations'][] = [
                                 'product_id' => $productId,
                                 'location_id' => $locationId,
