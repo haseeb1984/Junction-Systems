@@ -136,12 +136,26 @@ final class InventoryAdminController {
             if ($wpdb->last_error !== '' || !is_array($sale) || (int) $sale['quantity_delta'] !== -$quantity) {
                 throw new \RuntimeException('Original sale movement does not match the captured stock allocation.');
             }
-            $returns = $wpdb->get_var($wpdb->prepare(
-                "SELECT COALESCE(SUM(quantity_delta),0) FROM {$wpdb->prefix}pkstore_inventory_movements
-                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
-                   AND movement_type='online_return' AND note LIKE %s",
-                $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
-            ));
+            $returnReferences = [];
+            for ($cumulative = 1; $cumulative <= $returned; $cumulative++) {
+                $before = max(0, min($cumulative - 1, $cursor + $quantity) - $cursor);
+                $after = max(0, min($cumulative, $cursor + $quantity) - $cursor);
+                if ($after > $before) {
+                    $returnReferences[] = hash(
+                        'sha256',
+                        'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId
+                    );
+                }
+            }
+            $returns = 0;
+            if ($returnReferences) {
+                $placeholders = implode(',', array_fill(0, count($returnReferences), '%s'));
+                $sql = "SELECT COALESCE(SUM(quantity_delta),0) FROM {$wpdb->prefix}pkstore_inventory_movements
+                        WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
+                          AND movement_type='online_return' AND reference_id IN ({$placeholders})";
+                $args = array_merge([$productId, $locationId], $returnReferences);
+                $returns = $wpdb->get_var($wpdb->prepare($sql, ...$args));
+            }
             if ($wpdb->last_error !== '' || !is_numeric($returns)) {
                 throw new \RuntimeException('Existing return movements could not be verified.');
             }
