@@ -963,6 +963,10 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, '$legacyReturnEvidence') === false
     || strpos($queueOperatorSource, "reference_type='wc_refund_restock'") === false
     || strpos($queueOperatorSource, "reference_type='wc_order_restore'") === false
+    || strpos($queueOperatorSource, "reference_id LIKE %s") === false
+    || strpos($queueOperatorSource, "SELECT COUNT(*) AS movement_count,MIN(quantity_delta) AS min_delta,MAX(quantity_delta) AS max_delta") === false
+    || strpos($queueOperatorSource, "movement_count'] === 1") === false
+    || strpos($queueOperatorSource, '$refundPattern = $wpdb->esc_like($orderId . \' : \'') !== false
     || strpos($queueOperatorSource, 'Legacy allocation and movement evidence reconciles — retry still disabled') === false
     || strpos($queueOperatorSource, 'Legacy ledger mismatch — manual owner reconciliation') === false
     || strpos($queueOperatorTemplate, 'Legacy return reconciliation evidence') === false
