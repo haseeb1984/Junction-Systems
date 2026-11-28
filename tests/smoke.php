@@ -960,6 +960,9 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, 'assertCycleReturnLedgerEvidence') === false
     || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
+    || strpos($queueOperatorSource, "'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId") === false
+    || strpos($queueOperatorSource, 'reference_id IN ({$placeholders})') === false
+    || strpos($queueOperatorSource, "note LIKE %s") !== false
     || strpos($queueOperatorSource, 'Refund retry would skip or duplicate a cumulative return quantity') === false
     || strpos($queueOperatorSource, 'Matching immutable stock-cycle return event is unavailable') === false
     || strpos($queueOperatorSource, 'AND quantity=%d AND cumulative_quantity=%d') === false
