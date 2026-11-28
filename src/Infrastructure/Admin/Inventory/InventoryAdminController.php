@@ -396,7 +396,7 @@ final class InventoryAdminController {
                         $evidence['reduced_quantity'] = $reduced;
                         $evidence['returned_quantity'] = $returned;
                     }
-                } elseif ($order instanceof \\WC_Order && $item
+                } elseif ($order instanceof \WC_Order && $item
                     && $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') {
                     // POS-origin orders do not use the online allocation snapshot.
                     // Their item metadata binds one Junction product/location and
@@ -415,7 +415,7 @@ final class InventoryAdminController {
                         "SELECT wc_product_id FROM {$wpdb->prefix}pkstore_inventory_products WHERE id=%d",
                         $productId
                     ), ARRAY_A) : null;
-                    if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to inspect legacy POS inventory mapping.');
+                    if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to inspect legacy POS inventory mapping.');
                     $valid = $productId > 0 && $locationId > 0 && $posOrderRef !== ''
                         && $itemQuantity > 0 && $eventQuantity > 0
                         && is_array($mapping)
@@ -431,7 +431,7 @@ final class InventoryAdminController {
                                AND reference_id=%s AND movement_type='sale'",
                             $productId, $locationId, $posOrderRef
                         ), ARRAY_A);
-                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS sale movement.');
+                        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy POS sale movement.');
                         $valid = is_array($saleMovement) && (int) $saleMovement['movement_count'] === 1
                             && (int) $saleMovement['min_delta'] === -$itemQuantity
                             && (int) $saleMovement['max_delta'] === -$itemQuantity;
@@ -449,7 +449,7 @@ final class InventoryAdminController {
                              ORDER BY id ASC",
                             $productId, $locationId, $refundPattern
                         ), ARRAY_A);
-                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS refund movements.');
+                        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy POS refund movements.');
                         $previousCumulative = 0;
                         $eventMovementQuantity = 0;
                         $eventMovementCount = 0;
@@ -488,7 +488,7 @@ final class InventoryAdminController {
                                AND reference_id=%s AND movement_type='online_return'",
                             $productId, $locationId, $orderId . ':' . $itemId
                         ), ARRAY_A);
-                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS cancellation movement.');
+                        if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy POS cancellation movement.');
                         if (count((array) $cancelMovements) > 1
                             || (count((array) $cancelMovements) === 1
                                 && (int) $cancelMovements[0]['quantity_delta'] !== $eventQuantity)) {
@@ -504,7 +504,7 @@ final class InventoryAdminController {
                             && (int) $saleMovement['movement_count'] === 1
                             && (int) $saleMovement['min_delta'] === -$itemQuantity
                             && (int) $saleMovement['max_delta'] === -$itemQuantity),
-                        'expected_returned' => $kind === 'cancellation' ? $eventQuantity : $restored,
+                        'expected_returned' => $kind === 'cancellation' ? $eventQuantity : $eventCumulative,
                         'actual_returned' => $restored,
                         'return_movement_count' => $movementCount,
                     ];
