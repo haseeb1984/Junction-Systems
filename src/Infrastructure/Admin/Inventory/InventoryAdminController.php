@@ -304,13 +304,12 @@ final class InventoryAdminController {
                                 $after = max(0, min($cumulative, $cursor + $allocationQuantity) - $cursor);
                                 if ($after > $before) $references[] = $orderId . ':' . $itemId . ':' . $cumulative . ':' . $locationId;
                             }
-                            $expectedCancellation = max(0, min($reduced, $cursor + $allocationQuantity) - $max($returned - $cancellationReturned, $cursor));
                             $expectedCancellation = $cancellationReturned > 0
                                 ? max(0, min($reduced, $cursor + $allocationQuantity) - max($returned - $cancellationReturned, $cursor))
                                 : 0;
-                            if ($cancellationReturned > 0 && $expectedCancellation > 0) {
-                                $references[] = $orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId;
-                            }
+                            $cancellationReferences = $expectedCancellation > 0
+                                ? [$orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId]
+                                : [];
                             $movementCount = 0;
                             $restored = 0;
                             if ($references) {
@@ -318,13 +317,24 @@ final class InventoryAdminController {
                                 $sql = "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
                                         FROM {$wpdb->prefix}pkstore_inventory_movements
                                         WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
-                                          AND ((reference_type='wc_refund_restock' AND reference_id IN ({$placeholders}))
-                                            OR (reference_type='wc_order_restore' AND reference_id IN ({$placeholders})))";
-                                $args = array_merge([$productId, $locationId], $references, $references);
+                                          AND reference_type='wc_refund_restock' AND reference_id IN ({$placeholders})";
+                                $args = array_merge([$productId, $locationId], $references);
                                 $movement = $wpdb->get_row($wpdb->prepare($sql, ...$args), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy return movements.');
-                                $movementCount = (int) ($movement['movement_count'] ?? 0);
-                                $restored = (int) ($movement['restored_quantity'] ?? 0);
+                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy refund movements.');
+                                $movementCount += (int) ($movement['movement_count'] ?? 0);
+                                $restored += (int) ($movement['restored_quantity'] ?? 0);
+                            }
+                            if ($cancellationReferences) {
+                                $movement = $wpdb->get_row($wpdb->prepare(
+                                    "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
+                                     FROM {$wpdb->prefix}pkstore_inventory_movements
+                                     WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
+                                       AND reference_type='wc_order_restore' AND reference_id=%s",
+                                    $productId, $locationId, $cancellationReferences[0]
+                                ), ARRAY_A);
+                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy cancellation movements.');
+                                $movementCount += (int) ($movement['movement_count'] ?? 0);
+                                $restored += (int) ($movement['restored_quantity'] ?? 0);
                             }
                             $expectedRestored = $expectedRefund + $expectedCancellation;
                             $saleVerified = is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity;
