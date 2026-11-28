@@ -284,16 +284,20 @@ final class InventoryAdminController {
                     if ($valid) {
                         $allocated = 0;
                         $cursor = 0;
+                        $seenAllocationLocations = [];
                         $queueEventMovementQuantity = 0;
                         $queueEventMovementCount = 0;
                         foreach ($allocations as $allocation) {
                             $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
                             $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
                             $allocationQuantity = is_array($allocation) ? (int) ($allocation['quantity'] ?? 0) : 0;
-                            if ($productId < 1 || $locationId < 1 || $allocationQuantity < 1) {
+                            $allocationIdentity = $productId . ':' . $locationId;
+                            if ($productId < 1 || $locationId < 1 || $allocationQuantity < 1
+                                || isset($seenAllocationLocations[$allocationIdentity])) {
                                 $valid = false;
                                 break;
                             }
+                            $seenAllocationLocations[$allocationIdentity] = true;
                             $saleMovement = $wpdb->get_row($wpdb->prepare(
                                 "SELECT COUNT(*) AS movement_count,MIN(quantity_delta) AS min_delta,MAX(quantity_delta) AS max_delta
                                  FROM {$wpdb->prefix}pkstore_inventory_movements
