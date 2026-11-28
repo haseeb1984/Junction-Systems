@@ -311,7 +311,7 @@ final class InventoryAdminController {
                                  ORDER BY id ASC",
                                 $productId, $locationId, $refundPattern
                             ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new RuntimeException('Unable to verify legacy refund movements.');
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy refund movements.');
                             $movementCount = 0;
                             $restored = 0;
                             $returnsVerified = true;
@@ -359,7 +359,7 @@ final class InventoryAdminController {
                                        AND reference_type='wc_order_restore' AND reference_id=%s",
                                     $productId, $locationId, $cancellationReference
                                 ), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new RuntimeException('Unable to verify legacy cancellation movements.');
+                                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy cancellation movements.');
                                 if (count((array) $cancellationMovements) !== 1
                                     || (int) ($cancellationMovements[0]['quantity_delta'] ?? 0) !== $expectedCancellation) {
                                     $returnsVerified = false;
