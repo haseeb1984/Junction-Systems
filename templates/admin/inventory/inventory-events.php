@@ -158,6 +158,45 @@
         </table>
     <?php endif; ?>
 
+    <h2>Legacy return reconciliation evidence</h2>
+    <p class="description">Read-only checks for older WooCommerce returns that have no stock-cycle UUID. Where the order item still has its original allocation snapshot, the screen compares the original sale movement and exact legacy return references. This evidence does not enable automatic retry; POS-origin and older orders without a saved allocation snapshot remain manual-reconciliation-only.</p>
+    <?php if (empty($legacyReturnEvidence)): ?>
+        <p>No legacy return events currently require reconciliation.</p>
+    <?php else: ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead><tr><th>Queue / order / item</th><th>Return event</th><th>Saved quantities</th><th>Allocation ledger evidence</th><th>Assessment</th></tr></thead>
+            <tbody>
+            <?php foreach ($legacyReturnEvidence as $evidence): ?>
+                <tr>
+                    <td>#<?= esc_html((string) $evidence['queue_id']) ?> / #<?= esc_html((string) $evidence['order_id']) ?><br>Item <?= esc_html((string) $evidence['item_id']) ?></td>
+                    <td><?= esc_html($evidence['kind']) ?><br>Event qty <?= esc_html((string) $evidence['quantity']) ?><br>Cumulative <?= esc_html((string) $evidence['cumulative_quantity']) ?></td>
+                    <td>
+                        <?php if (isset($evidence['reduced_quantity'])): ?>
+                            Sale reduced: <?= esc_html((string) $evidence['reduced_quantity']) ?><br>
+                            Already returned: <?= esc_html((string) $evidence['returned_quantity']) ?>
+                        <?php else: ?>
+                            Snapshot unavailable
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if (empty($evidence['allocations'])): ?>
+                            Original allocation snapshot unavailable or event identity is ambiguous
+                        <?php else: ?>
+                            <?php foreach ($evidence['allocations'] as $allocation): ?>
+                                Product #<?= esc_html((string) $allocation['product_id']) ?> / Location #<?= esc_html((string) $allocation['location_id']) ?>:
+                                sale <?= !empty($allocation['sale_verified']) ? 'verified' : 'MISSING/MISMATCH' ?>,
+                                returned <?= esc_html((string) $allocation['actual_returned']) ?>/<?= esc_html((string) $allocation['expected_returned']) ?>
+                                (<?= esc_html((string) $allocation['return_movement_count']) ?> movements)<br>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </td>
+                    <td><strong><?= esc_html($evidence['state']) ?></strong></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+
     <h2>WooCommerce stock-cycle events</h2>
     <p class="description">Immutable reduction/return event records used to bind each real WooCommerce stock change to its own Junction ledger cycle. This table is read-only; retry actions operate on the linked durable sale/return queue rows above.</p>
     <table class="wp-list-table widefat fixed striped">
