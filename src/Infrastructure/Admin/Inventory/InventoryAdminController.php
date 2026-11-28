@@ -311,7 +311,7 @@ final class InventoryAdminController {
                                  ORDER BY id ASC",
                                 $productId, $locationId, $refundPattern
                             ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy refund movements.');
+                            if ($wpdb->last_error !== '') throw new RuntimeException('Unable to verify legacy refund movements.');
                             $movementCount = 0;
                             $restored = 0;
                             $returnsVerified = true;
@@ -323,16 +323,22 @@ final class InventoryAdminController {
                                     continue;
                                 }
                                 $cumulative = (int) $matches[1];
+                                $movementDelta = (int) $movement['quantity_delta'];
                                 $movementCount++;
-                                $restored += (int) $movement['quantity_delta'];
-                                if ($cumulative < 1 || $cumulative > $refundReturned || isset($seenRefundCumulatives[$cumulative])
+                                $restored += $movementDelta;
+                                if ($cumulative < 1 || $cumulative > $refundReturned
+                                    || isset($seenRefundCumulatives[$cumulative])
                                     || $cumulative <= $previousRefundCumulative) {
                                     $returnsVerified = false;
                                     continue;
                                 }
                                 $expectedDelta = max(0, min($cumulative, $cursor + $allocationQuantity) - max($previousRefundCumulative, $cursor));
-                                if ((int) $movement['quantity_delta'] !== $expectedDelta || $expectedDelta < 1) {
+                                if ($movementDelta !== $expectedDelta || $expectedDelta < 1) {
                                     $returnsVerified = false;
+                                }
+                                if ($cumulative === $eventCumulative) {
+                                    $queueEventMovementQuantity += $movementDelta;
+                                    $queueEventMovementCount++;
                                 }
                                 $seenRefundCumulatives[$cumulative] = true;
                                 $previousRefundCumulative = $cumulative;
@@ -341,53 +347,27 @@ final class InventoryAdminController {
                                 || ($expectedRefund === 0 && $movementCount > 0)) {
                                 $returnsVerified = false;
                             }
+
                             $expectedCancellation = $cancellationReturned > 0
                                 ? max(0, min($reduced, $cursor + $allocationQuantity) - max($returned - $cancellationReturned, $cursor))
                                 : 0;
-                            $cancellationReference = $expectedCancellation > 0
-                                ? $orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId
-                                : '';
-                            $movementCount = 0;
-                            $restored = 0;
-                            $returnsVerified = true;
-                            if ($refundReferences) {
-                                $referenceIds = array_keys($refundReferences);
-                                $placeholders = implode(',', array_fill(0, count($referenceIds), '%s'));
-                                $sql = "SELECT reference_id,quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
-                                        WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
-                                          AND reference_type='wc_refund_restock' AND reference_id IN ({$placeholders})";
-                                $args = array_merge([$productId, $locationId], $referenceIds);
-                                $movements = $wpdb->get_results($wpdb->prepare($sql, ...$args), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy refund movements.');
-                                $actualByReference = [];
-                                foreach ((array) $movements as $movement) {
-                                    $reference = (string) $movement['reference_id'];
-                                    $actualByReference[$reference] = ($actualByReference[$reference] ?? 0) + 1;
-                                    $movementCount++;
-                                    $restored += (int) $movement['quantity_delta'];
-                                    if (!isset($refundReferences[$reference])
-                                        || (int) $movement['quantity_delta'] !== $refundReferences[$reference]) {
-                                        $returnsVerified = false;
-                                    }
-                                }
-                                foreach ($refundReferences as $reference => $expectedDelta) {
-                                    if (($actualByReference[$reference] ?? 0) !== 1) $returnsVerified = false;
-                                }
-                            }
-                            if ($cancellationReference !== '') {
-                                $movements = $wpdb->get_results($wpdb->prepare(
+                            if ($expectedCancellation > 0) {
+                                $cancellationReference = $orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId;
+                                $cancellationMovements = $wpdb->get_results($wpdb->prepare(
                                     "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
                                      WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
                                        AND reference_type='wc_order_restore' AND reference_id=%s",
                                     $productId, $locationId, $cancellationReference
                                 ), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy cancellation movements.');
-                                $movementCount += count((array) $movements);
-                                foreach ((array) $movements as $movement) {
-                                    $restored += (int) $movement['quantity_delta'];
-                                    if ((int) $movement['quantity_delta'] !== $expectedCancellation) $returnsVerified = false;
+                                if ($wpdb->last_error !== '') throw new RuntimeException('Unable to verify legacy cancellation movements.');
+                                if (count((array) $cancellationMovements) !== 1
+                                    || (int) ($cancellationMovements[0]['quantity_delta'] ?? 0) !== $expectedCancellation) {
+                                    $returnsVerified = false;
                                 }
-                                if (count((array) $movements) !== 1) $returnsVerified = false;
+                                $movementCount += count((array) $cancellationMovements);
+                                foreach ((array) $cancellationMovements as $movement) {
+                                    $restored += (int) $movement['quantity_delta'];
+                                }
                             }
                             $expectedRestored = $expectedRefund + $expectedCancellation;
                             $saleVerified = is_array($saleMovement) && (int) $saleMovement['movement_count'] === 1
