@@ -968,6 +968,8 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "movement_count'] === 1") === false
     || strpos($queueOperatorSource, '$queueEventMovementQuantity !== $eventQuantity') === false
     || strpos($queueOperatorSource, '$previousRefundCumulative !== $refundReturned') === false
+    || strpos($queueOperatorSource, '$seenAllocationLocations[$allocationIdentity]') === false
+    || strpos($queueOperatorSource, '$eventMovementQuantity !== $eventQuantity') === false
     || strpos($queueOperatorSource, 'Legacy allocation and movement evidence reconciles — retry still disabled') === false
     || strpos($queueOperatorSource, 'Legacy ledger mismatch — manual owner reconciliation') === false
     || strpos($queueOperatorSource, "'_pkstore_pos_order_ref'") === false
