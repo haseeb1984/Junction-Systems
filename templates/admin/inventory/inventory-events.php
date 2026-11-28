@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="wrap pkstore-admin">
     <h1>🔄 Inventory Sync Health</h1>
-    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events, plus the immutable stock-cycle event trail. Review-state sale and legacy return events can be retried or ignored with a mandatory reason and an audit record. Cycle-bound returns can be retried but not ignored until cycle reconciliation is supported. Cycle-event records are read-only; stock-sync actions remain disabled pending lease-fencing.</p>
+    <p>Queue monitor for WooCommerce sale, return and aggregate stock-sync events, plus the immutable stock-cycle event trail. Review-state sale events can be retried; cycle-bound returns can be retried only after ledger evidence passes. Legacy returns require owner reconciliation and cannot be automatically retried. Ignore actions remain reasoned and audited. Cycle-event records are read-only; stock-sync actions remain disabled pending lease-fencing.</p>
 
     <?php if (!empty($missingQueues)): ?>
         <div class="notice notice-warning"><p>
@@ -70,7 +70,7 @@
                     <?php if ($queueType !== null): ?>
                         <td>
                             <?php if (($event['status'] ?? '') === 'needs_review'
-                                && ($queueType !== 'returns' || empty($event['cycle_uuid']) || !empty($event['reconciliation_ok']))): ?>
+                                && ($queueType !== 'returns' || (!empty($event['cycle_uuid']) && !empty($event['reconciliation_ok'])))): ?>
                                 <form method="post" style="margin-bottom:8px;">
                                     <?php wp_nonce_field('pkstore_inventory_action'); ?>
                                     <input type="hidden" name="pkstore_inventory_action" value="retry_inventory_event">
@@ -96,6 +96,8 @@
                                     <button type="submit" class="button button-secondary">Ignore</button>
                                 </form>
                                 <?php endif; ?>
+                            <?php elseif (($event['status'] ?? '') === 'needs_review' && $queueType === 'returns' && empty($event['cycle_uuid'])): ?>
+                                <span class="description">Legacy return: retry disabled because no immutable cycle snapshot exists. Owner-led manual reconciliation is required; do not replay stock automatically.</span>
                             <?php elseif (($event['status'] ?? '') === 'needs_review' && $queueType === 'returns' && !empty($event['cycle_uuid'])): ?>
                                 <span class="description">Retry disabled: original sale/return ledger evidence is missing or inconsistent.</span>
                             <?php else: ?>
@@ -119,7 +121,7 @@
     <?php $renderQueue('Cancellation and refund restock events', $returnEvents, 'returns'); ?>
 
     <h2>Return reconciliation evidence</h2>
-    <p class="description">Read-only checks for cycle-bound returns in needs_review/failed. A retry is appropriate only when every original sale movement and cumulative return movement reconciles to the captured allocation. This panel never changes stock.</p>
+    <p class="description">Read-only checks for cycle-bound returns in needs_review/failed. A retry is appropriate only when every original sale movement and cumulative return movement reconciles to the captured allocation. Legacy returns without immutable cycle snapshots are excluded and remain manual-reconciliation-only. This panel never changes stock.</p>
     <?php if (empty($returnEvidence)): ?>
         <p>No cycle-bound return events currently require reconciliation.</p>
     <?php else: ?>
