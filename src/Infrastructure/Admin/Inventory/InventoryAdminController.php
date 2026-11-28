@@ -396,6 +396,125 @@ final class InventoryAdminController {
                         $evidence['reduced_quantity'] = $reduced;
                         $evidence['returned_quantity'] = $returned;
                     }
+                } elseif ($order instanceof \\WC_Order && $item
+                    && $order->get_meta('_pkstore_pos_origin', true) === 'junction_pos') {
+                    // POS-origin orders do not use the online allocation snapshot.
+                    // Their item metadata binds one Junction product/location and
+                    // the POS order reference used by the original sale movement.
+                    $productId = (int) $item->get_meta('_pkstore_inventory_product_id', true);
+                    $locationId = (int) $item->get_meta('_pkstore_inventory_location_id', true);
+                    $posOrderRef = (string) $item->get_meta('_pkstore_pos_order_ref', true);
+                    $itemQuantity = (int) $item->get_quantity();
+                    $itemProductId = (int) $item->get_product_id();
+                    $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+                    $queuedProductId = (int) $legacyReturn['wc_product_id'];
+                    $eventQuantity = (int) $legacyReturn['quantity'];
+                    $eventCumulative = (int) $legacyReturn['cumulative_quantity'];
+                    $kind = (string) $legacyReturn['event_kind'];
+                    $mapping = $productId > 0 ? $wpdb->get_row($wpdb->prepare(
+                        "SELECT wc_product_id FROM {$wpdb->prefix}pkstore_inventory_products WHERE id=%d",
+                        $productId
+                    ), ARRAY_A) : null;
+                    if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to inspect legacy POS inventory mapping.');
+                    $valid = $productId > 0 && $locationId > 0 && $posOrderRef !== ''
+                        && $itemQuantity > 0 && $eventQuantity > 0
+                        && is_array($mapping)
+                        && in_array((int) ($mapping['wc_product_id'] ?? 0), [$itemProductId, $variationId], true)
+                        && ($queuedProductId === $itemProductId || $queuedProductId === $variationId)
+                        && in_array($kind, ['refund','cancellation'], true);
+                    $saleMovement = null;
+                    if ($valid) {
+                        $saleMovement = $wpdb->get_row($wpdb->prepare(
+                            "SELECT COUNT(*) AS movement_count,MIN(quantity_delta) AS min_delta,MAX(quantity_delta) AS max_delta
+                             FROM {$wpdb->prefix}pkstore_inventory_movements
+                             WHERE product_id=%d AND location_id=%d AND reference_type='pos_order'
+                               AND reference_id=%s AND movement_type='sale'",
+                            $productId, $locationId, $posOrderRef
+                        ), ARRAY_A);
+                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS sale movement.');
+                        $valid = is_array($saleMovement) && (int) $saleMovement['movement_count'] === 1
+                            && (int) $saleMovement['min_delta'] === -$itemQuantity
+                            && (int) $saleMovement['max_delta'] === -$itemQuantity;
+                    }
+                    $movementCount = 0;
+                    $restored = 0;
+                    if ($valid && $kind === 'refund') {
+                        $wcRefunded = (int) $item->get_meta('_restock_refunded_items', true);
+                        $valid = $eventCumulative >= $eventQuantity && $wcRefunded >= $eventCumulative;
+                        $refundPattern = $wpdb->esc_like($orderId . ':' . $itemId . ':') . '%';
+                        $refundMovements = $wpdb->get_results($wpdb->prepare(
+                            "SELECT reference_id,quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                             WHERE product_id=%d AND location_id=%d AND reference_type='wc_refund_restock'
+                               AND movement_type='online_return' AND reference_id LIKE %s
+                             ORDER BY id ASC",
+                            $productId, $locationId, $refundPattern
+                        ), ARRAY_A);
+                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS refund movements.');
+                        $previousCumulative = 0;
+                        $eventMovementQuantity = 0;
+                        $eventMovementCount = 0;
+                        $seen = [];
+                        foreach ((array) $refundMovements as $movement) {
+                            $reference = (string) $movement['reference_id'];
+                            if (!preg_match('/^' . preg_quote($orderId . ':' . $itemId . ':', '/') . '([0-9]+)$/', $reference, $matches)) {
+                                continue;
+                            }
+                            $cumulative = (int) $matches[1];
+                            $delta = (int) $movement['quantity_delta'];
+                            $movementCount++;
+                            $restored += $delta;
+                            if ($cumulative < 1 || $cumulative > $wcRefunded || isset($seen[$cumulative])
+                                || $cumulative <= $previousCumulative || $delta !== $cumulative - $previousCumulative) {
+                                $valid = false;
+                                continue;
+                            }
+                            if ($cumulative === $eventCumulative) {
+                                $eventMovementQuantity += $delta;
+                                $eventMovementCount++;
+                            }
+                            $seen[$cumulative] = true;
+                            $previousCumulative = $cumulative;
+                        }
+                        if ($eventCumulative <= $previousCumulative) {
+                            if ($eventMovementCount !== 1 || $eventMovementQuantity !== $eventQuantity) $valid = false;
+                        } elseif ($eventCumulative !== $previousCumulative + $eventQuantity) {
+                            $valid = false;
+                        }
+                    } elseif ($valid) {
+                        $valid = $eventCumulative === 0 && $eventQuantity === $itemQuantity;
+                        $cancelMovements = $wpdb->get_results($wpdb->prepare(
+                            "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                             WHERE product_id=%d AND location_id=%d AND reference_type='wc_order_restore'
+                               AND reference_id=%s AND movement_type='online_return'",
+                            $productId, $locationId, $orderId . ':' . $itemId
+                        ), ARRAY_A);
+                        if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy POS cancellation movement.');
+                        if (count((array) $cancelMovements) > 1
+                            || (count((array) $cancelMovements) === 1
+                                && (int) $cancelMovements[0]['quantity_delta'] !== $eventQuantity)) {
+                            $valid = false;
+                        }
+                        $movementCount = count((array) $cancelMovements);
+                        foreach ((array) $cancelMovements as $movement) $restored += (int) $movement['quantity_delta'];
+                    }
+                    $evidence['allocations'][] = [
+                        'product_id' => $productId,
+                        'location_id' => $locationId,
+                        'sale_verified' => $valid || (is_array($saleMovement)
+                            && (int) $saleMovement['movement_count'] === 1
+                            && (int) $saleMovement['min_delta'] === -$itemQuantity
+                            && (int) $saleMovement['max_delta'] === -$itemQuantity),
+                        'expected_returned' => $kind === 'cancellation' ? $eventQuantity : $restored,
+                        'actual_returned' => $restored,
+                        'return_movement_count' => $movementCount,
+                    ];
+                    if ($valid) {
+                        $evidence['state'] = 'POS mapping and movement evidence reconciles — retry still disabled';
+                        $evidence['reduced_quantity'] = $itemQuantity;
+                        $evidence['returned_quantity'] = $restored;
+                    } else {
+                        $evidence['state'] = 'POS ledger mismatch — manual owner reconciliation';
+                    }
                 }
                 $legacyReturnEvidence[] = $evidence;
             }
