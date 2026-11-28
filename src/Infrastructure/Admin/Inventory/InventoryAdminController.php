@@ -291,9 +291,10 @@ final class InventoryAdminController {
                                 break;
                             }
                             $saleMovement = $wpdb->get_row($wpdb->prepare(
-                                "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                                "SELECT COUNT(*) AS movement_count,MIN(quantity_delta) AS min_delta,MAX(quantity_delta) AS max_delta
+                                 FROM {$wpdb->prefix}pkstore_inventory_movements
                                  WHERE product_id=%d AND location_id=%d AND reference_type='wc_order'
-                                   AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
+                                   AND reference_id=%s AND movement_type='online_sale'",
                                 $productId, $locationId, $orderId . ':' . $locationId
                             ), ARRAY_A);
                             if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy original sale movement.');
@@ -385,7 +386,9 @@ final class InventoryAdminController {
                                 if (count((array) $movements) !== 1) $returnsVerified = false;
                             }
                             $expectedRestored = $expectedRefund + $expectedCancellation;
-                            $saleVerified = is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity;
+                            $saleVerified = is_array($saleMovement) && (int) $saleMovement['movement_count'] === 1
+                                && (int) $saleMovement['min_delta'] === -$allocationQuantity
+                                && (int) $saleMovement['max_delta'] === -$allocationQuantity;
                             $allocationVerified = $saleVerified && $returnsVerified && $restored === $expectedRestored;
                             $evidence['allocations'][] = [
                                 'product_id' => $productId,
