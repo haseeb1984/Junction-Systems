@@ -235,7 +235,7 @@ final class InventoryAdminController {
                  ORDER BY updated_at ASC,id ASC LIMIT 50",
                 ARRAY_A
             );
-            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to load legacy return reconciliation evidence.');
+            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to load legacy return reconciliation evidence.');
             foreach ((array) $legacyReturns as $legacyReturn) {
                 $orderId = (int) $legacyReturn['wc_order_id'];
                 $itemId = (int) ($legacyReturn['wc_order_item_id'] ?? 0);
@@ -250,8 +250,8 @@ final class InventoryAdminController {
                     'allocations' => [],
                 ];
                 $order = $orderId > 0 ? wc_get_order($orderId) : false;
-                $item = $order instanceof \\WC_Order && $itemId > 0 ? $order->get_item($itemId) : false;
-                if ($order instanceof \\WC_Order && $item && $order->get_meta('_pkstore_pos_origin', true) !== 'junction_pos') {
+                $item = $order instanceof \WC_Order && $itemId > 0 ? $order->get_item($itemId) : false;
+                if ($order instanceof \WC_Order && $item && $order->get_meta('_pkstore_pos_origin', true) !== 'junction_pos') {
                     $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
                     $allocations = is_array($rawAllocations)
                         ? $rawAllocations
@@ -296,7 +296,7 @@ final class InventoryAdminController {
                                    AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
                                 $productId, $locationId, $orderId . ':' . $locationId
                             ), ARRAY_A);
-                            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy original sale movement.');
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy original sale movement.');
                             $expectedRefund = max(0, min($refundReturned, $cursor + $allocationQuantity) - $cursor);
                             $refundReferences = [];
                             for ($cumulative = 1; $cumulative <= $refundReturned; $cumulative++) {
@@ -323,7 +323,7 @@ final class InventoryAdminController {
                                           AND reference_type='wc_refund_restock' AND reference_id IN ({$placeholders})";
                                 $args = array_merge([$productId, $locationId], $referenceIds);
                                 $movements = $wpdb->get_results($wpdb->prepare($sql, ...$args), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy refund movements.');
+                                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy refund movements.');
                                 $actualByReference = [];
                                 foreach ((array) $movements as $movement) {
                                     $reference = (string) $movement['reference_id'];
@@ -346,7 +346,7 @@ final class InventoryAdminController {
                                        AND reference_type='wc_order_restore' AND reference_id=%s",
                                     $productId, $locationId, $cancellationReference
                                 ), ARRAY_A);
-                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy cancellation movements.');
+                                if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy cancellation movements.');
                                 $movementCount += count((array) $movements);
                                 foreach ((array) $movements as $movement) {
                                     $restored += (int) $movement['quantity_delta'];
