@@ -960,6 +960,13 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, 'assertCycleReturnLedgerEvidence') === false
     || strpos($queueOperatorSource, 'Legacy return event has no immutable stock-cycle evidence; automatic retry is disabled') === false
+    || strpos($queueOperatorSource, '$legacyReturnEvidence') === false
+    || strpos($queueOperatorSource, "reference_type='wc_refund_restock'") === false
+    || strpos($queueOperatorSource, "reference_type='wc_order_restore'") === false
+    || strpos($queueOperatorSource, 'Legacy allocation and movement evidence reconciles — retry still disabled') === false
+    || strpos($queueOperatorSource, 'Legacy ledger mismatch — manual owner reconciliation') === false
+    || strpos($queueOperatorTemplate, 'Legacy return reconciliation evidence') === false
+    || strpos($queueOperatorTemplate, 'POS-origin and older orders without a saved allocation snapshot remain manual-reconciliation-only') === false
     || strpos($queueOperatorTemplate, 'Legacy return: retry disabled because no immutable cycle snapshot exists') === false
     || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
     || strpos($queueOperatorSource, "'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId") === false
