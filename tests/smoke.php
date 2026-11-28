@@ -959,6 +959,8 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorTemplate, "confirm_ignore") === false
     || strpos($queueOperatorSource, "confirm_reconciliation") === false
     || strpos($queueOperatorSource, 'assertCycleReturnLedgerEvidence') === false
+    || strpos($queueOperatorSource, 'Legacy return event has no immutable stock-cycle evidence; automatic retry is disabled') === false
+    || strpos($queueOperatorTemplate, 'Legacy return: retry disabled because no immutable cycle snapshot exists') === false
     || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
     || strpos($queueOperatorSource, "'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId") === false
     || strpos($queueOperatorSource, 'reference_id IN ({$placeholders})') === false
