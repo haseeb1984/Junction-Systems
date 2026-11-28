@@ -781,13 +781,27 @@ final class InventoryAdminController {
                                 $productId, $locationId, $cycleUuid . ':' . $locationId
                             ), ARRAY_A);
                             if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify original sale stock movement.');
-                            $returnMovement = $wpdb->get_row($wpdb->prepare(
-                                "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
-                                 FROM {$wpdb->prefix}pkstore_inventory_movements
-                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
-                                   AND movement_type='online_return' AND note LIKE %s",
-                                $productId, $locationId, '%' . $wpdb->esc_like($cycleUuid) . '%'
-                            ), ARRAY_A);
+                            $returnReferences = [];
+                            for ($cumulative = 1; $cumulative <= $returned; $cumulative++) {
+                                $before = max(0, min($cumulative - 1, $cursor + $allocationQuantity) - $cursor);
+                                $after = max(0, min($cumulative, $cursor + $allocationQuantity) - $cursor);
+                                if ($after > $before) {
+                                    $returnReferences[] = hash(
+                                        'sha256',
+                                        'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId
+                                    );
+                                }
+                            }
+                            $returnMovement = ['movement_count' => 0, 'restored_quantity' => 0];
+                            if ($returnReferences) {
+                                $placeholders = implode(',', array_fill(0, count($returnReferences), '%s'));
+                                $sql = "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
+                                        FROM {$wpdb->prefix}pkstore_inventory_movements
+                                        WHERE product_id=%d AND location_id=%d AND reference_type='wc_stock_cycle_return'
+                                          AND movement_type='online_return' AND reference_id IN ({$placeholders})";
+                                $args = array_merge([$productId, $locationId], $returnReferences);
+                                $returnMovement = $wpdb->get_row($wpdb->prepare($sql, ...$args), ARRAY_A);
+                            }
                             if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify existing return stock movements.');
                             $expectedReturn = max(0, min($returned, $cursor + $allocationQuantity) - $cursor);
                             $evidence['allocations'][] = [
