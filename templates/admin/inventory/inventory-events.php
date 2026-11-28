@@ -159,7 +159,7 @@
     <?php endif; ?>
 
     <h2>Legacy return reconciliation evidence</h2>
-    <p class="description">Read-only checks for older WooCommerce returns that have no stock-cycle UUID. Where the order item still has its original allocation snapshot, the screen compares the original sale movement and exact legacy return references. This evidence does not enable automatic retry; POS-origin and older orders without a saved allocation snapshot remain manual-reconciliation-only.</p>
+    <p class="description">Read-only checks for older WooCommerce returns that have no stock-cycle UUID. Where the order item still has its original allocation snapshot, the screen compares the original sale movement and exact legacy return references. This evidence does not enable automatic retry. POS-origin returns are checked against their saved product/location/order mapping and exact ledger references; orders without a trustworthy saved mapping or allocation snapshot remain manual-reconciliation-only.</p>
     <?php if (empty($legacyReturnEvidence)): ?>
         <p>No legacy return events currently require reconciliation.</p>
     <?php else: ?>
