@@ -277,11 +277,15 @@ final class InventoryAdminController {
                             && ($eventCumulative <= $refundReturned || $eventCumulative === $refundReturned + $eventQuantity);
                     } elseif ($valid) {
                         $valid = $eventCumulative === 0
-                            && ($cancellationReturned > 0 || $eventQuantity === $reduced - $returned);
+                            && ($cancellationReturned > 0
+                                ? $eventQuantity === $cancellationReturned
+                                : $eventQuantity === $reduced - $returned);
                     }
                     if ($valid) {
                         $allocated = 0;
                         $cursor = 0;
+                        $queueEventMovementQuantity = 0;
+                        $queueEventMovementCount = 0;
                         foreach ($allocations as $allocation) {
                             $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
                             $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
@@ -403,6 +407,10 @@ final class InventoryAdminController {
                             $cursor += $allocationQuantity;
                         }
                         if ($allocated !== $reduced) $valid = false;
+                        if ($kind === 'refund' && $eventCumulative <= $refundReturned
+                            && ($queueEventMovementQuantity !== $eventQuantity || $queueEventMovementCount < 1)) {
+                            $valid = false;
+                        }
                         if ($valid) $evidence['state'] = 'Legacy allocation and movement evidence reconciles — retry still disabled';
                         else $evidence['state'] = 'Legacy ledger mismatch — manual owner reconciliation';
                         $evidence['reduced_quantity'] = $reduced;
