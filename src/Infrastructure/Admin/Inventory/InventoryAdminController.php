@@ -222,6 +222,136 @@ final class InventoryAdminController {
         $table = $wpdb->prefix . ($queueType === 'sales'
             ? 'pkstore_wc_order_inventory_queue'
             : ($queueType === 'returns' ? 'pkstore_wc_return_inventory_queue' : 'pkstore_wc_stock_sync'));
+        // Legacy allocated WooCommerce returns have no durable cycle row, but
+        // older orders may still carry an immutable allocation snapshot on the
+        // order item. Inspect that snapshot and its exact legacy movement keys;
+        // this is evidence only and never enables automatic retry.
+        $legacyReturnEvidence = [];
+        if ($available['returns'] && function_exists('wc_get_order')) {
+            $legacyReturns = $wpdb->get_results(
+                "SELECT id,event_kind,wc_order_id,wc_order_item_id,wc_product_id,quantity,cumulative_quantity
+                 FROM {$tables['returns']}
+                 WHERE status IN ('needs_review','failed') AND (cycle_uuid IS NULL OR cycle_uuid='')
+                 ORDER BY updated_at ASC,id ASC LIMIT 50",
+                ARRAY_A
+            );
+            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to load legacy return reconciliation evidence.');
+            foreach ((array) $legacyReturns as $legacyReturn) {
+                $orderId = (int) $legacyReturn['wc_order_id'];
+                $itemId = (int) ($legacyReturn['wc_order_item_id'] ?? 0);
+                $evidence = [
+                    'queue_id' => (int) $legacyReturn['id'],
+                    'order_id' => $orderId,
+                    'item_id' => $itemId,
+                    'kind' => (string) $legacyReturn['event_kind'],
+                    'quantity' => (int) $legacyReturn['quantity'],
+                    'cumulative_quantity' => (int) $legacyReturn['cumulative_quantity'],
+                    'state' => 'Manual reconciliation required',
+                    'allocations' => [],
+                ];
+                $order = $orderId > 0 ? wc_get_order($orderId) : false;
+                $item = $order instanceof \\WC_Order && $itemId > 0 ? $order->get_item($itemId) : false;
+                if ($order instanceof \\WC_Order && $item && $order->get_meta('_pkstore_pos_origin', true) !== 'junction_pos') {
+                    $rawAllocations = $item->get_meta('_pkstore_inventory_allocations', true);
+                    $allocations = is_array($rawAllocations)
+                        ? $rawAllocations
+                        : (is_string($rawAllocations) ? json_decode($rawAllocations, true) : null);
+                    $reduced = (int) $item->get_meta('_pkstore_inventory_reduced_quantity', true);
+                    $returned = (int) $item->get_meta('_pkstore_inventory_returned_quantity', true);
+                    $refundReturned = (int) $item->get_meta('_pkstore_inventory_refund_returned_quantity', true);
+                    $cancellationReturned = (int) $item->get_meta('_pkstore_inventory_cancellation_returned_quantity', true);
+                    $itemProductId = (int) $item->get_product_id();
+                    $variationId = method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0;
+                    $queuedProductId = (int) $legacyReturn['wc_product_id'];
+                    $eventQuantity = (int) $legacyReturn['quantity'];
+                    $eventCumulative = (int) $legacyReturn['cumulative_quantity'];
+                    $kind = (string) $legacyReturn['event_kind'];
+                    $valid = is_array($allocations) && $allocations && $reduced > 0
+                        && $returned >= 0 && $refundReturned >= 0 && $cancellationReturned >= 0
+                        && $returned === $refundReturned + $cancellationReturned && $returned <= $reduced
+                        && ($queuedProductId === $itemProductId || $queuedProductId === $variationId)
+                        && in_array($kind, ['refund','cancellation'], true);
+                    if ($valid && $kind === 'refund') {
+                        $wcRefunded = (int) $item->get_meta('_restock_refunded_items', true);
+                        $valid = $eventCumulative >= $eventQuantity && $wcRefunded >= $eventCumulative
+                            && ($eventCumulative <= $refundReturned || $eventCumulative === $refundReturned + $eventQuantity);
+                    } elseif ($valid) {
+                        $valid = $eventCumulative === 0
+                            && ($cancellationReturned > 0 || $eventQuantity === $reduced - $returned);
+                    }
+                    if ($valid) {
+                        $allocated = 0;
+                        $cursor = 0;
+                        foreach ($allocations as $allocation) {
+                            $productId = is_array($allocation) ? (int) ($allocation['product_id'] ?? 0) : 0;
+                            $locationId = is_array($allocation) ? (int) ($allocation['location_id'] ?? 0) : 0;
+                            $allocationQuantity = is_array($allocation) ? (int) ($allocation['quantity'] ?? 0) : 0;
+                            if ($productId < 1 || $locationId < 1 || $allocationQuantity < 1) {
+                                $valid = false;
+                                break;
+                            }
+                            $saleMovement = $wpdb->get_row($wpdb->prepare(
+                                "SELECT quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_order'
+                                   AND reference_id=%s AND movement_type='online_sale' LIMIT 1",
+                                $productId, $locationId, $orderId . ':' . $locationId
+                            ), ARRAY_A);
+                            if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy original sale movement.');
+                            $references = [];
+                            $expectedRefund = max(0, min($refundReturned, $cursor + $allocationQuantity) - $cursor);
+                            for ($cumulative = 1; $cumulative <= $refundReturned; $cumulative++) {
+                                $before = max(0, min($cumulative - 1, $cursor + $allocationQuantity) - $cursor);
+                                $after = max(0, min($cumulative, $cursor + $allocationQuantity) - $cursor);
+                                if ($after > $before) $references[] = $orderId . ':' . $itemId . ':' . $cumulative . ':' . $locationId;
+                            }
+                            $expectedCancellation = max(0, min($reduced, $cursor + $allocationQuantity) - $max($returned - $cancellationReturned, $cursor));
+                            $expectedCancellation = $cancellationReturned > 0
+                                ? max(0, min($reduced, $cursor + $allocationQuantity) - max($returned - $cancellationReturned, $cursor))
+                                : 0;
+                            if ($cancellationReturned > 0 && $expectedCancellation > 0) {
+                                $references[] = $orderId . ':' . $itemId . ':' . $reduced . ':' . $locationId;
+                            }
+                            $movementCount = 0;
+                            $restored = 0;
+                            if ($references) {
+                                $placeholders = implode(',', array_fill(0, count($references), '%s'));
+                                $sql = "SELECT COUNT(*) AS movement_count,COALESCE(SUM(quantity_delta),0) AS restored_quantity
+                                        FROM {$wpdb->prefix}pkstore_inventory_movements
+                                        WHERE product_id=%d AND location_id=%d AND movement_type='online_return'
+                                          AND ((reference_type='wc_refund_restock' AND reference_id IN ({$placeholders}))
+                                            OR (reference_type='wc_order_restore' AND reference_id IN ({$placeholders})))";
+                                $args = array_merge([$productId, $locationId], $references, $references);
+                                $movement = $wpdb->get_row($wpdb->prepare($sql, ...$args), ARRAY_A);
+                                if ($wpdb->last_error !== '') throw new \\RuntimeException('Unable to verify legacy return movements.');
+                                $movementCount = (int) ($movement['movement_count'] ?? 0);
+                                $restored = (int) ($movement['restored_quantity'] ?? 0);
+                            }
+                            $expectedRestored = $expectedRefund + $expectedCancellation;
+                            $saleVerified = is_array($saleMovement) && (int) $saleMovement['quantity_delta'] === -$allocationQuantity;
+                            $allocationVerified = $saleVerified && $restored === $expectedRestored;
+                            $evidence['allocations'][] = [
+                                'product_id' => $productId,
+                                'location_id' => $locationId,
+                                'sale_verified' => $saleVerified,
+                                'expected_returned' => $expectedRestored,
+                                'actual_returned' => $restored,
+                                'return_movement_count' => $movementCount,
+                            ];
+                            if (!$allocationVerified) $valid = false;
+                            $allocated += $allocationQuantity;
+                            $cursor += $allocationQuantity;
+                        }
+                        if ($allocated !== $reduced) $valid = false;
+                        if ($valid) $evidence['state'] = 'Legacy allocation and movement evidence reconciles — retry still disabled';
+                        else $evidence['state'] = 'Legacy ledger mismatch — manual owner reconciliation';
+                        $evidence['reduced_quantity'] = $reduced;
+                        $evidence['returned_quantity'] = $returned;
+                    }
+                }
+                $legacyReturnEvidence[] = $evidence;
+            }
+        }
+
         $auditTable = $wpdb->prefix . 'pkstore_inventory_queue_audit';
         $now = current_time('mysql');
         if ($wpdb->query('START TRANSACTION') === false) {
