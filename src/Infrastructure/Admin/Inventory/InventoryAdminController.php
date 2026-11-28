@@ -298,13 +298,43 @@ final class InventoryAdminController {
                             ), ARRAY_A);
                             if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy original sale movement.');
                             $expectedRefund = max(0, min($refundReturned, $cursor + $allocationQuantity) - $cursor);
-                            $refundReferences = [];
-                            for ($cumulative = 1; $cumulative <= $refundReturned; $cumulative++) {
-                                $before = max(0, min($cumulative - 1, $cursor + $allocationQuantity) - $cursor);
-                                $after = max(0, min($cumulative, $cursor + $allocationQuantity) - $cursor);
-                                if ($after > $before) {
-                                    $refundReferences[$orderId . ':' . $itemId . ':' . $cumulative . ':' . $locationId] = $after - $before;
+                            $refundPattern = $wpdb->esc_like($orderId . ':' . $itemId . ':') . '%';
+                            $refundMovements = $wpdb->get_results($wpdb->prepare(
+                                "SELECT reference_id,quantity_delta FROM {$wpdb->prefix}pkstore_inventory_movements
+                                 WHERE product_id=%d AND location_id=%d AND reference_type='wc_refund_restock'
+                                   AND movement_type='online_return' AND reference_id LIKE %s
+                                 ORDER BY id ASC",
+                                $productId, $locationId, $refundPattern
+                            ), ARRAY_A);
+                            if ($wpdb->last_error !== '') throw new \RuntimeException('Unable to verify legacy refund movements.');
+                            $movementCount = 0;
+                            $restored = 0;
+                            $returnsVerified = true;
+                            $previousRefundCumulative = 0;
+                            $seenRefundCumulatives = [];
+                            foreach ((array) $refundMovements as $movement) {
+                                $reference = (string) $movement['reference_id'];
+                                if (!preg_match('/^' . preg_quote($orderId . ':' . $itemId . ':', '/') . '([0-9]+):' . preg_quote((string) $locationId, '/') . '$/', $reference, $matches)) {
+                                    continue;
                                 }
+                                $cumulative = (int) $matches[1];
+                                $movementCount++;
+                                $restored += (int) $movement['quantity_delta'];
+                                if ($cumulative < 1 || $cumulative > $refundReturned || isset($seenRefundCumulatives[$cumulative])
+                                    || $cumulative <= $previousRefundCumulative) {
+                                    $returnsVerified = false;
+                                    continue;
+                                }
+                                $expectedDelta = max(0, min($cumulative, $cursor + $allocationQuantity) - max($previousRefundCumulative, $cursor));
+                                if ((int) $movement['quantity_delta'] !== $expectedDelta || $expectedDelta < 1) {
+                                    $returnsVerified = false;
+                                }
+                                $seenRefundCumulatives[$cumulative] = true;
+                                $previousRefundCumulative = $cumulative;
+                            }
+                            if (($expectedRefund > 0 && $previousRefundCumulative !== $refundReturned)
+                                || ($expectedRefund === 0 && $movementCount > 0)) {
+                                $returnsVerified = false;
                             }
                             $expectedCancellation = $cancellationReturned > 0
                                 ? max(0, min($reduced, $cursor + $allocationQuantity) - max($returned - $cancellationReturned, $cursor))
