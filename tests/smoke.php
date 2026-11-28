@@ -970,8 +970,12 @@ if (!is_string($queueOperatorSource)
     || strpos($queueOperatorSource, '$previousRefundCumulative !== $refundReturned') === false
     || strpos($queueOperatorSource, 'Legacy allocation and movement evidence reconciles — retry still disabled') === false
     || strpos($queueOperatorSource, 'Legacy ledger mismatch — manual owner reconciliation') === false
+    || strpos($queueOperatorSource, "'_pkstore_pos_order_ref'") === false
+    || strpos($queueOperatorSource, "reference_type='pos_order'") === false
+    || strpos($queueOperatorSource, "movement_type='sale'") === false
+    || strpos($queueOperatorSource, 'POS mapping and movement evidence reconciles — retry still disabled') === false
     || strpos($queueOperatorTemplate, 'Legacy return reconciliation evidence') === false
-    || strpos($queueOperatorTemplate, 'POS-origin and older orders without a saved allocation snapshot remain manual-reconciliation-only') === false
+    || strpos($queueOperatorTemplate, 'POS-origin returns are checked against their saved product/location/order mapping and exact ledger references') === false
     || strpos($queueOperatorTemplate, 'Legacy return: retry disabled because no immutable cycle snapshot exists') === false
     || strpos($queueOperatorSource, 'Original sale movement does not match the captured stock allocation') === false
     || strpos($queueOperatorSource, "'wc_stock_cycle_return:' . $cycleUuid . ':' . $itemId . ':' . $cumulative . ':' . $locationId") === false
