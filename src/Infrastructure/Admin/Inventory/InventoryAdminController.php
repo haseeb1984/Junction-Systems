@@ -249,14 +249,17 @@ final class InventoryAdminController {
                     if ($wpdb->last_error !== '' || !is_array($returnRow)) {
                         throw new \RuntimeException('Return queue event is no longer available for operator retry.');
                     }
+                    $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
+                    if ($cycleUuid === '') {
+                        throw new \RuntimeException('Legacy return event has no immutable stock-cycle evidence; automatic retry is disabled and owner reconciliation is required.');
+                    }
                     $updated = $wpdb->query($wpdb->prepare(
                         "UPDATE {$table} SET status='pending', attempts=0,
                          next_attempt_at=%s, claimed_at=NULL, claim_token=NULL, last_error='', updated_at=%s
                          WHERE id=%d AND status='needs_review'",
                         $now, $now, $queueId
                     ));
-                    $cycleUuid = (string) ($returnRow['cycle_uuid'] ?? '');
-                    if ($updated === 1 && $cycleUuid !== '') {
+                    if ($updated === 1) {
                         $cycleEventsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_events';
                         $cycleItemsTable = $wpdb->prefix . 'pkstore_wc_stock_cycle_items';
                         $cycleItemIdentity = $wpdb->get_row($wpdb->prepare(
